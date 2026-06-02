@@ -21,6 +21,7 @@ const searchButton = document.getElementById('searchButton');
 const exportButton = document.getElementById('exportButton');
 const remarksFilter = document.getElementById('remarksFilter');
 const typeFilter = document.getElementById('typeFilter');
+const photoFilter = document.getElementById('photoFilter');
 const tableHeaderRow = document.getElementById('tableHeaderRow');
 const tableBody = document.getElementById('tableBody');
 const statusBanner = document.getElementById('statusBanner');
@@ -29,6 +30,7 @@ const countTotal = document.getElementById('countTotal');
 const countExisting = document.getElementById('countExisting');
 const countNotFound = document.getElementById('countNotFound');
 const countVerification = document.getElementById('countVerification');
+const countWithPhotos = document.getElementById('countWithPhotos');
 
 const editModal = document.getElementById('editModal');
 const modalFormContainer = document.getElementById('modalFormContainer');
@@ -149,6 +151,7 @@ function initializeSystemUI() {
     if (exportButton) exportButton.disabled = false;
     if (remarksFilter) remarksFilter.disabled = false;
     if (typeFilter) typeFilter.disabled = false;
+    if (photoFilter) photoFilter.disabled = false;
     if (searchInput) searchInput.placeholder = "Type keywords...";
 
     populateDropdown('remarks', remarksFilter, '-- All Remarks --');
@@ -187,7 +190,7 @@ function renderHeaders(headers) {
         th.textContent = h;
         if (h.toLowerCase().includes('description')) th.className = 'col-description';
         else if (h.toLowerCase().includes('remarks')) th.className = 'col-remarks';
-        else if (h.toLowerCase().includes('type')) th.className = 'col-type'; // Enable Wrap
+        else if (h.toLowerCase().includes('type')) th.className = 'col-type'; 
         else th.className = 'col-other';
         tableHeaderRow.appendChild(th);
     });
@@ -230,7 +233,7 @@ function renderTable(data) {
                 td.textContent = resolvedKey ? (row[resolvedKey] || '') : '';
                 if (tKey.includes('description')) td.className = 'col-description';
                 else if (tKey.includes('remarks')) td.className = 'col-remarks';
-                else if (tKey.includes('type')) td.className = 'col-type'; // Enable wrap
+                else if (tKey.includes('type')) td.className = 'col-type'; 
                 else td.className = 'col-other';
             }
             
@@ -247,19 +250,27 @@ function calculateStaticDashboardTotals(items) {
     
     const rKey = headerMapping['remarks'];
     const tKey = headerMapping['type'];
-    let activeCount = 0, missingCount = 0, pendingCount = 0;
+    const pKey = headerMapping['photolink'];
+    
+    let activeCount = 0, missingCount = 0, pendingCount = 0, photoCount = 0;
     
     items.forEach(row => {
         const remVal = rKey ? String(row[rKey]).toLowerCase() : '';
         const typeVal = tKey ? String(row[tKey]).toLowerCase() : '';
+        const photoVal = pKey ? String(row[pKey] || '').trim() : '';
+        
         if(remVal.includes('existing') || typeVal.includes('existing')) activeCount++;
         if(remVal.includes('not found')) missingCount++;
         if(remVal.includes('for verification') || remVal.includes('verification')) pendingCount++;
+        
+        // Count entries with non-empty Photo links
+        if(photoVal !== '') photoCount++;
     });
     
     if(countExisting) countExisting.textContent = activeCount;
     if(countNotFound) countNotFound.textContent = missingCount;
     if(countVerification) countVerification.textContent = pendingCount;
+    if(countWithPhotos) countWithPhotos.textContent = photoCount;
 }
 
 function openPopUp(rowId) {
@@ -373,6 +384,7 @@ function setupSystemEventHandlers() {
     if(searchInput) searchInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') executeSearch(); });
     if(remarksFilter) remarksFilter.addEventListener('change', executeSearch);
     if(typeFilter) typeFilter.addEventListener('change', executeSearch);
+    if(photoFilter) photoFilter.addEventListener('change', executeSearch);
 }
 
 async function transmitUpdateToCloud(remark, user) {
@@ -410,17 +422,29 @@ async function transmitUpdateToCloud(remark, user) {
 }
 
 function executeSearch() {
-    if(!searchInput || !remarksFilter || !typeFilter) return;
+    if(!searchInput || !remarksFilter || !typeFilter || !photoFilter) return;
 
     const term = searchInput.value.toLowerCase().trim();
     const remarkSel = remarksFilter.value;
     const typeSel = typeFilter.value;
+    const photoSel = photoFilter.value;
+    
     const rKey = headerMapping['remarks'];
     const tKey = headerMapping['type'];
+    const pKey = headerMapping['photolink'];
     
     let filtered = inventoryData;
     if(remarkSel !== "ALL" && rKey) filtered = filtered.filter(row => (row[rKey] || '').trim() === remarkSel);
     if(typeSel !== "ALL" && tKey) filtered = filtered.filter(row => (row[tKey] || '').trim() === typeSel);
+    
+    // Media filtering logic
+    if(photoSel !== "ALL" && pKey) {
+        filtered = filtered.filter(row => {
+            const hasPhoto = String(row[pKey] || '').trim() !== '';
+            return photoSel === "WITH_PHOTO" ? hasPhoto : !hasPhoto;
+        });
+    }
+    
     if(term) filtered = filtered.filter(row => rawHeaders.some(h => String(row[h]).toLowerCase().includes(term)));
     
     renderTable(filtered);
