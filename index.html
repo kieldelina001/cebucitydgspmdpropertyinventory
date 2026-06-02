@@ -13,6 +13,7 @@
             background-color: #f8fafc;
         }
 
+        /* Responsive Main Container */
         .main-container {
             border: 2px solid #57a1e0; 
             padding: 20px;
@@ -21,6 +22,7 @@
             background-color: white;
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
             border-radius: 8px;
+            box-sizing: border-box;
         }
 
         .header-container {
@@ -67,6 +69,7 @@
             font-weight: bold;
             color: #856404;
             border-radius: 4px;
+            word-break: break-word;
         }
 
         .filter-row {
@@ -94,6 +97,7 @@
         .search-field-container {
             display: flex;
             align-items: center;
+            width: 100%;
         }
 
         .input-box {
@@ -102,6 +106,7 @@
             border: 1px solid #ccc;
             border-radius: 4px;
             width: 250px; 
+            box-sizing: border-box;
         }
 
         .filter-select {
@@ -113,6 +118,7 @@
             background-color: white;
             cursor: pointer;
             height: 37px; 
+            box-sizing: border-box;
         }
 
         .search-btn {
@@ -146,6 +152,7 @@
             padding: 15px 20px;
             border-radius: 4px;
             min-width: 140px;
+            flex: 1; /* Allows metrics to balance out spaces on tablet screens */
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
 
@@ -191,6 +198,8 @@
             justify-content: space-between;
             align-items: flex-end;
             margin-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
         .table-label {
@@ -205,6 +214,7 @@
             max-height: 550px;
             overflow-y: auto;
             overflow-x: auto; 
+            box-sizing: border-box;
         }
 
         .property-table {
@@ -235,12 +245,6 @@
         .col-remarks {
             max-width: 200px; 
             word-wrap: break-word; 
-            white-space: normal !important;
-        }
-        
-        .col-type {
-            max-width: 150px;
-            word-wrap: break-word;
             white-space: normal !important;
         }
 
@@ -282,8 +286,10 @@
             padding: 25px;
             border-radius: 8px;
             width: 450px;
+            max-width: 90%; /* Keeps modal inside viewport on narrow screens */
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
             border: 2px solid #57a1e0;
+            box-sizing: border-box;
         }
 
         .modal-header {
@@ -337,6 +343,89 @@
         .btn-edit { background-color: #ffc107; color: black; }
         .btn-save { background-color: #28a745; color: white; display: none; } 
         .btn-close { background-color: #dc3545; color: white; }
+
+        /* ==========================================================================
+           🚀 MOBILE & TABLET RESPONSIVE REVERSED ARCHITECTURE
+           ========================================================================== */
+        @media (max-width: 768px) {
+            body {
+                margin: 10px;
+            }
+
+            .main-container {
+                width: 100%; /* Stretch completely to screens edge */
+                padding: 12px;
+            }
+
+            .header-container {
+                flex-direction: column; /* Stack logo above title */
+                text-align: center;
+                gap: 10px;
+                margin-bottom: 20px;
+            }
+
+            .header-text {
+                text-align: center;
+            }
+
+            .main-title {
+                font-size: 24px;
+            }
+
+            .sub-title {
+                font-size: 15px;
+            }
+
+            .filter-row {
+                flex-direction: column; /* Stack filter categories vertically */
+                gap: 15px;
+                padding-left: 0;
+            }
+
+            .input-group, .input-box, .filter-select, .search-field-container {
+                width: 100%; /* Push inputs to inherit 100% full line space */
+            }
+
+            .search-btn {
+                flex: 1; /* Stretch button size to match the layout aesthetic */
+            }
+
+            .dashboard-row {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr); /* 2x2 Clean grid alignment for stats */
+                gap: 10px;
+                padding-left: 0;
+            }
+
+            .dash-card {
+                min-width: 0;
+                padding: 12px;
+            }
+
+            .dash-value {
+                font-size: 22px;
+            }
+
+            .table-label-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .export-btn {
+                width: 100%; /* Make export file backup highly clickable on thumb */
+                text-align: center;
+                align-self: shrink;
+            }
+
+            .property-table-container {
+                border-width: 4px; /* Dial down the massive 10px black border on tiny viewports */
+            }
+            
+            .modal-actions .modal-btn {
+                width: 100%; /* Stack primary modal commands linearly for easy thumbs-press */
+                text-align: center;
+            }
+        }
     </style>
 </head>
 <body>
@@ -410,15 +499,14 @@
                             <th>Acquisition Date</th>
                             <th>Unit Value</th>
                             <th>Remarks</th>
-                            <th class="col-type">Type</th>
-                            <th>PhotoLink</th>
+                            <th>Type</th>
                             <th>UPDATED BY</th>
                             <th>LAST UPDATE</th>
                         </tr>
                     </thead>
                     <tbody id="tableBody">
                         <tr>
-                            <td colspan="9" class="no-data" id="fallbackTableMsg">Awaiting data stream parsing...</td>
+                            <td colspan="8" class="no-data" id="fallbackTableMsg">Awaiting data stream parsing...</td>
                         </tr>
                     </tbody>
                 </table>
