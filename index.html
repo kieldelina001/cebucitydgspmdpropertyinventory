@@ -159,6 +159,7 @@
         .dash-card.card-existing { border-left-color: #28a745; }
         .dash-card.card-notfound { border-left-color: #dc3545; }
         .dash-card.card-verification { border-left-color: #ffc107; }
+        .dash-card.card-photos { border-left-color: #17a2b8; }
 
         .dash-title {
             font-size: 13px;
@@ -392,7 +393,7 @@
 
             .dashboard-row {
                 display: grid;
-                grid-template-columns: repeat(2, 1fr); /* 2x2 Clean grid alignment for stats */
+                grid-template-columns: repeat(2, 1fr); /* 2x2 Grid + Multi-line alignment for stats */
                 gap: 10px;
                 padding-left: 0;
             }
@@ -464,6 +465,15 @@
                     <option value="ALL">-- All Types --</option>
                 </select>
             </div>
+
+            <div class="input-group">
+                <label class="input-label" for="photoFilter">Media:</label>
+                <select id="photoFilter" class="filter-select">
+                    <option value="ALL">-- All Media --</option>
+                    <option value="WITH_PHOTO">With Pictures Only</option>
+                    <option value="NO_PHOTO">No Pictures</option>
+                </select>
+            </div>
         </div>
 
         <div class="dashboard-row">
@@ -483,6 +493,10 @@
                 <div class="dash-title">For Verification</div>
                 <div id="countVerification" class="dash-value">0</div>
             </div>
+            <div class="dash-card card-photos">
+                <div class="dash-title">With Pictures</div>
+                <div id="countWithPhotos" class="dash-value">0</div>
+            </div>
         </div>
 
         <div class="table-section">
@@ -500,13 +514,14 @@
                             <th>Unit Value</th>
                             <th>Remarks</th>
                             <th>Type</th>
+                            <th>PhotoLink</th>
                             <th>UPDATED BY</th>
                             <th>LAST UPDATE</th>
                         </tr>
                     </thead>
                     <tbody id="tableBody">
                         <tr>
-                            <td colspan="8" class="no-data" id="fallbackTableMsg">Awaiting data stream parsing...</td>
+                            <td colspan="9" class="no-data" id="fallbackTableMsg">Awaiting data stream parsing...</td>
                         </tr>
                     </tbody>
                 </table>
