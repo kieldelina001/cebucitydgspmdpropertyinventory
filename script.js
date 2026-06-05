@@ -6,8 +6,10 @@
 // ==========================================
 // 🛠️ CONFIGURATION TARGETS
 // ==========================================
-const GOOGLE_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=0'; 
-const APPS_SCRIPT_WEBWORK_URL = 'https://script.google.com/macros/s/AKfycbzrqoIQ1yjd5XiGIPb9FLnxLI2LTgNJFV1ug-klApiKfNScxd_CX07o2nYYk_4lnvTBPw/exec';
+const APPS_SCRIPT_WEBWORK_URL = "https://script.google.com/macros/s/AKfycbzrqoIQ1yjd5XiGIPb9FLnxLI2LTgNJFV1ug-klApiKfNScxd_CX07o2nYYk_4lnvTBPw/exec";
+const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
+const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
+const BACKUP_FILE_NAME = "real_estate_inventory_backup.csv"; 
 
 let globalInventory = [];
 let operationalView = [];
@@ -29,11 +31,6 @@ function fetchLiveStreamData() {
     banner.textContent = "Connecting Live Cloud Datastream...";
     banner.style.backgroundColor = "#fff3cd";
     banner.style.color = "#856404";
-
-    if (GOOGLE_SHEET_CSV_URL === 'YOUR_GOOGLE_SHEETS_PUBLISHED_CSV_URL_HERE') {
-        banner.textContent = "Configuration Warning: Please apply standard Google Sheets link inside script.js";
-        return;
-    }
 
     Papa.parse(GOOGLE_SHEET_CSV_URL, {
         download: true,
@@ -76,7 +73,6 @@ function populateDynamicDropdownFilters() {
     const remarksSel = document.getElementById("remarksFilter");
     const typeSel = document.getElementById("typeFilter");
 
-    // Maintain "ALL" and fill remainder
     remarksSel.innerHTML = '<option value="ALL">-- All Remarks --</option>';
     typeSel.innerHTML = '<option value="ALL">-- All Types --</option>';
 
@@ -89,15 +85,10 @@ function populateDynamicDropdownFilters() {
 }
 
 function executeLocalMatrixCompute() {
-    // 1. Total Base Calculations (Global Scope)
     document.getElementById("countTotal").textContent = globalInventory.length;
-
-    // 2. Local View Metric Calculations (Dynamic View Scope)
     document.getElementById("countFound").textContent = operationalView.length;
 
     let existing = 0, notFound = 0, verification = 0, withPhotos = 0;
-    
-    // Type Trackers
     let bld = 0, land = 0, market = 0, hosp = 0, park = 0, other = 0;
 
     operationalView.forEach(row => {
@@ -108,7 +99,6 @@ function executeLocalMatrixCompute() {
 
         if (row.PhotoLink && row.PhotoLink.trim().length > 5) withPhotos++;
 
-        // Strict Typology Invariant Checks
         const typeStr = (row.Type || "").toUpperCase();
         if (typeStr.includes("BUILDING") || typeStr.includes("STRUCTURE") || typeStr.includes("CONDO")) {
             bld++;
@@ -125,13 +115,11 @@ function executeLocalMatrixCompute() {
         }
     });
 
-    // Sync elements to views
     document.getElementById("countExisting").textContent = existing;
     document.getElementById("countNotFound").textContent = notFound;
     document.getElementById("countVerification").textContent = verification;
     document.getElementById("countWithPhotos").textContent = withPhotos;
 
-    // 🆕 Populate Type Counter IDs
     document.getElementById("countBuilding").textContent = bld;
     document.getElementById("countLand").textContent = land;
     document.getElementById("countMarket").textContent = market;
@@ -147,17 +135,7 @@ function triggerGridFilteringPipeline() {
     const phtFilter = document.getElementById("photoFilter").value;
 
     operationalView = globalInventory.filter(row => {
-        // Global Keyword Matching Logic
-        let matchesSearch = false;
-        if (query === "") {
-            matchesSearch = true;
-        } else {
-            matchesSearch = Object.values(row).some(fieldVal => 
-                String(fieldVal).toLowerCase().includes(query)
-            );
-        }
-
-        // Dropdown Filtering Rules
+        let matchesSearch = query === "" ? true : Object.values(row).some(fieldVal => String(fieldVal).toLowerCase().includes(query));
         const matchesRemarks = (remFilter === "ALL" || row.Remarks === remFilter);
         const matchesType = (typFilter === "ALL" || row.Type === typFilter);
         
@@ -190,14 +168,12 @@ function renderInventoryGrid() {
         tr.style.cursor = "pointer";
         tr.addEventListener("click", () => triggerModalFocus(viewIdx));
 
-        // Explicit key safe map matching schema design
         const keys = ["Article", "Description", "Acquisition Date", "Unit Value", "Remarks", "Type", "PhotoLink", "UPDATED BY", "LAST UPDATE"];
         
         keys.forEach(k => {
             const td = document.createElement("td");
             let val = row[k] || "";
 
-            // Styling layout exceptions rules
             if (k === 'Description') td.className = "col-description";
             else if (k === 'Remarks') td.className = "col-remarks";
             else td.className = "col-other";
@@ -219,13 +195,11 @@ function renderInventoryGrid() {
 // ==========================================
 function triggerModalFocus(viewIdx) {
     const internalTarget = operationalView[viewIdx];
-    // Resolve absolute offset location inside global data stack matching
     targetedActiveRowIndex = globalInventory.findIndex(r => r === internalTarget);
 
     const container = document.getElementById("modalFormContainer");
     container.innerHTML = "";
 
-    // Build fields dynamically
     Object.keys(internalTarget).forEach(key => {
         const wrapper = document.createElement("div");
         wrapper.className = "modal-field";
@@ -245,12 +219,11 @@ function triggerModalFocus(viewIdx) {
         
         input.value = internalTarget[key] || "";
         input.id = `modalField_${key}`;
-        input.disabled = true; // Readonly initialization sequence
+        input.disabled = true; 
         wrapper.appendChild(input);
         container.appendChild(wrapper);
     });
 
-    // Set interactive control visibility presets
     document.getElementById("modalEditBtn").style.display = "inline-block";
     document.getElementById("modalSaveBtn").style.display = "none";
     document.getElementById("uploadPhotoBtn").style.display = "none";
@@ -264,7 +237,6 @@ function enableModalWritePrivileges() {
     const rowObj = globalInventory[targetedActiveRowIndex];
     Object.keys(rowObj).forEach(key => {
         const input = document.getElementById(`modalField_${key}`);
-        // Restrict changing auto-calculated audit dimensions directly
         if (input && key !== "LAST UPDATE" && key !== "UPDATED BY") {
             input.disabled = false;
         }
@@ -278,8 +250,8 @@ function enableModalWritePrivileges() {
 function commitModalMutationPipeline() {
     if (targetedActiveRowIndex === null) return;
 
-    // Change Attribution Audit Trail Prompt Check
-    let operatorName = prompt("Attribution Entry Required.\nPlease input your operational tracking name to submit modifications:");
+    let operatorName = prompt("Attribution Entry Required.
+Please input your operational tracking name to submit modifications:");
     if (!operatorName || operatorName.trim() === "") {
         alert("Action Aborted: Anonymous execution changes are rejected by database policy rules.");
         return;
@@ -289,7 +261,6 @@ function commitModalMutationPipeline() {
     const rowObj = globalInventory[targetedActiveRowIndex];
     const mutations = {};
 
-    // Gather update states
     Object.keys(rowObj).forEach(key => {
         const el = document.getElementById(`modalField_${key}`);
         if (el) {
@@ -297,10 +268,9 @@ function commitModalMutationPipeline() {
         }
     });
 
-    // Stamp Audit Dimensions
     mutations["UPDATED BY"] = operatorName;
     mutations["LAST UPDATE"] = new Date().toLocaleString();
-    mutations["rowIndex"] = targetedActiveRowIndex + 2; // Offset tracking account for human sheet index conversions
+    mutations["rowIndex"] = targetedActiveRowIndex + 2; 
 
     const banner = document.getElementById("statusBanner");
     banner.textContent = "Streaming mutation transactions securely to network web gateway...";
@@ -308,15 +278,13 @@ function commitModalMutationPipeline() {
     
     document.getElementById("editModal").style.display = "none";
 
-    // Transmission over Gateway Connection Webhook
     fetch(APPS_SCRIPT_WEBWORK_URL, {
         method: "POST",
-        mode: "no-cors", // Bypasses explicit header validations over decoupled endpoints
+        mode: "no-cors", 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(mutations)
     })
     .then(() => {
-        // Optimistic local mutations commit loop refresh
         globalInventory[targetedActiveRowIndex] = { ...rowObj, ...mutations };
         triggerGridFilteringPipeline();
         banner.textContent = "Transaction Accepted. Cloud Sheet mutations saved successfully.";
@@ -325,7 +293,7 @@ function commitModalMutationPipeline() {
     .catch(err => {
         console.error("Mutation Pipeline Error Exception:", err);
         alert("Transaction Failed: Outbound connection dropped by server gateway routing parameters.");
-        fetchLiveStreamData(); // Force fallbacks recovery tracking
+        fetchLiveStreamData();
     });
 }
 
@@ -344,7 +312,7 @@ function executeLocalGridCSVBackup() {
     
     const downloadAnchor = document.createElement("a");
     downloadAnchor.href = url;
-    downloadAnchor.setAttribute("download", `RealEstate_Inventory_Backup_${new Date().toISOString().slice(0,10)}.csv`);
+    downloadAnchor.setAttribute("download", BACKUP_FILE_NAME);
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     document.body.removeChild(downloadAnchor);
@@ -354,7 +322,6 @@ function executeLocalGridCSVBackup() {
 // 🛠️ EVENTS & REGISTRATION PARAMETERS
 // ==========================================
 function setupInterfaceEventActions() {
-    // Structural Filter Changes Cascades
     document.getElementById("searchButton").addEventListener("click", triggerGridFilteringPipeline);
     document.getElementById("searchInput").addEventListener("keyup", (e) => {
         if(e.key === "Enter") triggerGridFilteringPipeline();
@@ -364,10 +331,8 @@ function setupInterfaceEventActions() {
     document.getElementById("typeFilter").addEventListener("change", triggerGridFilteringPipeline);
     document.getElementById("photoFilter").addEventListener("change", triggerGridFilteringPipeline);
 
-    // Grid System Command Interception Links
     document.getElementById("exportButton").addEventListener("click", executeLocalGridCSVBackup);
 
-    // Modal Control Triggers Intercept Points
     document.getElementById("modalEditBtn").addEventListener("click", enableModalWritePrivileges);
     document.getElementById("modalSaveBtn").addEventListener("click", commitModalMutationPipeline);
     document.getElementById("modalCloseBtn").addEventListener("click", () => {
