@@ -74,7 +74,7 @@
         .filter-row {
             display: flex;
             justify-content: flex-start; 
-            gap: 30px; 
+            gap: 20px; 
             margin-bottom: 25px;
             padding-left: 10px;
             flex-wrap: wrap;
@@ -84,10 +84,12 @@
             display: flex;
             flex-direction: column; 
             align-items: flex-start;
+            flex: 1;
+            min-width: 200px;
         }
 
         .input-label {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: bold;
             margin-bottom: 8px; 
             color: #333;
@@ -104,8 +106,9 @@
             padding: 8px;
             border: 1px solid #ccc;
             border-radius: 4px;
-            width: 250px; 
+            width: 100%; 
             box-sizing: border-box;
+            height: 37px;
         }
 
         .filter-select {
@@ -113,7 +116,7 @@
             padding: 8px;
             border: 1px solid #ccc;
             border-radius: 4px;
-            min-width: 200px; 
+            width: 100%; 
             background-color: white;
             cursor: pointer;
             height: 37px; 
@@ -136,7 +139,7 @@
         .dashboard-row {
             display: flex;
             justify-content: flex-start;
-            gap: 20px;
+            gap: 15px;
             margin-bottom: 25px;
             padding-left: 10px;
             flex-wrap: wrap;
@@ -148,9 +151,9 @@
             border-top: 1px solid #e2e8f0;
             border-right: 1px solid #e2e8f0;
             border-bottom: 1px solid #e2e8f0;
-            padding: 15px 20px;
+            padding: 12px 15px;
             border-radius: 4px;
-            min-width: 140px;
+            min-width: 130px;
             flex: 1; 
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
@@ -161,7 +164,7 @@
         .dash-card.card-photos { border-left-color: #17a2b8; }
 
         .dash-title {
-            font-size: 13px;
+            font-size: 12px;
             font-weight: bold;
             text-transform: uppercase;
             color: #64748b;
@@ -169,7 +172,7 @@
         }
 
         .dash-value {
-            font-size: 28px;
+            font-size: 24px;
             font-weight: bold;
             color: #1e293b;
         }
@@ -183,10 +186,9 @@
             letter-spacing: 0.5px;
         }
 
-        /* Adjusted for medium density to fit 13 items comfortably */
         .types-dashboard {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(85px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
             gap: 10px;
             margin-bottom: 35px;
             padding-left: 10px;
@@ -202,6 +204,7 @@
             padding: 12px 6px;
             border-radius: 4px;
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            box-sizing: border-box;
         }
 
         .type-icon {
@@ -212,15 +215,16 @@
         }
 
         .type-card .dash-value {
-            font-size: 20px; /* Medium sizing */
+            font-size: 20px; 
         }
         
         .type-card .dash-title {
-            font-size: 10.5px; /* Scaled down slightly to prevent wrap breakage */
+            font-size: 11px; 
+            word-break: break-word;
         }
 
         .export-btn {
-            font-size: 16px;
+            font-size: 15px;
             padding: 8px 16px;
             background-color: #28a745;
             color: white;
@@ -229,7 +233,6 @@
             cursor: pointer;
             font-weight: bold;
             margin-bottom: 10px;
-            align-self: flex-end;
         }
 
         .table-section {
@@ -241,10 +244,11 @@
         .table-label-row {
             display: flex;
             justify-content: space-between;
-            align-items: flex-end;
+            align-items: center;
             margin-bottom: 10px;
             flex-wrap: wrap;
             gap: 10px;
+            padding-left: 10px;
         }
 
         .table-label {
@@ -254,12 +258,13 @@
         }
 
         .property-table-container {
-            border: 10px solid black; 
+            border: 2px solid #1e293b; 
             width: 100%;
             max-height: 550px;
             overflow-y: auto;
             overflow-x: auto; 
             box-sizing: border-box;
+            border-radius: 6px;
         }
 
         .property-table {
@@ -271,6 +276,7 @@
             border: 1px solid #ccc;
             padding: 10px;
             text-align: left;
+            font-size: 14px;
         }
 
         .property-table th {
@@ -281,8 +287,8 @@
             z-index: 10;
         }
 
-        .col-description { max-width: 220px; word-wrap: break-word; white-space: normal !important; }
-        .col-remarks { max-width: 200px; word-wrap: break-word; white-space: normal !important; }
+        .col-description { min-width: 220px; max-width: 300px; word-wrap: break-word; white-space: normal !important; }
+        .col-remarks { min-width: 150px; max-width: 200px; word-wrap: break-word; white-space: normal !important; }
         .col-other { white-space: nowrap; }
 
         .no-data { text-align: center; padding: 20px; color: #666; font-style: italic; }
@@ -321,11 +327,26 @@
         .btn-save { background-color: #28a745; color: white; display: none; } 
         .btn-close { background-color: #dc3545; color: white; }
 
+        /* 📱 Premium Responsive Layout Enhancements */
         @media (max-width: 768px) {
             body { margin: 10px; }
             .main-container { width: 100%; padding: 12px; }
+            .main-title { font-size: 24px; text-align: center; }
+            .sub-title { font-size: 15px; text-align: center; }
             .header-container { flex-direction: column; text-align: center; gap: 10px; }
-            .types-dashboard { grid-template-columns: repeat(3, 1fr); }
+            .filter-row { gap: 12px; padding-left: 0; }
+            .input-group { min-width: 100%; }
+            .dashboard-row { padding-left: 0; gap: 10px; }
+            .dash-card { min-width: 45%; padding: 10px; }
+            .types-dashboard { grid-template-columns: repeat(2, 1fr); padding-left: 0; gap: 8px; }
+            .table-label-row { flex-direction: column; align-items: flex-start; padding-left: 0; }
+            .export-btn { width: 100%; text-align: center; margin-top: 5px; }
+            .property-table th, .property-table td { padding: 8px; font-size: 13px; }
+        }
+
+        @media (max-width: 480px) {
+            .types-dashboard { grid-template-columns: repeat(2, 1fr); }
+            .dash-card { min-width: 100%; }
         }
     </style>
 </head>
@@ -470,7 +491,7 @@
 
         <div class="table-section">
             <div class="table-label-row">
-                <span class="table-label">Table Dataset: <span id="foundCountDisplay" style="font-weight: normal; color: #57a1e0; font-size: 16px; margin-left: 10px;"></span></span>
+                <span class="table-label">Table Dataset: <span id="foundCountDisplay" style="font-weight: normal; color: #57a1e0; font-size: 16px; margin-left: 5px;"></span></span>
                 <button id="exportButton" class="export-btn">Export Backup CSV</button>
             </div>
             <div class="property-table-container">
