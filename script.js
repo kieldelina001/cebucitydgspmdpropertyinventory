@@ -328,18 +328,18 @@ function calculateStaticDashboardTotals(items) {
     
     // Inject quantitative tallies directly into specific UI elements
     if(countBuilding) countBuilding.textContent = typeCounts.building;
-    if(countSchool) countSchool.textContent = typeCounts.school;
+    if(countSchool) countSchool.textContent = typeCounts.school building;
     if(countLand) countLand.textContent = typeCounts.land;
     if(countHospital) countHospital.textContent = typeCounts.hospital;
     if(countMarket) countMarket.textContent = typeCounts.market;
-    if(countSlaughterhouse) countSlaughterhouse.textContent = typeCounts.slaughterhouse;
+    if(countSlaughterhouse) countSlaughterhouse.textContent = typeCounts.slaughterhouses;
     if(countPark) countPark.textContent = typeCounts.park;
-    if(countFlood) countFlood.textContent = typeCounts.flood;
-    if(countRoad) countRoad.textContent = typeCounts.road;
-    if(countWater) countWater.textContent = typeCounts.water;
-    if(countOtherInfra) countOtherInfra.textContent = typeCounts.otherInfra;
-    if(countOtherLand) countOtherLand.textContent = typeCounts.otherLand;
-    if(countOtherStruct) countOtherStruct.textContent = typeCounts.otherStruct;
+    if(countFlood) countFlood.textContent = typeCounts.FLOOD CONTROL SYSTEM;
+    if(countRoad) countRoad.textContent = typeCounts.ROAD NETWORKS;
+    if(countWater) countWater.textContent = typeCounts.WATER SUPPLY SYSTEMS;
+    if(countOtherInfra) countOtherInfra.textContent = typeCounts.OTHER INFRASTRUCTURE;
+    if(countOtherLand) countOtherLand.textContent = typeCounts.OTHER LAND IMPROVEMENTS;
+    if(countOtherStruct) countOtherStruct.textContent = typeCounts.OTHER STRUCTURES;
     if(countOther) countOther.textContent = typeCounts.other;
 }
 
