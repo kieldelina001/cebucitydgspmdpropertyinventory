@@ -74,7 +74,7 @@
         .filter-row {
             display: flex;
             justify-content: flex-start; 
-            gap: 30px; 
+            gap: 20px; 
             margin-bottom: 25px;
             padding-left: 10px;
             flex-wrap: wrap;
@@ -183,11 +183,10 @@
             letter-spacing: 0.5px;
         }
 
-        /* Adjusted for medium density to fit 13 items comfortably */
         .types-dashboard {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(85px, 1fr));
-            gap: 10px;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 15px;
             margin-bottom: 35px;
             padding-left: 10px;
         }
@@ -199,24 +198,15 @@
             text-align: center;
             background: #f8f9fa;
             border-top: 4px solid #57a1e0;
-            padding: 12px 6px;
+            padding: 15px 10px;
             border-radius: 4px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
 
         .type-icon {
-            width: 32px;
-            height: 32px;
-            margin-bottom: 8px;
+            width: 45px;
+            height: 45px;
+            margin-bottom: 12px;
             object-fit: contain;
-        }
-
-        .type-card .dash-value {
-            font-size: 20px; /* Medium sizing */
-        }
-        
-        .type-card .dash-title {
-            font-size: 10.5px; /* Scaled down slightly to prevent wrap breakage */
         }
 
         .export-btn {
@@ -260,6 +250,7 @@
             overflow-y: auto;
             overflow-x: auto; 
             box-sizing: border-box;
+            -webkit-overflow-scrolling: touch;
         }
 
         .property-table {
@@ -321,11 +312,75 @@
         .btn-save { background-color: #28a745; color: white; display: none; } 
         .btn-close { background-color: #dc3545; color: white; }
 
+        /* 📱 RESPONSIVE MEDIA QUERIES FOR MOBILE OPTIMIZATION */
+        @media (max-width: 992px) {
+            .main-container { width: 95%; }
+        }
+
         @media (max-width: 768px) {
             body { margin: 10px; }
-            .main-container { width: 100%; padding: 12px; }
-            .header-container { flex-direction: column; text-align: center; gap: 10px; }
-            .types-dashboard { grid-template-columns: repeat(3, 1fr); }
+            .main-container { width: 100%; padding: 15px; }
+            
+            /* Header adjustments */
+            .header-container { flex-direction: column; text-align: center; gap: 12px; }
+            .header-text { text-align: center; }
+            .main-title { font-size: 24px; }
+            .sub-title { font-size: 15px; }
+
+            /* Adaptive Input/Filters Row Grid */
+            .filter-row {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                gap: 15px;
+                padding-left: 0;
+            }
+            .input-group { width: 100%; }
+            .input-box, .filter-select { width: 100%; min-width: 100%; }
+
+            /* Balanced Balanced Counters Grid Layout */
+            .dashboard-row {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+                padding-left: 0;
+            }
+            /* Highlights Total count card beautifully by making it span across full top width */
+            .dashboard-row .dash-card:first-child { grid-column: span 2; }
+            .dash-card { min-width: 0; padding: 12px 15px; }
+            .dash-value { font-size: 22px; }
+
+            /* Property Types Icons Matrix sizing */
+            .types-dashboard { grid-template-columns: repeat(3, 1fr); padding-left: 0; gap: 10px; }
+            .type-card { padding: 12px 6px; }
+            .type-icon { width: 35px; height: 35px; }
+            .types-dashboard .dash-value { font-size: 20px; }
+            .types-dashboard .dash-title { font-size: 11px; }
+
+            /* Shrinks massive border layout frames to free horizontal scroll workspace area */
+            .property-table-container { border: 3px solid black; }
+
+            /* Form Viewport Clipping Protection for Modal Boxes */
+            .modal-box {
+                padding: 15px;
+                max-height: 88vh;
+                display: flex;
+                flex-direction: column;
+            }
+            #modalFormContainer {
+                overflow-y: auto;
+                flex: 1;
+                margin-bottom: 12px;
+                padding-right: 4px;
+            }
+            .modal-header { font-size: 18px; margin-bottom: 10px; }
+            .modal-actions { margin-top: auto; width: 100%; justify-content: space-between; }
+            .modal-btn { flex: 1; text-align: center; padding: 10px 8px; font-size: 13px; }
+        }
+
+        @media (max-width: 480px) {
+            .types-dashboard { grid-template-columns: repeat(2, 1fr); }
+            .table-label-row { flex-direction: column; align-items: flex-start; }
+            .export-btn { width: 100%; text-align: center; margin-top: 5px; }
         }
     </style>
 </head>
@@ -407,64 +462,34 @@
                 <div class="dash-title">Building</div>
             </div>
             <div class="type-card">
-                <img src="flood.png" class="type-icon">
-                <div class="dash-value" id="countFlood">0</div>
-                <div class="dash-title">Flood Control</div>
-            </div>
-            <div class="type-card">
-                <img src="hospital.png" class="type-icon">
-                <div class="dash-value" id="countHospital">0</div>
-                <div class="dash-title">Hospitals</div>
-            </div>
-            <div class="type-card">
                 <img src="land.png" class="type-icon">
                 <div class="dash-value" id="countLand">0</div>
                 <div class="dash-title">Land</div>
             </div>
             <div class="type-card">
+                <img src="hospital.png" class="type-icon">
+                <div class="dash-value" id="countHospital">0</div>
+                <div class="dash-title">Hospital</div>
+            </div>
+            <div class="type-card">
                 <img src="market.png" class="type-icon">
                 <div class="dash-value" id="countMarket">0</div>
-                <div class="dash-title">Markets</div>
-            </div>
-            <div class="type-card">
-                <img src="other.png" class="type-icon">
-                <div class="dash-value" id="countOtherInfra">0</div>
-                <div class="dash-title">Other Infra</div>
-            </div>
-            <div class="type-card">
-                <img src="other.png" class="type-icon">
-                <div class="dash-value" id="countOtherLand">0</div>
-                <div class="dash-title">Other Land Imp.</div>
-            </div>
-            <div class="type-card">
-                <img src="other.png" class="type-icon">
-                <div class="dash-value" id="countOtherStruct">0</div>
-                <div class="dash-title">Other Struct.</div>
+                <div class="dash-title">Market</div>
             </div>
             <div class="type-card">
                 <img src="park.png" class="type-icon">
                 <div class="dash-value" id="countPark">0</div>
-                <div class="dash-title">Parks/Plazas</div>
+                <div class="dash-title">Park</div>
             </div>
             <div class="type-card">
-                <img src="road.png" class="type-icon">
-                <div class="dash-value" id="countRoad">0</div>
-                <div class="dash-title">Roads</div>
+                <img src="flood.png" class="type-icon">
+                <div class="dash-value" id="countFlood">0</div>
+                <div class="dash-title">Flood Control</div>
             </div>
             <div class="type-card">
-                <img src="school.png" class="type-icon">
-                <div class="dash-value" id="countSchool">0</div>
-                <div class="dash-title">Schools</div>
-            </div>
-            <div class="type-card">
-                <img src="slaughterhouse.png" class="type-icon">
-                <div class="dash-value" id="countSlaughterhouse">0</div>
-                <div class="dash-title">Slaughterhouse</div>
-            </div>
-            <div class="type-card">
-                <img src="water.png" class="type-icon">
-                <div class="dash-value" id="countWater">0</div>
-                <div class="dash-title">Water Systems</div>
+                <img src="other.png" class="type-icon">
+                <div class="dash-value" id="countOther">0</div>
+                <div class="dash-title">Other</div>
             </div>
         </div>
 
