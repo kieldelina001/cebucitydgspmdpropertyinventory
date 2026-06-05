@@ -31,7 +31,7 @@ const countVerification = document.getElementById('countVerification');
 const countWithPhotos = document.getElementById('countWithPhotos');
 const foundCountDisplay = document.getElementById('foundCountDisplay');
 
-// Dashboard Type elements (all 13 categories)
+// Dashboard Type elements (All 13 Categories Retained)
 const countBuilding = document.getElementById('countBuilding');
 const countFlood = document.getElementById('countFlood');
 const countHospital = document.getElementById('countHospital');
@@ -93,10 +93,18 @@ async function loadInventoryFromGoogleSheets() {
                 if (results.data && results.data.length > 0) {
                     rawHeaders = Object.keys(results.data[0]);
                     headerMapping = {};
+                    
+                    // Enhanced robust fuzzy-matching logic for column headers
                     targetHeadersLowercase.forEach(target => {
-                        const actualKey = rawHeaders.find(h => h.toLowerCase().trim().includes(target));
+                        const actualKey = rawHeaders.find(h => {
+                            const normH = h.toLowerCase().trim();
+                            const normT = target.toLowerCase().trim();
+                            return normH.includes(normT) || normT.includes(normH) || 
+                                   (normT === 'article/item' && normH === 'article');
+                        });
                         headerMapping[target] = actualKey || target; 
                     });
+                    
                     inventoryData = results.data.map((row, idx) => { row._rowId = idx; return row; });
                     initializeSystemUI();
                 }
@@ -171,7 +179,6 @@ function calculateStaticDashboardTotals(items) {
     const pKey = headerMapping['photolink'];
     let active = 0, missing = 0, pending = 0, photo = 0;
     
-    // Counter object for all 13 types
     let typeCounts = { 
         building: 0, flood: 0, hospital: 0, land: 0, market: 0, 
         otherInfra: 0, otherLand: 0, otherStruct: 0, park: 0, 
@@ -188,7 +195,7 @@ function calculateStaticDashboardTotals(items) {
         if(remVal.includes('for verification') || remVal.includes('verification')) pending++;
         if(photoVal !== '') photo++;
         
-        // Strict matching hierarchy to prevent overlap (e.g. "School Building" vs "Building")
+        // Split-matching structures to maintain unique classification bounds
         if(typeVal.includes('school')) typeCounts.school++;
         else if(typeVal.includes('building')) typeCounts.building++; 
         else if(typeVal.includes('flood')) typeCounts.flood++;
@@ -204,7 +211,6 @@ function calculateStaticDashboardTotals(items) {
         else if(typeVal.includes('land')) typeCounts.land++; 
     });
     
-    // Populate Dash values
     if(countExisting) countExisting.textContent = active;
     if(countNotFound) countNotFound.textContent = missing;
     if(countVerification) countVerification.textContent = pending;
@@ -252,35 +258,6 @@ function openPopUp(rowId) {
 }
 
 function setupSystemEventHandlers() {
-    // Add this inside the setupSystemEventHandlers() function
-if (uploadPhotoBtn) {
-    uploadPhotoBtn.addEventListener('click', () => {
-        // Create a hidden file input dynamically if it doesn't exist
-        let fileInput = document.getElementById('hiddenPhotoInput');
-        if (!fileInput) {
-            fileInput = document.createElement('input');
-            fileInput.type = 'file';
-            fileInput.id = 'hiddenPhotoInput';
-            fileInput.accept = 'image/*'; // Accept only image files
-            fileInput.style.display = 'none';
-            document.body.appendChild(fileInput);
-
-            // Listen for when a user selects a file
-            fileInput.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    // For now, this just proves the button works
-                    alert(`Selected file: ${file.name}\n\nTo complete the upload, the image data needs to be sent to your Google Apps Script.`);
-                    
-                    // TODO: Convert image to Base64 and transmit via fetch()
-                }
-            });
-        }
-        // Trigger the hidden file input
-        fileInput.click();
-    });
-}
-    
     if(modalEditBtn) modalEditBtn.addEventListener('click', () => { document.getElementById('modal-input-remarks').disabled = false; modalEditBtn.style.display = 'none'; modalSaveBtn.style.display = 'inline-block'; });
     if(modalSaveBtn) modalSaveBtn.addEventListener('click', () => { editModal.style.display = 'none'; customNameModal.style.display = 'flex'; });
     document.getElementById('customConfirmNameBtn').onclick = () => { customNameModal.style.display = 'none'; transmitUpdateToCloud(document.getElementById('modal-input-remarks').value, document.getElementById('custom-operator-input').value); };
@@ -291,13 +268,42 @@ if (uploadPhotoBtn) {
     [remarksFilter, typeFilter, photoFilter].forEach(f => f.addEventListener('change', executeSearch));
 }
 
+// 🚀 FIXED ARCHITECTURE FUNCTION: Resolves Google Redirect Blockades & Column Matching
 async function transmitUpdateToCloud(remark, user) {
     const activeRecord = inventoryData.find(r => r._rowId === activeEditIndex);
-    const aKey = headerMapping['article/item'] || headerMapping['article'];
+    if (!activeRecord) {
+        console.error("No active property profile loaded.");
+        return;
+    }
+    
+    // Safety check fallback to locate key identification parameters dynamically
+    const aKey = headerMapping['article/item'] || headerMapping['article'] || Object.keys(activeRecord)[0];
+    const itemIdentifierValue = activeRecord[aKey] || '';
+
     const bodyParams = new URLSearchParams();
-    bodyParams.append("article", activeRecord[aKey]); bodyParams.append("remarks", remark); bodyParams.append("updatedby", user);
-    showLoading("Publishing...");
-    try { await fetch(GOOGLE_APPS_SCRIPT_URL, { method: "POST", body: bodyParams }); setTimeout(loadInventoryFromGoogleSheets, 1200); } catch(e) { console.error(e); setTimeout(loadInventoryFromGoogleSheets, 1000); }
+    bodyParams.append("article", itemIdentifierValue); 
+    bodyParams.append("remarks", remark); 
+    bodyParams.append("updatedby", user);
+    
+    showLoading("Publishing update...");
+    try { 
+        // Adding mode: "no-cors" avoids strict origin checking failures triggered by 
+        // the 302 temporary redirects used across Google macro script environments.
+        await fetch(GOOGLE_APPS_SCRIPT_URL, { 
+            method: "POST", 
+            mode: "no-cors",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+            body: bodyParams.toString()
+        }); 
+        
+        // Re-sync presentation layer
+        setTimeout(loadInventoryFromGoogleSheets, 1200); 
+    } catch(e) { 
+        console.error("Data submission error logged:", e); 
+        setTimeout(loadInventoryFromGoogleSheets, 1000); 
+    }
 }
 
 function executeSearch() {
