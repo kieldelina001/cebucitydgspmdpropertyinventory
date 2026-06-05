@@ -25,12 +25,17 @@ const photoFilter = document.getElementById('photoFilter');
 const tableHeaderRow = document.getElementById('tableHeaderRow');
 const tableBody = document.getElementById('tableBody');
 const statusBanner = document.getElementById('statusBanner');
+const searchResultCount = document.getElementById('searchResultCount'); // NEW: Added Reference
 
+// Dashboard 1 Elements
 const countTotal = document.getElementById('countTotal');
 const countExisting = document.getElementById('countExisting');
 const countNotFound = document.getElementById('countNotFound');
 const countVerification = document.getElementById('countVerification');
 const countWithPhotos = document.getElementById('countWithPhotos');
+
+// Dashboard 2 Elements
+const typeDashboardContainer = document.getElementById('typeDashboardContainer'); // NEW: Added Reference
 
 const editModal = document.getElementById('editModal');
 const modalFormContainer = document.getElementById('modalFormContainer');
@@ -158,6 +163,7 @@ function initializeSystemUI() {
     populateDropdown('type', typeFilter, '-- All Types --');
     renderHeaders(displayHeaders);
     calculateStaticDashboardTotals(inventoryData);
+    calculateTypeDashboardTotals(inventoryData); // NEW: Build the Type Dashboard
     executeSearch();
 }
 
@@ -272,6 +278,39 @@ function calculateStaticDashboardTotals(items) {
     if(countVerification) countVerification.textContent = pendingCount;
     if(countWithPhotos) countWithPhotos.textContent = photoCount;
 }
+
+// NEW: Dynamically build the "Items by Type" dashboard based on live values
+function calculateTypeDashboardTotals(items) {
+    if (!typeDashboardContainer) return;
+    typeDashboardContainer.innerHTML = ''; // Clear previous entries
+    const tKey = headerMapping['type'];
+    if (!tKey) return;
+
+    const typeCounts = {};
+    
+    // Tally up items by their type
+    items.forEach(row => {
+        let typeVal = String(row[tKey] || '').trim();
+        if (!typeVal) typeVal = "Uncategorized"; // Fallback for blank type fields
+        typeCounts[typeVal] = (typeCounts[typeVal] || 0) + 1;
+    });
+
+    // Sort categories alphabetically
+    const sortedTypes = Object.keys(typeCounts).sort();
+
+    // Create a card for each discovered type
+    sortedTypes.forEach(type => {
+        const count = typeCounts[type];
+        const card = document.createElement('div');
+        card.className = 'dash-card card-type'; // Apply our new purple styling
+        card.innerHTML = `
+            <div class="dash-title">${type}</div>
+            <div class="dash-value">${count}</div>
+        `;
+        typeDashboardContainer.appendChild(card);
+    });
+}
+
 
 function openPopUp(rowId) {
     activeEditIndex = rowId;
@@ -447,5 +486,11 @@ function executeSearch() {
     
     if(term) filtered = filtered.filter(row => rawHeaders.some(h => String(row[h]).toLowerCase().includes(term)));
     
+    // NEW: Update the search result badge next to the table
+    if (searchResultCount) {
+        searchResultCount.style.display = 'inline-block';
+        searchResultCount.textContent = `Showing ${filtered.length} of ${inventoryData.length} items`;
+    }
+
     renderTable(filtered);
 }
