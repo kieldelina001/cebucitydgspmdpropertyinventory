@@ -23,7 +23,7 @@ const photoFilter = document.getElementById('photoFilter');
 const tableHeaderRow = document.getElementById('tableHeaderRow');
 const tableBody = document.getElementById('tableBody');
 const statusBanner = document.getElementById('statusBanner');
-const foundCountDisplay = document.getElementById('foundCountDisplay'); // ✅ Connected element hook
+const foundCountDisplay = document.getElementById('foundCountDisplay'); 
 
 const countTotal = document.getElementById('countTotal');
 const countExisting = document.getElementById('countExisting');
@@ -31,7 +31,7 @@ const countNotFound = document.getElementById('countNotFound');
 const countVerification = document.getElementById('countVerification');
 const countWithPhotos = document.getElementById('countWithPhotos');
 
-// Property Type Dashboard Elements (Expanded to cover all 13 layout blocks)
+// Property Type Dashboard Elements (Completely mapped to match all 13 layout blocks)
 const countBuilding = document.getElementById('countBuilding');
 const countFlood = document.getElementById('countFlood');
 const countHospital = document.getElementById('countHospital');
@@ -289,7 +289,6 @@ function calculateStaticDashboardTotals(items) {
         if(remVal.includes('for verification') || remVal.includes('verification')) pendingCount++;
         if(photoVal !== '') photoCount++;
         
-        // Specific patterns evaluated first to bypass name intersections
         if (typeVal.includes('school') || typeVal.includes('school buildings')) {
             typeCounts.school++;
         } else if (typeVal.includes('other infrastructure') || typeVal.includes('other infra')) {
@@ -300,7 +299,7 @@ function calculateStaticDashboardTotals(items) {
             typeCounts.otherStruct++;
         } else if (typeVal.includes('road') || typeVal.includes('road networks')) {
             typeCounts.road++;
-        } else if (typeVal.includes('slaughterhoues') || typeVal.includes('slaughterhouse')) { 
+        } else if (typeVal.includes('slaughterhouse') || typeVal.includes('slaughterhoues')) { 
             typeCounts.slaughterhouse++;
         } else if (typeVal.includes('water supply systems') || typeVal.includes('water systems') || typeVal.includes('water supply')) {
             typeCounts.water++;
@@ -513,7 +512,6 @@ function executeSearch() {
     
     renderTable(filtered);
 
-    // ✅ Dynamically reflects items found in UI
     if (foundCountDisplay) {
         foundCountDisplay.textContent = `(${filtered.length} items found)`;
     }
