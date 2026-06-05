@@ -1,11 +1,9 @@
 // 🔑 Google Sheets Cloud Gateway Architecture
-// REPLACE THIS URL AFTER YOU DEPLOY YOUR NEW APP SCRIPT
 const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrqoIQ1yjd5XiGIPb9FLnxLI2LTgNJFV1ug-klApiKfNScxd_CX07o2nYYk_4lnvTBPw/exec";
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
 const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
 const BACKUP_FILE_NAME = "real_estate_inventory_backup.csv"; 
 
-// Updated to include PhotoLink
 const displayHeaders = ["Article", "Description", "Acquisition Date", "Unit Value", "Remarks", "Type", "PhotoLink", "UPDATED BY", "LAST UPDATE"];
 const targetHeadersLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type", "photolink", "updated by", "last update"];
 const popupOrderLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type"]; 
@@ -25,17 +23,15 @@ const photoFilter = document.getElementById('photoFilter');
 const tableHeaderRow = document.getElementById('tableHeaderRow');
 const tableBody = document.getElementById('tableBody');
 const statusBanner = document.getElementById('statusBanner');
-const searchResultCount = document.getElementById('searchResultCount'); // NEW: Added Reference
+const searchResultCount = document.getElementById('searchResultCount'); 
 
-// Dashboard 1 Elements
 const countTotal = document.getElementById('countTotal');
 const countExisting = document.getElementById('countExisting');
 const countNotFound = document.getElementById('countNotFound');
 const countVerification = document.getElementById('countVerification');
 const countWithPhotos = document.getElementById('countWithPhotos');
 
-// Dashboard 2 Elements
-const typeDashboardContainer = document.getElementById('typeDashboardContainer'); // NEW: Added Reference
+const typeDashboardContainer = document.getElementById('typeDashboardContainer'); 
 
 const editModal = document.getElementById('editModal');
 const modalFormContainer = document.getElementById('modalFormContainer');
@@ -44,7 +40,6 @@ const modalSaveBtn = document.getElementById('modalSaveBtn');
 const modalCloseBtn = document.getElementById('modalCloseBtn');
 const uploadPhotoBtn = document.getElementById('uploadPhotoBtn'); 
 
-// ⏳ FOOLPROOF LOADING OVERLAY GENERATOR
 let loadingOverlay = document.getElementById('dynamicLoadingOverlay');
 if (!loadingOverlay) {
     loadingOverlay = document.createElement('div');
@@ -76,7 +71,6 @@ function hideLoading() {
     loadingOverlay.style.setProperty('display', 'none', 'important');
 }
 
-// 🎯 DYNAMIC DEAD-CENTER CUSTOM NAME POPUP
 let customNameModal = document.getElementById('customNameModal');
 if (!customNameModal) {
     customNameModal = document.createElement('div');
@@ -163,7 +157,7 @@ function initializeSystemUI() {
     populateDropdown('type', typeFilter, '-- All Types --');
     renderHeaders(displayHeaders);
     calculateStaticDashboardTotals(inventoryData);
-    calculateTypeDashboardTotals(inventoryData); // NEW: Build the Type Dashboard
+    calculateTypeDashboardTotals(inventoryData); 
     executeSearch();
 }
 
@@ -202,10 +196,9 @@ function renderHeaders(headers) {
     });
 }
 
-/** Helper to parse a drive link and return a direct viewable thumbnail URL */
 function getDirectImageUrl(driveLink) {
     if (!driveLink || typeof driveLink !== 'string') return null;
-    const match = driveLink.match(/[-\w]{25,}/); // extracts Drive file ID
+    const match = driveLink.match(/[-\w]{25,}/); 
     if (match) {
         return `https://drive.google.com/thumbnail?id=${match[0]}&sz=w200-h200`;
     }
@@ -225,7 +218,6 @@ function renderTable(data) {
             const td = document.createElement('td');
             const resolvedKey = headerMapping[tKey];
             
-            // Photo Preview Logic
             if (tKey === 'photolink') {
                 const url = resolvedKey ? (row[resolvedKey] || '') : '';
                 if (url.trim() !== '') {
@@ -269,7 +261,6 @@ function calculateStaticDashboardTotals(items) {
         if(remVal.includes('not found')) missingCount++;
         if(remVal.includes('for verification') || remVal.includes('verification')) pendingCount++;
         
-        // Count entries with non-empty Photo links
         if(photoVal !== '') photoCount++;
     });
     
@@ -279,38 +270,47 @@ function calculateStaticDashboardTotals(items) {
     if(countWithPhotos) countWithPhotos.textContent = photoCount;
 }
 
-// NEW: Dynamically build the "Items by Type" dashboard based on live values
 function calculateTypeDashboardTotals(items) {
-    if (!typeDashboardContainer) return;
-    typeDashboardContainer.innerHTML = ''; // Clear previous entries
+    const container = document.getElementById('typeDashboardContainer');
+    if (!container) return;
+    container.innerHTML = ''; 
+    
     const tKey = headerMapping['type'];
     if (!tKey) return;
 
+    // Define icons for specific types
+    const iconMap = {
+        "Building": "🏢",
+        "Vehicle": "🚗",
+        "Equipment": "🛠️",
+        "Furniture": "🪑",
+        "Land": "📍",
+        "Computer": "💻",
+        "Office": "📁"
+    };
+
     const typeCounts = {};
-    
-    // Tally up items by their type
     items.forEach(row => {
-        let typeVal = String(row[tKey] || '').trim();
-        if (!typeVal) typeVal = "Uncategorized"; // Fallback for blank type fields
+        let typeVal = String(row[tKey] || '').trim() || "Uncategorized";
         typeCounts[typeVal] = (typeCounts[typeVal] || 0) + 1;
     });
 
-    // Sort categories alphabetically
-    const sortedTypes = Object.keys(typeCounts).sort();
-
-    // Create a card for each discovered type
-    sortedTypes.forEach(type => {
+    Object.keys(typeCounts).sort().forEach(type => {
         const count = typeCounts[type];
+        const icon = iconMap[type] || "📦"; 
+        
         const card = document.createElement('div');
-        card.className = 'dash-card card-type'; // Apply our new purple styling
+        card.className = 'dash-card card-type';
         card.innerHTML = `
-            <div class="dash-title">${type}</div>
-            <div class="dash-value">${count}</div>
+            <div class="dash-icon">${icon}</div>
+            <div class="dash-info">
+                <div class="dash-title">${type}</div>
+                <div class="dash-value">${count}</div>
+            </div>
         `;
-        typeDashboardContainer.appendChild(card);
+        container.appendChild(card);
     });
 }
-
 
 function openPopUp(rowId) {
     activeEditIndex = rowId;
@@ -476,7 +476,6 @@ function executeSearch() {
     if(remarkSel !== "ALL" && rKey) filtered = filtered.filter(row => (row[rKey] || '').trim() === remarkSel);
     if(typeSel !== "ALL" && tKey) filtered = filtered.filter(row => (row[tKey] || '').trim() === typeSel);
     
-    // Media filtering logic
     if(photoSel !== "ALL" && pKey) {
         filtered = filtered.filter(row => {
             const hasPhoto = String(row[pKey] || '').trim() !== '';
@@ -486,7 +485,6 @@ function executeSearch() {
     
     if(term) filtered = filtered.filter(row => rawHeaders.some(h => String(row[h]).toLowerCase().includes(term)));
     
-    // NEW: Update the search result badge next to the table
     if (searchResultCount) {
         searchResultCount.style.display = 'inline-block';
         searchResultCount.textContent = `Showing ${filtered.length} of ${inventoryData.length} items`;
