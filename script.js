@@ -1,9 +1,11 @@
 // 🔑 Google Sheets Cloud Gateway Architecture
+// REPLACE THIS URL AFTER YOU DEPLOY YOUR NEW APP SCRIPT
 const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrqoIQ1yjd5XiGIPb9FLnxLI2LTgNJFV1ug-klApiKfNScxd_CX07o2nYYk_4lnvTBPw/exec";
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
 const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
 const BACKUP_FILE_NAME = "real_estate_inventory_backup.csv"; 
 
+// Updated to include PhotoLink
 const displayHeaders = ["Article", "Description", "Acquisition Date", "Unit Value", "Remarks", "Type", "PhotoLink", "UPDATED BY", "LAST UPDATE"];
 const targetHeadersLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type", "photolink", "updated by", "last update"];
 const popupOrderLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type"]; 
@@ -30,21 +32,20 @@ const countNotFound = document.getElementById('countNotFound');
 const countVerification = document.getElementById('countVerification');
 const countWithPhotos = document.getElementById('countWithPhotos');
 
-// Property Type Cards Elements Map
+// Property Type Dashboard Elements (Updated to include all 13 layout cards)
 const countBuilding = document.getElementById('countBuilding');
-const countSchool = document.getElementById('countSchool');
-const countLand = document.getElementById('countLand');
-const countHospital = document.getElementById('countHospital');
-const countMarket = document.getElementById('countMarket');
-const countSlaughterhouse = document.getElementById('countSlaughterhouse');
-const countPark = document.getElementById('countPark');
 const countFlood = document.getElementById('countFlood');
-const countRoad = document.getElementById('countRoad');
-const countWater = document.getElementById('countWater');
+const countHospital = document.getElementById('countHospital');
+const countLand = document.getElementById('countLand');
+const countMarket = document.getElementById('countMarket');
 const countOtherInfra = document.getElementById('countOtherInfra');
 const countOtherLand = document.getElementById('countOtherLand');
 const countOtherStruct = document.getElementById('countOtherStruct');
-const countOther = document.getElementById('countOther');
+const countPark = document.getElementById('countPark');
+const countRoad = document.getElementById('countRoad');
+const countSchool = document.getElementById('countSchool');
+const countSlaughterhouse = document.getElementById('countSlaughterhouse');
+const countWater = document.getElementById('countWater');
 
 const editModal = document.getElementById('editModal');
 const modalFormContainer = document.getElementById('modalFormContainer');
@@ -173,6 +174,7 @@ function initializeSystemUI() {
     if (remarksFilter) remarksFilter.disabled = false;
     if (typeFilter) typeFilter.disabled = false;
     if (photoFilter) photoFilter.disabled = false;
+    if (searchInput) searchInput.placeholder = "Type keywords...";
 
     populateDropdown('remarks', remarksFilter, '-- All Remarks --');
     populateDropdown('type', typeFilter, '-- All Types --');
@@ -216,6 +218,7 @@ function renderHeaders(headers) {
     });
 }
 
+/** Helper to parse a drive link and return a direct viewable thumbnail URL */
 function getDirectImageUrl(driveLink) {
     if (!driveLink || typeof driveLink !== 'string') return null;
     const match = driveLink.match(/[-\w]{25,}/); 
@@ -272,11 +275,11 @@ function calculateStaticDashboardTotals(items) {
     
     let activeCount = 0, missingCount = 0, pendingCount = 0, photoCount = 0;
     
-    // Total counters for all 14 categories
+    // Tracks type breakdown counts for your 13 UI property type cards
     let typeCounts = { 
-        building: 0, school: 0, land: 0, hospital: 0, market: 0, 
-        slaughterhouse: 0, park: 0, flood: 0, road: 0, water: 0, 
-        otherInfra: 0, otherLand: 0, otherStruct: 0, other: 0 
+        building: 0, flood: 0, hospital: 0, land: 0, market: 0, 
+        otherInfra: 0, otherLand: 0, otherStruct: 0, park: 0, 
+        road: 0, school: 0, slaughterhouse: 0, water: 0 
     };
     
     items.forEach(row => {
@@ -289,35 +292,33 @@ function calculateStaticDashboardTotals(items) {
         if(remVal.includes('for verification') || remVal.includes('verification')) pendingCount++;
         if(photoVal !== '') photoCount++;
         
-        // Hierarchical conditional processing avoids substring evaluation collisions
-        if (typeVal.includes('school')) {
+        // ⭐ Hierarchy Processing: Highly-specific structures checked first to eliminate collision
+        if (typeVal.includes('school') || typeVal.includes('school buildings')) {
             typeCounts.school++;
+        } else if (typeVal.includes('other infrastructure') || typeVal.includes('other infra')) {
+            typeCounts.otherInfra++;
+        } else if (typeVal.includes('other land improvements') || typeVal.includes('other land imp')) {
+            typeCounts.otherLand++;
+        } else if (typeVal.includes('other structures') || typeVal.includes('other struct')) {
+            typeCounts.otherStruct++;
+        } else if (typeVal.includes('road') || typeVal.includes('road networks')) {
+            typeCounts.road++;
+        } else if (typeVal.includes('slaughterhoues') || typeVal.includes('slaughterhouse')) { // Captures gsheet typo flawlessly
+            typeCounts.slaughterhouse++;
+        } else if (typeVal.includes('water supply systems') || typeVal.includes('water systems') || typeVal.includes('water supply')) {
+            typeCounts.water++;
+        } else if (typeVal.includes('building')) {
+            typeCounts.building++;
+        } else if (typeVal.includes('flood')) {
+            typeCounts.flood++;
         } else if (typeVal.includes('hospital') || typeVal.includes('health')) {
             typeCounts.hospital++;
         } else if (typeVal.includes('market')) {
             typeCounts.market++;
-        } else if (typeVal.includes('slaughterhouse') || typeVal.includes('slaughterhoues')) {
-            typeCounts.slaughterhouse++;
-        } else if (typeVal.includes('building')) {
-            typeCounts.building++;
         } else if (typeVal.includes('park') || typeVal.includes('plaza')) {
             typeCounts.park++;
-        } else if (typeVal.includes('flood')) {
-            typeCounts.flood++;
-        } else if (typeVal.includes('road')) {
-            typeCounts.road++;
-        } else if (typeVal.includes('water')) {
-            typeCounts.water++;
-        } else if (typeVal.includes('other infrastructure') || typeVal.includes('other infra')) {
-            typeCounts.otherInfra++;
-        } else if (typeVal.includes('other land') || typeVal.includes('other land imp')) {
-            typeCounts.otherLand++;
-        } else if (typeVal.includes('other structure') || typeVal.includes('other struct')) {
-            typeCounts.otherStruct++;
         } else if (typeVal.includes('land')) {
             typeCounts.land++;
-        } else if (typeVal !== '') {
-            typeCounts.other++;
         }
     });
     
@@ -326,21 +327,20 @@ function calculateStaticDashboardTotals(items) {
     if(countVerification) countVerification.textContent = pendingCount;
     if(countWithPhotos) countWithPhotos.textContent = photoCount;
     
-    // Inject quantitative tallies directly into specific UI elements
+    // Render dynamic totals to layout type cards
     if(countBuilding) countBuilding.textContent = typeCounts.building;
-    if(countSchool) countSchool.textContent = typeCounts.school building;
-    if(countLand) countLand.textContent = typeCounts.land;
+    if(countFlood) countFlood.textContent = typeCounts.flood;
     if(countHospital) countHospital.textContent = typeCounts.hospital;
+    if(countLand) countLand.textContent = typeCounts.land;
     if(countMarket) countMarket.textContent = typeCounts.market;
-    if(countSlaughterhouse) countSlaughterhouse.textContent = typeCounts.slaughterhouses;
+    if(countOtherInfra) countOtherInfra.textContent = typeCounts.otherInfra;
+    if(countOtherLand) countOtherLand.textContent = typeCounts.otherLand;
+    if(countOtherStruct) countOtherStruct.textContent = typeCounts.otherStruct;
     if(countPark) countPark.textContent = typeCounts.park;
-    if(countFlood) countFlood.textContent = typeCounts.FLOOD CONTROL SYSTEM;
-    if(countRoad) countRoad.textContent = typeCounts.ROAD NETWORKS;
-    if(countWater) countWater.textContent = typeCounts.WATER SUPPLY SYSTEMS;
-    if(countOtherInfra) countOtherInfra.textContent = typeCounts.OTHER INFRASTRUCTURE;
-    if(countOtherLand) countOtherLand.textContent = typeCounts.OTHER LAND IMPROVEMENTS;
-    if(countOtherStruct) countOtherStruct.textContent = typeCounts.OTHER STRUCTURES;
-    if(countOther) countOther.textContent = typeCounts.other;
+    if(countRoad) countRoad.textContent = typeCounts.road;
+    if(countSchool) countSchool.textContent = typeCounts.school;
+    if(countSlaughterhouse) countSlaughterhouse.textContent = typeCounts.slaughterhouse;
+    if(countWater) countWater.textContent = typeCounts.water;
 }
 
 function openPopUp(rowId) {
@@ -514,12 +514,6 @@ function executeSearch() {
     }
     
     if(term) filtered = filtered.filter(row => rawHeaders.some(h => String(row[h]).toLowerCase().includes(term)));
-    
-    // RESTORED: Dynamically assign total matching records next to the table subtitle area
-    const foundCountDisplay = document.getElementById('foundCountDisplay');
-    if (foundCountDisplay) {
-        foundCountDisplay.textContent = `(Showing ${filtered.length} matching records)`;
-    }
     
     renderTable(filtered);
 }
