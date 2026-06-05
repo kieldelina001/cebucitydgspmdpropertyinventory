@@ -6,8 +6,8 @@
 // ==========================================
 // 🛠️ CONFIGURATION TARGETS
 // ==========================================
-const GOOGLE_SHEET_CSV_URL = 'YOUR_GOOGLE_SHEETS_PUBLISHED_CSV_URL_HERE'; 
-const APPS_SCRIPT_WEBWORK_URL = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE';
+const GOOGLE_SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=0'; 
+const APPS_SCRIPT_WEBWORK_URL = 'https://script.google.com/macros/s/AKfycbzrqoIQ1yjd5XiGIPb9FLnxLI2LTgNJFV1ug-klApiKfNScxd_CX07o2nYYk_4lnvTBPw/exec';
 
 let globalInventory = [];
 let operationalView = [];
