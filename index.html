@@ -134,6 +134,18 @@
             height: 37px;
         }
 
+        .dashboard-section-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #1e293b;
+            margin: 0 0 10px 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #e2e8f0;
+            display: inline-block;
+            padding-bottom: 4px;
+        }
+
         .dashboard-row {
             display: flex;
             justify-content: flex-start;
@@ -160,6 +172,7 @@
         .dash-card.card-notfound { border-left-color: #dc3545; }
         .dash-card.card-verification { border-left-color: #ffc107; }
         .dash-card.card-photos { border-left-color: #17a2b8; }
+        .dash-card.card-type { border-left-color: #6f42c1; } /* Purple for Type Cards */
 
         .dash-title {
             font-size: 13px;
@@ -167,6 +180,7 @@
             text-transform: uppercase;
             color: #64748b;
             margin-bottom: 5px;
+            word-break: break-word;
         }
 
         .dash-value {
@@ -203,10 +217,27 @@
             gap: 10px;
         }
 
+        .table-label-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
         .table-label {
             font-size: 18px;
             margin: 0;
             font-weight: bold;
+        }
+
+        .result-count-badge {
+            font-size: 14px;
+            color: #0f5132;
+            background-color: #d1e7dd;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-weight: bold;
+            border: 1px solid #badbcc;
         }
 
         .property-table-container {
@@ -476,6 +507,7 @@
             </div>
         </div>
 
+        <div class="dashboard-section-title">Status Overview</div>
         <div class="dashboard-row">
             <div class="dash-card">
                 <div class="dash-title">Total Properties</div>
@@ -499,9 +531,16 @@
             </div>
         </div>
 
+        <div class="dashboard-section-title">Items by Type</div>
+        <div class="dashboard-row" id="typeDashboardContainer">
+            </div>
+
         <div class="table-section">
             <div class="table-label-row">
-                <span class="table-label">Table Dataset:</span>
+                <div class="table-label-container">
+                    <span class="table-label">Table Dataset:</span>
+                    <span id="searchResultCount" class="result-count-badge" style="display: none;"></span>
+                </div>
                 <button id="exportButton" class="export-btn">Export Backup CSV</button>
             </div>
             <div class="property-table-container">
