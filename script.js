@@ -32,7 +32,7 @@ const countNotFound = document.getElementById('countNotFound');
 const countVerification = document.getElementById('countVerification');
 const countWithPhotos = document.getElementById('countWithPhotos');
 
-// NEW: Property Types Dashboard Elements
+// Property Types Dashboard Elements
 const countBuilding = document.getElementById('countBuilding');
 const countLand = document.getElementById('countLand');
 const countHospital = document.getElementById('countHospital');
@@ -40,6 +40,9 @@ const countMarket = document.getElementById('countMarket');
 const countPark = document.getElementById('countPark');
 const countFlood = document.getElementById('countFlood');
 const countOther = document.getElementById('countOther');
+
+// Filter count element
+const foundCountDisplay = document.getElementById('foundCountDisplay');
 
 const editModal = document.getElementById('editModal');
 const modalFormContainer = document.getElementById('modalFormContainer');
@@ -263,7 +266,7 @@ function calculateStaticDashboardTotals(items) {
     
     let activeCount = 0, missingCount = 0, pendingCount = 0, photoCount = 0;
     
-    // NEW: Dashboard Type Counts Dictionary
+    // Dashboard Type Counts Dictionary
     let typeCounts = { building: 0, land: 0, hospital: 0, market: 0, park: 0, flood: 0, other: 0 };
     
     items.forEach(row => {
@@ -278,7 +281,7 @@ function calculateStaticDashboardTotals(items) {
         // Count entries with non-empty Photo links
         if(photoVal !== '') photoCount++;
 
-        // NEW: Property Type Counting Logic
+        // Property Type Counting Logic
         if(typeVal.includes('building')) typeCounts.building++;
         else if(typeVal.includes('land')) typeCounts.land++;
         else if(typeVal.includes('hospital')) typeCounts.hospital++;
@@ -293,7 +296,7 @@ function calculateStaticDashboardTotals(items) {
     if(countVerification) countVerification.textContent = pendingCount;
     if(countWithPhotos) countWithPhotos.textContent = photoCount;
 
-    // NEW: Applying counts to Property Types UI
+    // Applying counts to Property Types UI
     if(countBuilding) countBuilding.textContent = typeCounts.building;
     if(countLand) countLand.textContent = typeCounts.land;
     if(countHospital) countHospital.textContent = typeCounts.hospital;
@@ -476,6 +479,11 @@ function executeSearch() {
     }
     
     if(term) filtered = filtered.filter(row => rawHeaders.some(h => String(row[h]).toLowerCase().includes(term)));
+    
+    // NEW: Update the Total Found counter UI
+    if (foundCountDisplay) {
+        foundCountDisplay.textContent = `(Showing ${filtered.length} matching records)`;
+    }
     
     renderTable(filtered);
 }
