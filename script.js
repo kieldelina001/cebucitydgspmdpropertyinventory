@@ -1,11 +1,9 @@
 // 🔑 Google Sheets Cloud Gateway Architecture
-// REPLACE THIS URL AFTER YOU DEPLOY YOUR NEW APP SCRIPT
 const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrqoIQ1yjd5XiGIPb9FLnxLI2LTgNJFV1ug-klApiKfNScxd_CX07o2nYYk_4lnvTBPw/exec";
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
 const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
 const BACKUP_FILE_NAME = "real_estate_inventory_backup.csv"; 
 
-// Updated to include PhotoLink
 const displayHeaders = ["Article", "Description", "Acquisition Date", "Unit Value", "Remarks", "Type", "PhotoLink", "UPDATED BY", "LAST UPDATE"];
 const targetHeadersLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type", "photolink", "updated by", "last update"];
 const popupOrderLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type"]; 
@@ -25,6 +23,7 @@ const photoFilter = document.getElementById('photoFilter');
 const tableHeaderRow = document.getElementById('tableHeaderRow');
 const tableBody = document.getElementById('tableBody');
 const statusBanner = document.getElementById('statusBanner');
+const foundCountDisplay = document.getElementById('foundCountDisplay'); // ✅ Connected element hook
 
 const countTotal = document.getElementById('countTotal');
 const countExisting = document.getElementById('countExisting');
@@ -32,7 +31,7 @@ const countNotFound = document.getElementById('countNotFound');
 const countVerification = document.getElementById('countVerification');
 const countWithPhotos = document.getElementById('countWithPhotos');
 
-// Property Type Dashboard Elements (Updated to include all 13 layout cards)
+// Property Type Dashboard Elements (Expanded to cover all 13 layout blocks)
 const countBuilding = document.getElementById('countBuilding');
 const countFlood = document.getElementById('countFlood');
 const countHospital = document.getElementById('countHospital');
@@ -54,7 +53,7 @@ const modalSaveBtn = document.getElementById('modalSaveBtn');
 const modalCloseBtn = document.getElementById('modalCloseBtn');
 const uploadPhotoBtn = document.getElementById('uploadPhotoBtn'); 
 
-// ⏳ FOOLPROOF LOADING OVERLAY GENERATOR
+// ⏳ LOADING OVERLAY GENERATOR
 let loadingOverlay = document.getElementById('dynamicLoadingOverlay');
 if (!loadingOverlay) {
     loadingOverlay = document.createElement('div');
@@ -86,7 +85,7 @@ function hideLoading() {
     loadingOverlay.style.setProperty('display', 'none', 'important');
 }
 
-// 🎯 DYNAMIC DEAD-CENTER CUSTOM NAME POPUP
+// 🎯 NAME POPUP MODAL
 let customNameModal = document.getElementById('customNameModal');
 if (!customNameModal) {
     customNameModal = document.createElement('div');
@@ -218,7 +217,6 @@ function renderHeaders(headers) {
     });
 }
 
-/** Helper to parse a drive link and return a direct viewable thumbnail URL */
 function getDirectImageUrl(driveLink) {
     if (!driveLink || typeof driveLink !== 'string') return null;
     const match = driveLink.match(/[-\w]{25,}/); 
@@ -275,7 +273,6 @@ function calculateStaticDashboardTotals(items) {
     
     let activeCount = 0, missingCount = 0, pendingCount = 0, photoCount = 0;
     
-    // Tracks type breakdown counts for your 13 UI property type cards
     let typeCounts = { 
         building: 0, flood: 0, hospital: 0, land: 0, market: 0, 
         otherInfra: 0, otherLand: 0, otherStruct: 0, park: 0, 
@@ -292,7 +289,7 @@ function calculateStaticDashboardTotals(items) {
         if(remVal.includes('for verification') || remVal.includes('verification')) pendingCount++;
         if(photoVal !== '') photoCount++;
         
-        // ⭐ Hierarchy Processing: Highly-specific structures checked first to eliminate collision
+        // Specific patterns evaluated first to bypass name intersections
         if (typeVal.includes('school') || typeVal.includes('school buildings')) {
             typeCounts.school++;
         } else if (typeVal.includes('other infrastructure') || typeVal.includes('other infra')) {
@@ -303,7 +300,7 @@ function calculateStaticDashboardTotals(items) {
             typeCounts.otherStruct++;
         } else if (typeVal.includes('road') || typeVal.includes('road networks')) {
             typeCounts.road++;
-        } else if (typeVal.includes('slaughterhoues') || typeVal.includes('slaughterhouse')) { // Captures gsheet typo flawlessly
+        } else if (typeVal.includes('slaughterhoues') || typeVal.includes('slaughterhouse')) { 
             typeCounts.slaughterhouse++;
         } else if (typeVal.includes('water supply systems') || typeVal.includes('water systems') || typeVal.includes('water supply')) {
             typeCounts.water++;
@@ -327,7 +324,6 @@ function calculateStaticDashboardTotals(items) {
     if(countVerification) countVerification.textContent = pendingCount;
     if(countWithPhotos) countWithPhotos.textContent = photoCount;
     
-    // Render dynamic totals to layout type cards
     if(countBuilding) countBuilding.textContent = typeCounts.building;
     if(countFlood) countFlood.textContent = typeCounts.flood;
     if(countHospital) countHospital.textContent = typeCounts.hospital;
@@ -516,4 +512,9 @@ function executeSearch() {
     if(term) filtered = filtered.filter(row => rawHeaders.some(h => String(row[h]).toLowerCase().includes(term)));
     
     renderTable(filtered);
+
+    // ✅ Dynamically reflects items found in UI
+    if (foundCountDisplay) {
+        foundCountDisplay.textContent = `(${filtered.length} items found)`;
+    }
 }
