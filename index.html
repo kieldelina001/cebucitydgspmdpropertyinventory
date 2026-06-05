@@ -13,7 +13,6 @@
             background-color: #f8fafc;
         }
 
-        /* Responsive Main Container */
         .main-container {
             border: 2px solid #57a1e0; 
             padding: 20px;
@@ -164,7 +163,7 @@
             padding: 15px 20px;
             border-radius: 4px;
             min-width: 140px;
-            flex: 1; /* Allows metrics to balance out spaces on tablet screens */
+            flex: 1;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
 
@@ -172,19 +171,37 @@
         .dash-card.card-notfound { border-left-color: #dc3545; }
         .dash-card.card-verification { border-left-color: #ffc107; }
         .dash-card.card-photos { border-left-color: #17a2b8; }
-        .dash-card.card-type { border-left-color: #6f42c1; } /* Purple for Type Cards */
-
+        
+        /* Updated Type Card Styling */
+        .type-dash-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding-left: 10px;
+        }
+        .dash-card.card-type {
+            min-width: 120px;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 0 1 auto;
+            border-left: 5px solid #6f42c1;
+        }
+        .dash-icon { font-size: 24px; }
+        .dash-info { display: flex; flex-direction: column; }
+        
         .dash-title {
-            font-size: 13px;
+            font-size: 11px;
             font-weight: bold;
             text-transform: uppercase;
             color: #64748b;
-            margin-bottom: 5px;
+            margin-bottom: 2px;
             word-break: break-word;
         }
 
         .dash-value {
-            font-size: 28px;
+            font-size: 18px;
             font-weight: bold;
             color: #1e293b;
         }
@@ -318,7 +335,7 @@
             padding: 25px;
             border-radius: 8px;
             width: 450px;
-            max-width: 90%; /* Keeps modal inside viewport on narrow screens */
+            max-width: 90%;
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
             border: 2px solid #57a1e0;
             box-sizing: border-box;
@@ -376,87 +393,22 @@
         .btn-save { background-color: #28a745; color: white; display: none; } 
         .btn-close { background-color: #dc3545; color: white; }
 
-        /* ==========================================================================
-           🚀 MOBILE & TABLET RESPONSIVE REVERSED ARCHITECTURE
-           ========================================================================== */
         @media (max-width: 768px) {
-            body {
-                margin: 10px;
-            }
-
-            .main-container {
-                width: 100%; /* Stretch completely to screens edge */
-                padding: 12px;
-            }
-
-            .header-container {
-                flex-direction: column; /* Stack logo above title */
-                text-align: center;
-                gap: 10px;
-                margin-bottom: 20px;
-            }
-
-            .header-text {
-                text-align: center;
-            }
-
-            .main-title {
-                font-size: 24px;
-            }
-
-            .sub-title {
-                font-size: 15px;
-            }
-
-            .filter-row {
-                flex-direction: column; /* Stack filter categories vertically */
-                gap: 15px;
-                padding-left: 0;
-            }
-
-            .input-group, .input-box, .filter-select, .search-field-container {
-                width: 100%; /* Push inputs to inherit 100% full line space */
-            }
-
-            .search-btn {
-                flex: 1; /* Stretch button size to match the layout aesthetic */
-            }
-
-            .dashboard-row {
-                display: grid;
-                grid-template-columns: repeat(2, 1fr); /* 2x2 Grid + Multi-line alignment for stats */
-                gap: 10px;
-                padding-left: 0;
-            }
-
-            .dash-card {
-                min-width: 0;
-                padding: 12px;
-            }
-
-            .dash-value {
-                font-size: 22px;
-            }
-
-            .table-label-row {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
-            .export-btn {
-                width: 100%; /* Make export file backup highly clickable on thumb */
-                text-align: center;
-                align-self: shrink;
-            }
-
-            .property-table-container {
-                border-width: 4px; /* Dial down the massive 10px black border on tiny viewports */
-            }
-            
-            .modal-actions .modal-btn {
-                width: 100%; /* Stack primary modal commands linearly for easy thumbs-press */
-                text-align: center;
-            }
+            body { margin: 10px; }
+            .main-container { width: 100%; padding: 12px; }
+            .header-container { flex-direction: column; text-align: center; gap: 10px; margin-bottom: 20px; }
+            .header-text { text-align: center; }
+            .main-title { font-size: 24px; }
+            .sub-title { font-size: 15px; }
+            .filter-row { flex-direction: column; gap: 15px; padding-left: 0; }
+            .input-group, .input-box, .filter-select, .search-field-container { width: 100%; }
+            .search-btn { flex: 1; }
+            .dashboard-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding-left: 0; }
+            .dash-card { min-width: 0; padding: 12px; }
+            .table-label-row { flex-direction: column; align-items: flex-start; }
+            .export-btn { width: 100%; text-align: center; }
+            .property-table-container { border-width: 4px; }
+            .modal-actions .modal-btn { width: 100%; text-align: center; }
         }
     </style>
 </head>
@@ -532,8 +484,7 @@
         </div>
 
         <div class="dashboard-section-title">Items by Type</div>
-        <div class="dashboard-row" id="typeDashboardContainer">
-            </div>
+        <div id="typeDashboardContainer" class="type-dash-grid"></div>
 
         <div class="table-section">
             <div class="table-label-row">
