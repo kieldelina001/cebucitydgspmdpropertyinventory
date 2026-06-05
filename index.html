@@ -13,7 +13,6 @@
             background-color: #f8fafc;
         }
 
-        /* Responsive Main Container */
         .main-container {
             border: 2px solid #57a1e0; 
             padding: 20px;
@@ -175,7 +174,6 @@
             color: #1e293b;
         }
 
-        /* --- New Styles for Type Dashboard --- */
         .dash-section-title {
             font-size: 16px;
             color: #64748b;
@@ -185,9 +183,12 @@
             letter-spacing: 0.5px;
         }
 
-        .type-dashboard {
-            gap: 15px; 
+        .types-dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 15px;
             margin-bottom: 35px;
+            padding-left: 10px;
         }
 
         .type-card {
@@ -195,9 +196,10 @@
             flex-direction: column;
             align-items: center;
             text-align: center;
-            border-left: none; /* Remove left border from original dash-card */
-            border-top: 4px solid #57a1e0; /* Add top accent border */
+            background: #f8f9fa;
+            border-top: 4px solid #57a1e0;
             padding: 15px 10px;
+            border-radius: 4px;
         }
 
         .type-icon {
@@ -269,28 +271,11 @@
             z-index: 10;
         }
 
-        .col-description {
-            max-width: 220px; 
-            word-wrap: break-word; 
-            white-space: normal !important;
-        }
+        .col-description { max-width: 220px; word-wrap: break-word; white-space: normal !important; }
+        .col-remarks { max-width: 200px; word-wrap: break-word; white-space: normal !important; }
+        .col-other { white-space: nowrap; }
 
-        .col-remarks {
-            max-width: 200px; 
-            word-wrap: break-word; 
-            white-space: normal !important;
-        }
-
-        .col-other {
-            white-space: nowrap;
-        }
-
-        .no-data {
-            text-align: center;
-            padding: 20px;
-            color: #666;
-            font-style: italic;
-        }
+        .no-data { text-align: center; padding: 20px; color: #666; font-style: italic; }
 
         .site-footer {
             margin-top: 30px;
@@ -303,74 +288,23 @@
 
         .modal-overlay {
             display: none; 
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            z-index: 100;
-            justify-content: center;
-            align-items: center;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.5); z-index: 100;
+            justify-content: center; align-items: center;
         }
 
         .modal-box {
-            background-color: white;
-            padding: 25px;
-            border-radius: 8px;
-            width: 450px;
-            max-width: 90%; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            border: 2px solid #57a1e0;
-            box-sizing: border-box;
+            background-color: white; padding: 25px; border-radius: 8px; width: 450px;
+            max-width: 90%; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            border: 2px solid #57a1e0; box-sizing: border-box;
         }
 
-        .modal-header {
-            font-size: 22px;
-            font-weight: bold;
-            margin-bottom: 15px;
-            color: #333;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 5px;
-        }
-
-        .modal-field {
-            margin-bottom: 12px;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .modal-field label {
-            font-weight: bold;
-            font-size: 14px;
-            margin-bottom: 4px;
-            color: #555;
-        }
-
-        .modal-field input, .modal-field textarea, .modal-field select {
-            padding: 8px;
-            font-size: 15px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            background-color: white; 
-        }
-
-        .modal-actions {
-            margin-top: 20px;
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            flex-wrap: wrap; 
-        }
-
-        .modal-btn {
-            padding: 8px 16px;
-            font-size: 14px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-        }
+        .modal-header { font-size: 22px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .modal-field { margin-bottom: 12px; display: flex; flex-direction: column; }
+        .modal-field label { font-weight: bold; font-size: 14px; margin-bottom: 4px; color: #555; }
+        .modal-field input, .modal-field textarea, .modal-field select { padding: 8px; font-size: 15px; border: 1px solid #ccc; border-radius: 4px; background-color: white; }
+        .modal-actions { margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+        .modal-btn { padding: 8px 16px; font-size: 14px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
 
         .btn-upload { background-color: #17a2b8; color: white; display: none; }
         .btn-edit { background-color: #ffc107; color: black; }
@@ -380,30 +314,8 @@
         @media (max-width: 768px) {
             body { margin: 10px; }
             .main-container { width: 100%; padding: 12px; }
-            .header-container { flex-direction: column; text-align: center; gap: 10px; margin-bottom: 20px; }
-            .header-text { text-align: center; }
-            .main-title { font-size: 24px; }
-            .sub-title { font-size: 15px; }
-            .filter-row { flex-direction: column; gap: 15px; padding-left: 0; }
-            .input-group, .input-box, .filter-select, .search-field-container { width: 100%; }
-            .search-btn { flex: 1; }
-            .dashboard-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding-left: 0; }
-            .dash-card { min-width: 0; padding: 12px; }
-            .dash-value { font-size: 22px; }
-            
-            /* Mobile adjustment for Type Dashboard */
-            .type-dashboard {
-                grid-template-columns: repeat(3, 1fr); 
-            }
-            .type-icon {
-                width: 35px;
-                height: 35px;
-            }
-
-            .table-label-row { flex-direction: column; align-items: flex-start; }
-            .export-btn { width: 100%; text-align: center; align-self: shrink; }
-            .property-table-container { border-width: 4px; }
-            .modal-actions .modal-btn { width: 100%; text-align: center; }
+            .header-container { flex-direction: column; text-align: center; gap: 10px; }
+            .types-dashboard { grid-template-columns: repeat(3, 1fr); }
         }
     </style>
 </head>
@@ -477,43 +389,42 @@
             </div>
         </div>
 
-        <!-- Property Types Dashboard -->
         <h3 class="dash-section-title">Property Types Overview</h3>
-        <div class="dashboard-row type-dashboard">
-            <div class="dash-card type-card">
-                <img src="building.png" alt="Building" class="type-icon">
+        <div class="types-dashboard">
+            <div class="type-card">
+                <img src="building.png" class="type-icon">
+                <div class="dash-value" id="countBuilding">0</div>
                 <div class="dash-title">Building</div>
-                <div id="countBuilding" class="dash-value">0</div>
             </div>
-            <div class="dash-card type-card">
-                <img src="land.png" alt="Land" class="type-icon">
+            <div class="type-card">
+                <img src="land.png" class="type-icon">
+                <div class="dash-value" id="countLand">0</div>
                 <div class="dash-title">Land</div>
-                <div id="countLand" class="dash-value">0</div>
             </div>
-            <div class="dash-card type-card">
-                <img src="hospital.png" alt="Hospital" class="type-icon">
+            <div class="type-card">
+                <img src="hospital.png" class="type-icon">
+                <div class="dash-value" id="countHospital">0</div>
                 <div class="dash-title">Hospital</div>
-                <div id="countHospital" class="dash-value">0</div>
             </div>
-            <div class="dash-card type-card">
-                <img src="market.png" alt="Market" class="type-icon">
+            <div class="type-card">
+                <img src="market.png" class="type-icon">
+                <div class="dash-value" id="countMarket">0</div>
                 <div class="dash-title">Market</div>
-                <div id="countMarket" class="dash-value">0</div>
             </div>
-            <div class="dash-card type-card">
-                <img src="park.png" alt="Park" class="type-icon">
+            <div class="type-card">
+                <img src="park.png" class="type-icon">
+                <div class="dash-value" id="countPark">0</div>
                 <div class="dash-title">Park</div>
-                <div id="countPark" class="dash-value">0</div>
             </div>
-            <div class="dash-card type-card">
-                <img src="flood.png" alt="Flood/Drainage" class="type-icon">
+            <div class="type-card">
+                <img src="flood.png" class="type-icon">
+                <div class="dash-value" id="countFlood">0</div>
                 <div class="dash-title">Flood Control</div>
-                <div id="countFlood" class="dash-value">0</div>
             </div>
-            <div class="dash-card type-card">
-                <img src="other.png" alt="Other" class="type-icon">
+            <div class="type-card">
+                <img src="other.png" class="type-icon">
+                <div class="dash-value" id="countOther">0</div>
                 <div class="dash-title">Other</div>
-                <div id="countOther" class="dash-value">0</div>
             </div>
         </div>
 
