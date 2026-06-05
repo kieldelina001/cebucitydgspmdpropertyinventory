@@ -252,6 +252,35 @@ function openPopUp(rowId) {
 }
 
 function setupSystemEventHandlers() {
+    // Add this inside the setupSystemEventHandlers() function
+if (uploadPhotoBtn) {
+    uploadPhotoBtn.addEventListener('click', () => {
+        // Create a hidden file input dynamically if it doesn't exist
+        let fileInput = document.getElementById('hiddenPhotoInput');
+        if (!fileInput) {
+            fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.id = 'hiddenPhotoInput';
+            fileInput.accept = 'image/*'; // Accept only image files
+            fileInput.style.display = 'none';
+            document.body.appendChild(fileInput);
+
+            // Listen for when a user selects a file
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    // For now, this just proves the button works
+                    alert(`Selected file: ${file.name}\n\nTo complete the upload, the image data needs to be sent to your Google Apps Script.`);
+                    
+                    // TODO: Convert image to Base64 and transmit via fetch()
+                }
+            });
+        }
+        // Trigger the hidden file input
+        fileInput.click();
+    });
+}
+    
     if(modalEditBtn) modalEditBtn.addEventListener('click', () => { document.getElementById('modal-input-remarks').disabled = false; modalEditBtn.style.display = 'none'; modalSaveBtn.style.display = 'inline-block'; });
     if(modalSaveBtn) modalSaveBtn.addEventListener('click', () => { editModal.style.display = 'none'; customNameModal.style.display = 'flex'; });
     document.getElementById('customConfirmNameBtn').onclick = () => { customNameModal.style.display = 'none'; transmitUpdateToCloud(document.getElementById('modal-input-remarks').value, document.getElementById('custom-operator-input').value); };
