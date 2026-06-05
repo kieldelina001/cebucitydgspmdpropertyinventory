@@ -186,12 +186,26 @@
             letter-spacing: 0.5px;
         }
 
+        /* 👑 Fixed 1-Line Premium Swipe Dashboard */
         .types-dashboard {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+            display: flex;
+            flex-wrap: nowrap;
+            overflow-x: auto;
             gap: 10px;
             margin-bottom: 35px;
             padding-left: 10px;
+            padding-bottom: 8px;
+            scrollbar-width: thin;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .types-dashboard::-webkit-scrollbar {
+            height: 5px;
+        }
+
+        .types-dashboard::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 4px;
         }
 
         .type-card {
@@ -204,6 +218,7 @@
             padding: 12px 6px;
             border-radius: 4px;
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            flex: 0 0 88px;
             box-sizing: border-box;
         }
 
@@ -220,7 +235,9 @@
         
         .type-card .dash-title {
             font-size: 11px; 
-            word-break: break-word;
+            white-space: normal !important;
+            word-wrap: break-word;
+            line-height: 1.2;
         }
 
         .export-btn {
@@ -327,7 +344,6 @@
         .btn-save { background-color: #28a745; color: white; display: none; } 
         .btn-close { background-color: #dc3545; color: white; }
 
-        /* 📱 Premium Responsive Layout Enhancements */
         @media (max-width: 768px) {
             body { margin: 10px; }
             .main-container { width: 100%; padding: 12px; }
@@ -338,14 +354,12 @@
             .input-group { min-width: 100%; }
             .dashboard-row { padding-left: 0; gap: 10px; }
             .dash-card { min-width: 45%; padding: 10px; }
-            .types-dashboard { grid-template-columns: repeat(2, 1fr); padding-left: 0; gap: 8px; }
             .table-label-row { flex-direction: column; align-items: flex-start; padding-left: 0; }
             .export-btn { width: 100%; text-align: center; margin-top: 5px; }
             .property-table th, .property-table td { padding: 8px; font-size: 13px; }
         }
 
         @media (max-width: 480px) {
-            .types-dashboard { grid-template-columns: repeat(2, 1fr); }
             .dash-card { min-width: 100%; }
         }
     </style>
