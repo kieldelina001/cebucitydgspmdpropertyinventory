@@ -498,6 +498,8 @@ function executeSearch() {
     const pKey = headerMapping['photolink'];
     
     let filtered = inventoryData;
+
+    // Apply Dropdown Filters
     if(remarkSel !== "ALL" && rKey) filtered = filtered.filter(row => (row[rKey] || '').trim() === remarkSel);
     if(typeSel !== "ALL" && tKey) filtered = filtered.filter(row => (row[tKey] || '').trim() === typeSel);
     
@@ -508,10 +510,33 @@ function executeSearch() {
         });
     }
     
-    if(term) filtered = filtered.filter(row => rawHeaders.some(h => String(row[h]).toLowerCase().includes(term)));
+    // Apply Multi-word Text Search (Requires at least 2 words to match if multiple are typed)
+    if(term) {
+        // Split the search term into an array of individual words
+        const searchWords = term.split(/\s+/).filter(word => word.length > 0);
+        
+        // If they type 1 word, it requires 1 match. If they type 2 or more, it requires at least 2 matches.
+        const requiredMatches = Math.min(searchWords.length, 2);
+
+        filtered = filtered.filter(row => {
+            // Combine all column values into a single lowercase string for easy searching
+            const rowText = rawHeaders.map(h => String(row[h] || '').toLowerCase()).join(' ');
+            
+            let matchCount = 0;
+            searchWords.forEach(word => {
+                if (rowText.includes(word)) {
+                    matchCount++;
+                }
+            });
+
+            return matchCount >= requiredMatches;
+        });
+    }
     
+    // Render the updated table
     renderTable(filtered);
 
+    // Display the count of items found
     if (foundCountDisplay) {
         foundCountDisplay.textContent = `(${filtered.length} items found)`;
     }
