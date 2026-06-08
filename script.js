@@ -184,6 +184,10 @@ function initializeSystemUI() {
 
 function populateDropdown(type, selectEl, placeholderText) {
     if(!selectEl) return;
+    
+    // 💾 Preserve user's current filter selection before clearing
+    const previousSelection = selectEl.value;
+    
     selectEl.innerHTML = `<option value="ALL">${placeholderText}</option>`;
     const sheetKey = headerMapping[type];
     if(!sheetKey) return;
@@ -202,6 +206,11 @@ function populateDropdown(type, selectEl, placeholderText) {
         opt.value = val; opt.textContent = val;
         selectEl.appendChild(opt);
     });
+
+    // 🔄 Restore selection if it's still present in the freshly synchronized data array
+    if(previousSelection && Array.from(selectEl.options).some(opt => opt.value === previousSelection)) {
+        selectEl.value = previousSelection;
+    }
 }
 
 function renderHeaders(headers) {
@@ -428,9 +437,13 @@ function setupSystemEventHandlers() {
         });
     }
 
-    if(modalCloseBtn) modalCloseBtn.addEventListener('click', () => {
-        if(editModal) editModal.style.display = 'none';
-    });
+    if(modalCloseBtn) {
+        modalCloseBtn.addEventListener('click', () => {
+            if(editModal) editModal.style.display = 'none';
+            // 🔄 Fetch latest data when closing details tab, retaining existing user inputs/filters
+            loadInventoryFromGoogleSheets();
+        });
+    }
 
     if(exportButton) {
         exportButton.addEventListener('click', () => {
