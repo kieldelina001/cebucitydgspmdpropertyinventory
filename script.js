@@ -469,8 +469,8 @@ function generateReport(data, title) {
             table { width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: auto; word-wrap: break-word; background-color: white; }
             th, td { border: 1px solid #cbd5e1; padding: 12px; text-align: left; font-size: 13px; }
             th { background-color: #e2e8f0; font-weight: bold; color: #1e293b; }
-            td.photo-cell { text-align: center; width: 150px; }
-            img { max-width: 130px; max-height: 130px; object-fit: contain; border-radius: 4px; border: 1px solid #e2e8f0; }
+            td.photo-cell { text-align: center; width: 300px; }
+            img { max-width: 300px; max-height: 300px; object-fit: contain; border-radius: 4px; border: 1px solid #e2e8f0; }
         </style>
     </head>
     <body>
