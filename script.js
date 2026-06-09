@@ -9,7 +9,7 @@ const targetHeadersLowercase = ["article/item", "description", "acquisition date
 const popupOrderLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type"]; 
 
 let inventoryData = []; 
-let currentFilteredData = []; // NEW: Stores current view
+let currentFilteredData = []; 
 let rawHeaders = [];       
 let headerMapping = {}; 
 let activeEditIndex = null; 
@@ -440,7 +440,6 @@ function setupSystemEventHandlers() {
         });
     }
 
-    // SHARED EXPORT LOGIC
     if(exportButton) exportButton.addEventListener('click', () => generateReport(inventoryData, "Real Estate Inventory Report (Full)"));
     if(exportFilteredButton) exportFilteredButton.addEventListener('click', () => generateReport(currentFilteredData, "Real Estate Inventory Report (Filtered)"));
 
@@ -592,7 +591,7 @@ function executeSearch() {
         });
     }
     
-    currentFilteredData = filtered; // Update the globally accessible filtered dataset
+    currentFilteredData = filtered; 
     renderTable(filtered);
 
     if (foundCountDisplay) {
