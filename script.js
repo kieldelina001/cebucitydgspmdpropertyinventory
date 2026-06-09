@@ -4,8 +4,8 @@ const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
 const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
 const BACKUP_FILE_NAME = "real_estate_inventory_backup.csv"; 
 
-const displayHeaders = ["Article", "Description", "Acquisition Date", "Unit Value", "Remarks", "Type", "PhotoLink", "UPDATED BY", "LAST UPDATE"];
-const targetHeadersLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type", "photolink", "updated by", "last update"];
+const displayHeaders = ["Article", "Description", "Acquisition Date", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Photo", "UPDATED BY", "LAST UPDATE"];
+const targetHeadersLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type", "photo 1", "photo 2", "map photo", "updated by", "last update"];
 const popupOrderLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type"]; 
 
 let inventoryData = []; 
@@ -31,7 +31,6 @@ const countNotFound = document.getElementById('countNotFound');
 const countVerification = document.getElementById('countVerification');
 const countWithPhotos = document.getElementById('countWithPhotos');
 
-// Property Type Dashboard Elements (Completely mapped to match all 13 layout blocks)
 const countBuilding = document.getElementById('countBuilding');
 const countFlood = document.getElementById('countFlood');
 const countHospital = document.getElementById('countHospital');
@@ -184,10 +183,7 @@ function initializeSystemUI() {
 
 function populateDropdown(type, selectEl, placeholderText) {
     if(!selectEl) return;
-    
-    // 💾 Preserve user's current filter selection before clearing
     const previousSelection = selectEl.value;
-    
     selectEl.innerHTML = `<option value="ALL">${placeholderText}</option>`;
     const sheetKey = headerMapping[type];
     if(!sheetKey) return;
@@ -207,7 +203,6 @@ function populateDropdown(type, selectEl, placeholderText) {
         selectEl.appendChild(opt);
     });
 
-    // 🔄 Restore selection if it's still present in the freshly synchronized data array
     if(previousSelection && Array.from(selectEl.options).some(opt => opt.value === previousSelection)) {
         selectEl.value = previousSelection;
     }
@@ -248,7 +243,8 @@ function renderTable(data) {
             const td = document.createElement('td');
             const resolvedKey = headerMapping[tKey];
             
-            if (tKey === 'photolink') {
+            // Handles any photo column rendering dynamically
+            if (tKey.includes('photo')) {
                 const url = resolvedKey ? (row[resolvedKey] || '') : '';
                 if (url.trim() !== '') {
                     const imgUrl = getDirectImageUrl(url) || url;
@@ -278,7 +274,9 @@ function calculateStaticDashboardTotals(items) {
     
     const rKey = headerMapping['remarks'];
     const tKey = headerMapping['type'];
-    const pKey = headerMapping['photolink'];
+    const pKey1 = headerMapping['photo 1'];
+    const pKey2 = headerMapping['photo 2'];
+    const pKey3 = headerMapping['map photo'];
     
     let activeCount = 0, missingCount = 0, pendingCount = 0, photoCount = 0;
     
@@ -291,12 +289,17 @@ function calculateStaticDashboardTotals(items) {
     items.forEach(row => {
         const remVal = rKey ? String(row[rKey]).toLowerCase() : '';
         const typeVal = tKey ? String(row[tKey]).toLowerCase().trim() : '';
-        const photoVal = pKey ? String(row[pKey] || '').trim() : '';
+        
+        const photoVal1 = pKey1 ? String(row[pKey1] || '').trim() : '';
+        const photoVal2 = pKey2 ? String(row[pKey2] || '').trim() : '';
+        const photoVal3 = pKey3 ? String(row[pKey3] || '').trim() : '';
         
         if(remVal.includes('existing') || typeVal.includes('existing')) activeCount++;
         if(remVal.includes('not found')) missingCount++;
         if(remVal.includes('for verification') || remVal.includes('verification')) pendingCount++;
-        if(photoVal !== '') photoCount++;
+        
+        // Count as "With Pictures" if ANY of the 3 photos exist
+        if(photoVal1 !== '' || photoVal2 !== '' || photoVal3 !== '') photoCount++;
         
         if (typeVal.includes('school') || typeVal.includes('school buildings')) {
             typeCounts.school++;
@@ -440,7 +443,6 @@ function setupSystemEventHandlers() {
     if(modalCloseBtn) {
         modalCloseBtn.addEventListener('click', () => {
             if(editModal) editModal.style.display = 'none';
-            // 🔄 Fetch latest data when closing details tab, retaining existing user inputs/filters
             loadInventoryFromGoogleSheets();
         });
     }
@@ -508,48 +510,42 @@ function executeSearch() {
     
     const rKey = headerMapping['remarks'];
     const tKey = headerMapping['type'];
-    const pKey = headerMapping['photolink'];
+    const pKey1 = headerMapping['photo 1'];
+    const pKey2 = headerMapping['photo 2'];
+    const pKey3 = headerMapping['map photo'];
     
     let filtered = inventoryData;
 
-    // Apply Dropdown Filters
     if(remarkSel !== "ALL" && rKey) filtered = filtered.filter(row => (row[rKey] || '').trim() === remarkSel);
     if(typeSel !== "ALL" && tKey) filtered = filtered.filter(row => (row[tKey] || '').trim() === typeSel);
     
-    if(photoSel !== "ALL" && pKey) {
+    if(photoSel !== "ALL") {
         filtered = filtered.filter(row => {
-            const hasPhoto = String(row[pKey] || '').trim() !== '';
+            const hasPhoto = (pKey1 && String(row[pKey1] || '').trim() !== '') ||
+                             (pKey2 && String(row[pKey2] || '').trim() !== '') ||
+                             (pKey3 && String(row[pKey3] || '').trim() !== '');
             return photoSel === "WITH_PHOTO" ? hasPhoto : !hasPhoto;
         });
     }
     
-    // Apply Multi-word Text Search (Requires at least 2 words to match if multiple are typed)
     if(term) {
-        // Split the search term into an array of individual words
         const searchWords = term.split(/\s+/).filter(word => word.length > 0);
-        
-        // If they type 1 word, it requires 1 match. If they type 2 or more, it requires at least 2 matches.
         const requiredMatches = Math.min(searchWords.length, 2);
 
         filtered = filtered.filter(row => {
-            // Combine all column values into a single lowercase string for easy searching
             const rowText = rawHeaders.map(h => String(row[h] || '').toLowerCase()).join(' ');
-            
             let matchCount = 0;
             searchWords.forEach(word => {
                 if (rowText.includes(word)) {
                     matchCount++;
                 }
             });
-
             return matchCount >= requiredMatches;
         });
     }
     
-    // Render the updated table
     renderTable(filtered);
 
-    // Display the count of items found
     if (foundCountDisplay) {
         foundCountDisplay.textContent = `(${filtered.length} items found)`;
     }
