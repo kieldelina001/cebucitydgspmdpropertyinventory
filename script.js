@@ -2,7 +2,7 @@
 const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrqoIQ1yjd5XiGIPb9FLnxLI2LTgNJFV1ug-klApiKfNScxd_CX07o2nYYk_4lnvTBPw/exec";
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
 const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
-const BACKUP_FILE_NAME = "real_estate_inventory_backup.xls"; // Changed to Excel extension
+const BACKUP_FILE_NAME = "real_estate_inventory_report.html"; // Changed to HTML
 
 const displayHeaders = ["Article", "Description", "Acquisition Date", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Coordinates", "UPDATED BY", "LAST UPDATE"];
 const targetHeadersLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "updated by", "last update"];
@@ -436,20 +436,46 @@ function setupSystemEventHandlers() {
         });
     }
 
-    // UPDATED EXPORT LOGIC FOR EXCEL W/ IMAGES
+    // UPDATED EXPORT LOGIC FOR HTML WITH NATIVE PDF PRINTING
     if(exportButton) {
         exportButton.addEventListener('click', () => {
             if(inventoryData.length === 0) return;
             
-            // Build an HTML Table string for Excel to digest
-            let tableHTML = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-            <head><meta charset="utf-8"></head><body>
-            <table border="1"><thead><tr>`;
+            let tableHTML = `<!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="utf-8">
+                <title>Real Estate Inventory Report</title>
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 20px; color: #333; background-color: #f8fafc; }
+                    .header { text-align: center; margin-bottom: 30px; }
+                    .header h1 { color: #1e293b; margin: 0; text-transform: uppercase; font-size: 28px; }
+                    .header p { color: #475569; margin: 5px 0 0 0; }
+                    .print-btn { display: block; margin: 0 auto 30px; padding: 12px 24px; font-size: 16px; font-weight: bold; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; text-align: center; width: 250px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+                    .print-btn:hover { background-color: #218838; }
+                    @media print { 
+                        .print-btn { display: none; } 
+                        body { background-color: white; margin: 0; }
+                        table { page-break-inside: auto; }
+                        tr { page-break-inside: avoid; page-break-after: auto; }
+                    }
+                    table { width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: auto; word-wrap: break-word; background-color: white; }
+                    th, td { border: 1px solid #cbd5e1; padding: 12px; text-align: left; font-size: 13px; }
+                    th { background-color: #e2e8f0; font-weight: bold; color: #1e293b; }
+                    td.photo-cell { text-align: center; width: 150px; }
+                    img { max-width: 130px; max-height: 130px; object-fit: contain; border-radius: 4px; border: 1px solid #e2e8f0; }
+                </style>
+            </head>
+            <body>
+                <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+                <div class="header">
+                    <h1>Real Estate Inventory Report</h1>
+                    <p>Generated on ${new Date().toLocaleDateString()}</p>
+                </div>
+                <table><thead><tr>`;
             
             // Generate Headers
-            displayHeaders.forEach(h => { 
-                tableHTML += `<th style="background-color: #f2f2f2; font-weight: bold; text-align: center;">${h}</th>`; 
-            });
+            displayHeaders.forEach(h => { tableHTML += `<th>${h}</th>`; });
             tableHTML += `</tr></thead><tbody>`;
             
             // Generate Rows with Images
@@ -459,25 +485,23 @@ function setupSystemEventHandlers() {
                     const resolvedKey = headerMapping[tKey];
                     const val = resolvedKey ? (row[resolvedKey] || '') : '';
                     
-                    // Injecting Images for photo/map columns
                     if (tKey.includes('photo') || tKey.includes('map coordinates')) {
                         const imgUrl = getDirectImageUrl(val) || val;
                         if (imgUrl.trim() !== '' && imgUrl.startsWith('http')) {
-                            // Embedding medium picture (150x150)
-                            tableHTML += `<td style="text-align: center; vertical-align: middle; height: 160px; width: 160px;"><img src="${imgUrl}" width="150" height="150" style="object-fit: contain;" /></td>`;
+                            tableHTML += `<td class="photo-cell"><img src="${imgUrl}" /></td>`;
                         } else {
-                            tableHTML += `<td>No Photo</td>`;
+                            tableHTML += `<td class="photo-cell" style="color: #94a3b8; font-style: italic;">No Photo</td>`;
                         }
                     } else {
-                        tableHTML += `<td style="vertical-align: middle;">${val}</td>`;
+                        tableHTML += `<td>${val}</td>`;
                     }
                 });
                 tableHTML += `</tr>`;
             });
             tableHTML += `</tbody></table></body></html>`;
 
-            // Create blob and trigger download as .xls
-            const blob = new Blob([tableHTML], { type: 'application/vnd.ms-excel' });
+            // Create blob and trigger download as .html
+            const blob = new Blob([tableHTML], { type: 'text/html;charset=utf-8' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
             link.download = BACKUP_FILE_NAME;
