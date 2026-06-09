@@ -38,10 +38,11 @@
         .type-icon { width: 32px; height: 32px; margin-bottom: 8px; object-fit: contain; }
         .type-card .dash-value { font-size: 20px; }
         .type-card .dash-title { font-size: 11px; white-space: normal !important; word-wrap: break-word; line-height: 1.2; }
-        .export-btn { font-size: 15px; padding: 8px 16px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-bottom: 10px; }
+        .export-btn { font-size: 14px; padding: 8px 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-bottom: 5px; }
         .table-section { display: flex; flex-direction: column; width: 100%; }
         .table-label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px; padding-left: 10px; }
         .table-label { font-size: 18px; margin: 0; font-weight: bold; }
+        .export-group { display: flex; gap: 8px; }
         .property-table-container { border: 2px solid #1e293b; width: 100%; max-height: 550px; overflow-y: auto; overflow-x: hidden; box-sizing: border-box; border-radius: 6px; }
         .property-table { width: 100%; border-collapse: collapse; table-layout: auto; }
         .property-table th, .property-table td { border: 1px solid #ccc; padding: 10px; text-align: left; font-size: 13px; word-wrap: break-word; white-space: normal !important; }
@@ -71,11 +72,9 @@
             .dashboard-row { padding-left: 0; gap: 10px; }
             .dash-card { min-width: 45%; padding: 10px; }
             .table-label-row { flex-direction: column; align-items: flex-start; padding-left: 0; }
-            .export-btn { width: 100%; text-align: center; margin-top: 5px; }
+            .export-group { width: 100%; justify-content: space-between; }
+            .export-btn { width: 48%; }
             .property-table th, .property-table td { padding: 8px; font-size: 12px; }
-        }
-        @media (max-width: 480px) {
-            .dash-card { min-width: 100%; }
         }
     </style>
 </head>
@@ -169,13 +168,16 @@
         <div class="table-section">
             <div class="table-label-row">
                 <span class="table-label">Table Dataset: <span id="foundCountDisplay" style="font-weight: normal; color: #57a1e0; font-size: 16px; margin-left: 5px;"></span></span>
-                <button id="exportButton" class="export-btn">Export Report (HTML / PDF)</button>
+                <div class="export-group">
+                    <button id="exportButton" class="export-btn">Export All</button>
+                    <button id="exportFilteredButton" class="export-btn" style="background-color: #17a2b8;">Export Searched</button>
+                </div>
             </div>
             <div class="property-table-container">
                 <table class="property-table" id="inventoryTable">
                     <thead>
                         <tr id="tableHeaderRow">
-                            </tr>
+                        </tr>
                     </thead>
                     <tbody id="tableBody">
                         <tr>
