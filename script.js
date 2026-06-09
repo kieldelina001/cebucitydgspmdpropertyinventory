@@ -4,8 +4,8 @@ const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
 const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
 const BACKUP_FILE_NAME = "real_estate_inventory_backup.csv"; 
 
-const displayHeaders = ["Article", "Description", "Acquisition Date", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Photo", "UPDATED BY", "LAST UPDATE"];
-const targetHeadersLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type", "photo 1", "photo 2", "map photo", "updated by", "last update"];
+const displayHeaders = ["Article", "Description", "Acquisition Date", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Coordinates", "UPDATED BY", "LAST UPDATE"];
+const targetHeadersLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "updated by", "last update"];
 const popupOrderLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type"]; 
 
 let inventoryData = []; 
@@ -243,8 +243,8 @@ function renderTable(data) {
             const td = document.createElement('td');
             const resolvedKey = headerMapping[tKey];
             
-            // Handles any photo column rendering dynamically
-            if (tKey.includes('photo')) {
+            // Render any image column as a thumbnail link
+            if (tKey.includes('photo') || tKey.includes('map coordinates')) {
                 const url = resolvedKey ? (row[resolvedKey] || '') : '';
                 if (url.trim() !== '') {
                     const imgUrl = getDirectImageUrl(url) || url;
@@ -276,7 +276,7 @@ function calculateStaticDashboardTotals(items) {
     const tKey = headerMapping['type'];
     const pKey1 = headerMapping['photo 1'];
     const pKey2 = headerMapping['photo 2'];
-    const pKey3 = headerMapping['map photo'];
+    const pKey3 = headerMapping['map coordinates'];
     
     let activeCount = 0, missingCount = 0, pendingCount = 0, photoCount = 0;
     
@@ -298,7 +298,6 @@ function calculateStaticDashboardTotals(items) {
         if(remVal.includes('not found')) missingCount++;
         if(remVal.includes('for verification') || remVal.includes('verification')) pendingCount++;
         
-        // Count as "With Pictures" if ANY of the 3 photos exist
         if(photoVal1 !== '' || photoVal2 !== '' || photoVal3 !== '') photoCount++;
         
         if (typeVal.includes('school') || typeVal.includes('school buildings')) {
@@ -512,7 +511,7 @@ function executeSearch() {
     const tKey = headerMapping['type'];
     const pKey1 = headerMapping['photo 1'];
     const pKey2 = headerMapping['photo 2'];
-    const pKey3 = headerMapping['map photo'];
+    const pKey3 = headerMapping['map coordinates'];
     
     let filtered = inventoryData;
 
