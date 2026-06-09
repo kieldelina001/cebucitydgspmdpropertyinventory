@@ -42,16 +42,12 @@
         .table-section { display: flex; flex-direction: column; width: 100%; }
         .table-label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px; padding-left: 10px; }
         .table-label { font-size: 18px; margin: 0; font-weight: bold; }
-        .property-table-container { border: 2px solid #1e293b; width: 100%; max-height: 550px; overflow-y: auto; overflow-x: auto; box-sizing: border-box; border-radius: 6px; }
-        .property-table { width: 100%; border-collapse: collapse; }
-        .property-table th, .property-table td { border: 1px solid #ccc; padding: 10px; text-align: left; font-size: 14px; }
-        .property-table th { background-color: #f2f2f2; position: sticky; top: 0; white-space: nowrap; z-index: 10; }
         
-        /* Column Width & Wrapping Rules */
-        .col-description { min-width: 220px; max-width: 300px; word-wrap: break-word; white-space: normal !important; }
-        .col-remarks { min-width: 150px; max-width: 200px; word-wrap: break-word; white-space: normal !important; }
-        .col-other { white-space: nowrap; }
-        .col-last-update { min-width: 150px; max-width: 180px; word-wrap: break-word; white-space: normal !important; }
+        /* Updated Table Styles to remove horizontal scroll */
+        .property-table-container { border: 2px solid #1e293b; width: 100%; max-height: 550px; overflow-y: auto; overflow-x: hidden; box-sizing: border-box; border-radius: 6px; }
+        .property-table { width: 100%; border-collapse: collapse; table-layout: auto; }
+        .property-table th, .property-table td { border: 1px solid #ccc; padding: 10px; text-align: left; font-size: 13px; word-wrap: break-word; white-space: normal !important; }
+        .property-table th { background-color: #f2f2f2; position: sticky; top: 0; z-index: 10; }
         
         .no-data { text-align: center; padding: 20px; color: #666; font-style: italic; }
         .site-footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 14px; color: #64748b; }
@@ -79,7 +75,7 @@
             .dash-card { min-width: 45%; padding: 10px; }
             .table-label-row { flex-direction: column; align-items: flex-start; padding-left: 0; }
             .export-btn { width: 100%; text-align: center; margin-top: 5px; }
-            .property-table th, .property-table td { padding: 8px; font-size: 13px; }
+            .property-table th, .property-table td { padding: 8px; font-size: 12px; }
         }
         @media (max-width: 480px) {
             .dash-card { min-width: 100%; }
@@ -176,24 +172,13 @@
         <div class="table-section">
             <div class="table-label-row">
                 <span class="table-label">Table Dataset: <span id="foundCountDisplay" style="font-weight: normal; color: #57a1e0; font-size: 16px; margin-left: 5px;"></span></span>
-                <button id="exportButton" class="export-btn">Export Backup CSV</button>
+                <button id="exportButton" class="export-btn">Export Excel w/ Images</button>
             </div>
             <div class="property-table-container">
                 <table class="property-table" id="inventoryTable">
                     <thead>
                         <tr id="tableHeaderRow">
-                            <th>Article</th>
-                            <th>Description</th>
-                            <th>Acquisition Date</th>
-                            <th>Unit Value</th>
-                            <th>Remarks</th>
-                            <th>Type</th>
-                            <th>Photo 1</th>
-                            <th>Photo 2</th>
-                            <th>Map Coordinates</th>
-                            <th>UPDATED BY</th>
-                            <th>LAST UPDATE</th>
-                        </tr>
+                            </tr>
                     </thead>
                     <tbody id="tableBody">
                         <tr>
