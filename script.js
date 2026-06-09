@@ -2,13 +2,14 @@
 const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrqoIQ1yjd5XiGIPb9FLnxLI2LTgNJFV1ug-klApiKfNScxd_CX07o2nYYk_4lnvTBPw/exec";
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
 const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
-const BACKUP_FILE_NAME = "real_estate_inventory_report.html"; // Changed to HTML
+const BACKUP_FILE_NAME = "real_estate_inventory_report.html"; 
 
 const displayHeaders = ["Article", "Description", "Acquisition Date", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Coordinates", "UPDATED BY", "LAST UPDATE"];
 const targetHeadersLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "updated by", "last update"];
 const popupOrderLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type"]; 
 
 let inventoryData = []; 
+let currentFilteredData = []; // NEW: Stores current view
 let rawHeaders = [];       
 let headerMapping = {}; 
 let activeEditIndex = null; 
@@ -17,6 +18,7 @@ let parsedUniqueRemarks = [];
 const searchInput = document.getElementById('searchInput');
 const searchButton = document.getElementById('searchButton');
 const exportButton = document.getElementById('exportButton');
+const exportFilteredButton = document.getElementById('exportFilteredButton');
 const remarksFilter = document.getElementById('remarksFilter');
 const typeFilter = document.getElementById('typeFilter');
 const photoFilter = document.getElementById('photoFilter');
@@ -25,12 +27,12 @@ const tableBody = document.getElementById('tableBody');
 const statusBanner = document.getElementById('statusBanner');
 const foundCountDisplay = document.getElementById('foundCountDisplay'); 
 
+// Dashboard elements
 const countTotal = document.getElementById('countTotal');
 const countExisting = document.getElementById('countExisting');
 const countNotFound = document.getElementById('countNotFound');
 const countVerification = document.getElementById('countVerification');
 const countWithPhotos = document.getElementById('countWithPhotos');
-
 const countBuilding = document.getElementById('countBuilding');
 const countFlood = document.getElementById('countFlood');
 const countHospital = document.getElementById('countHospital');
@@ -45,6 +47,7 @@ const countSchool = document.getElementById('countSchool');
 const countSlaughterhouse = document.getElementById('countSlaughterhouse');
 const countWater = document.getElementById('countWater');
 
+// Modal elements
 const editModal = document.getElementById('editModal');
 const modalFormContainer = document.getElementById('modalFormContainer');
 const modalEditBtn = document.getElementById('modalEditBtn');
@@ -169,6 +172,7 @@ function initializeSystemUI() {
     if (searchInput) searchInput.disabled = false;
     if (searchButton) searchButton.disabled = false;
     if (exportButton) exportButton.disabled = false;
+    if (exportFilteredButton) exportFilteredButton.disabled = false;
     if (remarksFilter) remarksFilter.disabled = false;
     if (typeFilter) typeFilter.disabled = false;
     if (photoFilter) photoFilter.disabled = false;
@@ -436,86 +440,78 @@ function setupSystemEventHandlers() {
         });
     }
 
-    // UPDATED EXPORT LOGIC FOR HTML WITH NATIVE PDF PRINTING
-    if(exportButton) {
-        exportButton.addEventListener('click', () => {
-            if(inventoryData.length === 0) return;
-            
-            let tableHTML = `<!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="utf-8">
-                <title>Real Estate Inventory Report</title>
-                <style>
-                    body { font-family: Arial, sans-serif; margin: 20px; color: #333; background-color: #f8fafc; }
-                    .header { text-align: center; margin-bottom: 30px; }
-                    .header h1 { color: #1e293b; margin: 0; text-transform: uppercase; font-size: 28px; }
-                    .header p { color: #475569; margin: 5px 0 0 0; }
-                    .print-btn { display: block; margin: 0 auto 30px; padding: 12px 24px; font-size: 16px; font-weight: bold; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; text-align: center; width: 250px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-                    .print-btn:hover { background-color: #218838; }
-                    @media print { 
-                        .print-btn { display: none; } 
-                        body { background-color: white; margin: 0; }
-                        table { page-break-inside: auto; }
-                        tr { page-break-inside: avoid; page-break-after: auto; }
-                    }
-                    table { width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: auto; word-wrap: break-word; background-color: white; }
-                    th, td { border: 1px solid #cbd5e1; padding: 12px; text-align: left; font-size: 13px; }
-                    th { background-color: #e2e8f0; font-weight: bold; color: #1e293b; }
-                    td.photo-cell { text-align: center; width: 150px; }
-                    img { max-width: 130px; max-height: 130px; object-fit: contain; border-radius: 4px; border: 1px solid #e2e8f0; }
-                </style>
-            </head>
-            <body>
-                <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
-                <div class="header">
-                    <h1>Real Estate Inventory Report</h1>
-                    <p>Generated on ${new Date().toLocaleDateString()}</p>
-                </div>
-                <table><thead><tr>`;
-            
-            // Generate Headers
-            displayHeaders.forEach(h => { tableHTML += `<th>${h}</th>`; });
-            tableHTML += `</tr></thead><tbody>`;
-            
-            // Generate Rows with Images
-            inventoryData.forEach(row => {
-                tableHTML += `<tr>`;
-                targetHeadersLowercase.forEach(tKey => {
-                    const resolvedKey = headerMapping[tKey];
-                    const val = resolvedKey ? (row[resolvedKey] || '') : '';
-                    
-                    if (tKey.includes('photo') || tKey.includes('map coordinates')) {
-                        const imgUrl = getDirectImageUrl(val) || val;
-                        if (imgUrl.trim() !== '' && imgUrl.startsWith('http')) {
-                            tableHTML += `<td class="photo-cell"><img src="${imgUrl}" /></td>`;
-                        } else {
-                            tableHTML += `<td class="photo-cell" style="color: #94a3b8; font-style: italic;">No Photo</td>`;
-                        }
-                    } else {
-                        tableHTML += `<td>${val}</td>`;
-                    }
-                });
-                tableHTML += `</tr>`;
-            });
-            tableHTML += `</tbody></table></body></html>`;
-
-            // Create blob and trigger download as .html
-            const blob = new Blob([tableHTML], { type: 'text/html;charset=utf-8' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = BACKUP_FILE_NAME;
-            document.body.appendChild(link); 
-            link.click(); 
-            document.body.removeChild(link);
-        });
-    }
+    // SHARED EXPORT LOGIC
+    if(exportButton) exportButton.addEventListener('click', () => generateReport(inventoryData, "Real Estate Inventory Report (Full)"));
+    if(exportFilteredButton) exportFilteredButton.addEventListener('click', () => generateReport(currentFilteredData, "Real Estate Inventory Report (Filtered)"));
 
     if(searchButton) searchButton.addEventListener('click', executeSearch);
     if(searchInput) searchInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') executeSearch(); });
     if(remarksFilter) remarksFilter.addEventListener('change', executeSearch);
     if(typeFilter) typeFilter.addEventListener('change', executeSearch);
     if(photoFilter) photoFilter.addEventListener('change', executeSearch);
+}
+
+function generateReport(data, title) {
+    if(data.length === 0) { alert("No data available to export."); return; }
+    
+    let tableHTML = `<!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>${title}</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 20px; color: #333; background-color: #f8fafc; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .header h1 { color: #1e293b; margin: 0; text-transform: uppercase; font-size: 28px; }
+            .header p { color: #475569; margin: 5px 0 0 0; }
+            .print-btn { display: block; margin: 0 auto 30px; padding: 12px 24px; font-size: 16px; font-weight: bold; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; text-align: center; width: 250px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+            .print-btn:hover { background-color: #218838; }
+            @media print { .print-btn { display: none; } body { background-color: white; margin: 0; } table { page-break-inside: auto; } tr { page-break-inside: avoid; page-break-after: auto; } }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: auto; word-wrap: break-word; background-color: white; }
+            th, td { border: 1px solid #cbd5e1; padding: 12px; text-align: left; font-size: 13px; }
+            th { background-color: #e2e8f0; font-weight: bold; color: #1e293b; }
+            td.photo-cell { text-align: center; width: 150px; }
+            img { max-width: 130px; max-height: 130px; object-fit: contain; border-radius: 4px; border: 1px solid #e2e8f0; }
+        </style>
+    </head>
+    <body>
+        <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+        <div class="header">
+            <h1>${title}</h1>
+            <p>Generated on ${new Date().toLocaleDateString()}</p>
+        </div>
+        <table><thead><tr>`;
+    
+    displayHeaders.forEach(h => { tableHTML += `<th>${h}</th>`; });
+    tableHTML += `</tr></thead><tbody>`;
+    
+    data.forEach(row => {
+        tableHTML += `<tr>`;
+        targetHeadersLowercase.forEach(tKey => {
+            const resolvedKey = headerMapping[tKey];
+            const val = resolvedKey ? (row[resolvedKey] || '') : '';
+            if (tKey.includes('photo') || tKey.includes('map coordinates')) {
+                const imgUrl = getDirectImageUrl(val) || val;
+                if (imgUrl.trim() !== '' && imgUrl.startsWith('http')) {
+                    tableHTML += `<td class="photo-cell"><img src="${imgUrl}" /></td>`;
+                } else {
+                    tableHTML += `<td class="photo-cell" style="color: #94a3b8; font-style: italic;">No Photo</td>`;
+                }
+            } else {
+                tableHTML += `<td>${val}</td>`;
+            }
+        });
+        tableHTML += `</tr>`;
+    });
+    tableHTML += `</tbody></table></body></html>`;
+
+    const blob = new Blob([tableHTML], { type: 'text/html;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `report_${new Date().getTime()}.html`;
+    document.body.appendChild(link); 
+    link.click(); 
+    document.body.removeChild(link);
 }
 
 async function transmitUpdateToCloud(remark, user) {
@@ -596,6 +592,7 @@ function executeSearch() {
         });
     }
     
+    currentFilteredData = filtered; // Update the globally accessible filtered dataset
     renderTable(filtered);
 
     if (foundCountDisplay) {
