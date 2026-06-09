@@ -7,343 +7,62 @@
     <meta name="author" content="Noel Rie N. Deliña">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f8fafc;
-        }
-
-        .main-container {
-            border: 2px solid #57a1e0; 
-            padding: 20px;
-            width: 85%;
-            margin: auto;
-            background-color: white;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-            border-radius: 8px;
-            box-sizing: border-box;
-        }
-
-        .header-container {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 20px;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        .header-logo {
-            width: 90px; 
-            height: 90px;
-            object-fit: contain;
-        }
-
-        .header-text {
-            text-align: left; 
-        }
-
-        .main-title {
-            font-size: 32px;
-            margin: 0;
-            text-transform: uppercase;
-            font-weight: bold;
-            letter-spacing: 0.5px;
-            color: #1e293b;
-        }
-
-        .sub-title {
-            font-size: 18px;
-            margin: 5px 0 0 0;
-            color: #475569;
-        }
-
-        .status-banner {
-            background-color: #fff3cd;
-            padding: 12px;
-            border: 1px solid #ffeeba;
-            margin-bottom: 25px;
-            text-align: center;
-            font-weight: bold;
-            color: #856404;
-            border-radius: 4px;
-            word-break: break-word;
-        }
-
-        .filter-row {
-            display: flex;
-            justify-content: flex-start; 
-            gap: 20px; 
-            margin-bottom: 25px;
-            padding-left: 10px;
-            flex-wrap: wrap;
-        }
-
-        .input-group {
-            display: flex;
-            flex-direction: column; 
-            align-items: flex-start;
-            flex: 1;
-            min-width: 200px;
-        }
-
-        .input-label {
-            font-size: 16px;
-            font-weight: bold;
-            margin-bottom: 8px; 
-            color: #333;
-        }
-
-        .search-field-container {
-            display: flex;
-            align-items: center;
-            width: 100%;
-        }
-
-        .input-box {
-            font-size: 16px;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            width: 100%; 
-            box-sizing: border-box;
-            height: 37px;
-        }
-
-        .filter-select {
-            font-size: 16px;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            width: 100%; 
-            background-color: white;
-            cursor: pointer;
-            height: 37px; 
-            box-sizing: border-box;
-        }
-
-        .search-btn {
-            font-size: 16px;
-            padding: 8px 18px;
-            margin-left: 10px;
-            background-color: #57a1e0;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-            height: 37px;
-        }
-
-        .dashboard-row {
-            display: flex;
-            justify-content: flex-start;
-            gap: 15px;
-            margin-bottom: 25px;
-            padding-left: 10px;
-            flex-wrap: wrap;
-        }
-
-        .dash-card {
-            background-color: #f8f9fa;
-            border-left: 5px solid #57a1e0;
-            border-top: 1px solid #e2e8f0;
-            border-right: 1px solid #e2e8f0;
-            border-bottom: 1px solid #e2e8f0;
-            padding: 12px 15px;
-            border-radius: 4px;
-            min-width: 130px;
-            flex: 1; 
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        }
-
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f8fafc; }
+        .main-container { border: 2px solid #57a1e0; padding: 20px; width: 85%; margin: auto; background-color: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); border-radius: 8px; box-sizing: border-box; }
+        .header-container { display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #e2e8f0; }
+        .header-logo { width: 90px; height: 90px; object-fit: contain; }
+        .header-text { text-align: left; }
+        .main-title { font-size: 32px; margin: 0; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px; color: #1e293b; }
+        .sub-title { font-size: 18px; margin: 5px 0 0 0; color: #475569; }
+        .status-banner { background-color: #fff3cd; padding: 12px; border: 1px solid #ffeeba; margin-bottom: 25px; text-align: center; font-weight: bold; color: #856404; border-radius: 4px; word-break: break-word; }
+        .filter-row { display: flex; justify-content: flex-start; gap: 20px; margin-bottom: 25px; padding-left: 10px; flex-wrap: wrap; }
+        .input-group { display: flex; flex-direction: column; align-items: flex-start; flex: 1; min-width: 200px; }
+        .input-label { font-size: 16px; font-weight: bold; margin-bottom: 8px; color: #333; }
+        .search-field-container { display: flex; align-items: center; width: 100%; }
+        .input-box { font-size: 16px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; height: 37px; }
+        .filter-select { font-size: 16px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%; background-color: white; cursor: pointer; height: 37px; box-sizing: border-box; }
+        .search-btn { font-size: 16px; padding: 8px 18px; margin-left: 10px; background-color: #57a1e0; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; height: 37px; }
+        .dashboard-row { display: flex; justify-content: flex-start; gap: 15px; margin-bottom: 25px; padding-left: 10px; flex-wrap: wrap; }
+        .dash-card { background-color: #f8f9fa; border-left: 5px solid #57a1e0; border-top: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; padding: 12px 15px; border-radius: 4px; min-width: 130px; flex: 1; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
         .dash-card.card-existing { border-left-color: #28a745; }
         .dash-card.card-notfound { border-left-color: #dc3545; }
         .dash-card.card-verification { border-left-color: #ffc107; }
         .dash-card.card-photos { border-left-color: #17a2b8; }
-
-        .dash-title {
-            font-size: 12px;
-            font-weight: bold;
-            text-transform: uppercase;
-            color: #64748b;
-            margin-bottom: 5px;
-        }
-
-        .dash-value {
-            font-size: 24px;
-            font-weight: bold;
-            color: #1e293b;
-        }
-
-        .dash-section-title {
-            font-size: 16px;
-            color: #64748b;
-            margin: 0 0 15px 10px;
-            text-transform: uppercase;
-            font-weight: bold;
-            letter-spacing: 0.5px;
-        }
-
-        /* 👑 Fixed 1-Line Premium Swipe Dashboard */
-        .types-dashboard {
-            display: flex;
-            flex-wrap: nowrap;
-            overflow-x: auto;
-            gap: 10px;
-            margin-bottom: 35px;
-            padding-left: 10px;
-            padding-bottom: 8px;
-            scrollbar-width: thin;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        .types-dashboard::-webkit-scrollbar {
-            height: 5px;
-        }
-
-        .types-dashboard::-webkit-scrollbar-thumb {
-            background-color: #cbd5e1;
-            border-radius: 4px;
-        }
-
-        .type-card {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-            background: #f8f9fa;
-            border-top: 4px solid #57a1e0;
-            padding: 12px 6px;
-            border-radius: 4px;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-            flex: 0 0 88px;
-            box-sizing: border-box;
-        }
-
-        .type-icon {
-            width: 32px;
-            height: 32px;
-            margin-bottom: 8px;
-            object-fit: contain;
-        }
-
-        .type-card .dash-value {
-            font-size: 20px; 
-        }
-        
-        .type-card .dash-title {
-            font-size: 11px; 
-            white-space: normal !important;
-            word-wrap: break-word;
-            line-height: 1.2;
-        }
-
-        .export-btn {
-            font-size: 15px;
-            padding: 8px 16px;
-            background-color: #28a745;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-
-        .table-section {
-            display: flex;
-            flex-direction: column;
-            width: 100%;
-        }
-
-        .table-label-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-            flex-wrap: wrap;
-            gap: 10px;
-            padding-left: 10px;
-        }
-
-        .table-label {
-            font-size: 18px;
-            margin: 0;
-            font-weight: bold;
-        }
-
-        .property-table-container {
-            border: 2px solid #1e293b; 
-            width: 100%;
-            max-height: 550px;
-            overflow-y: auto;
-            overflow-x: auto; 
-            box-sizing: border-box;
-            border-radius: 6px;
-        }
-
-        .property-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .property-table th, .property-table td {
-            border: 1px solid #ccc;
-            padding: 10px;
-            text-align: left;
-            font-size: 14px;
-        }
-
-        .property-table th {
-            background-color: #f2f2f2;
-            position: sticky;
-            top: 0;
-            white-space: nowrap;
-            z-index: 10;
-        }
-
+        .dash-title { font-size: 12px; font-weight: bold; text-transform: uppercase; color: #64748b; margin-bottom: 5px; }
+        .dash-value { font-size: 24px; font-weight: bold; color: #1e293b; }
+        .dash-section-title { font-size: 16px; color: #64748b; margin: 0 0 15px 10px; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px; }
+        .types-dashboard { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 10px; margin-bottom: 35px; padding-left: 10px; padding-bottom: 8px; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+        .types-dashboard::-webkit-scrollbar { height: 5px; }
+        .types-dashboard::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
+        .type-card { display: flex; flex-direction: column; align-items: center; text-align: center; background: #f8f9fa; border-top: 4px solid #57a1e0; padding: 12px 6px; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); flex: 0 0 88px; box-sizing: border-box; }
+        .type-icon { width: 32px; height: 32px; margin-bottom: 8px; object-fit: contain; }
+        .type-card .dash-value { font-size: 20px; }
+        .type-card .dash-title { font-size: 11px; white-space: normal !important; word-wrap: break-word; line-height: 1.2; }
+        .export-btn { font-size: 15px; padding: 8px 16px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-bottom: 10px; }
+        .table-section { display: flex; flex-direction: column; width: 100%; }
+        .table-label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px; padding-left: 10px; }
+        .table-label { font-size: 18px; margin: 0; font-weight: bold; }
+        .property-table-container { border: 2px solid #1e293b; width: 100%; max-height: 550px; overflow-y: auto; overflow-x: auto; box-sizing: border-box; border-radius: 6px; }
+        .property-table { width: 100%; border-collapse: collapse; }
+        .property-table th, .property-table td { border: 1px solid #ccc; padding: 10px; text-align: left; font-size: 14px; }
+        .property-table th { background-color: #f2f2f2; position: sticky; top: 0; white-space: nowrap; z-index: 10; }
         .col-description { min-width: 220px; max-width: 300px; word-wrap: break-word; white-space: normal !important; }
         .col-remarks { min-width: 150px; max-width: 200px; word-wrap: break-word; white-space: normal !important; }
         .col-other { white-space: nowrap; }
-
         .no-data { text-align: center; padding: 20px; color: #666; font-style: italic; }
-
-        .site-footer {
-            margin-top: 30px;
-            padding-top: 15px;
-            border-top: 1px solid #e2e8f0;
-            text-align: center;
-            font-size: 14px;
-            color: #64748b;
-        }
-
-        .modal-overlay {
-            display: none; 
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(0, 0, 0, 0.5); z-index: 100;
-            justify-content: center; align-items: center;
-        }
-
-        .modal-box {
-            background-color: white; padding: 25px; border-radius: 8px; width: 450px;
-            max-width: 90%; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            border: 2px solid #57a1e0; box-sizing: border-box;
-        }
-
+        .site-footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 14px; color: #64748b; }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); z-index: 100; justify-content: center; align-items: center; }
+        .modal-box { background-color: white; padding: 25px; border-radius: 8px; width: 450px; max-width: 90%; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: 2px solid #57a1e0; box-sizing: border-box; }
         .modal-header { font-size: 22px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 1px solid #eee; padding-bottom: 5px; }
         .modal-field { margin-bottom: 12px; display: flex; flex-direction: column; }
         .modal-field label { font-weight: bold; font-size: 14px; margin-bottom: 4px; color: #555; }
         .modal-field input, .modal-field textarea, .modal-field select { padding: 8px; font-size: 15px; border: 1px solid #ccc; border-radius: 4px; background-color: white; }
         .modal-actions { margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
         .modal-btn { padding: 8px 16px; font-size: 14px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-
         .btn-upload { background-color: #17a2b8; color: white; display: none; }
         .btn-edit { background-color: #ffc107; color: black; }
         .btn-save { background-color: #28a745; color: white; display: none; } 
         .btn-close { background-color: #dc3545; color: white; }
-
         @media (max-width: 768px) {
             body { margin: 10px; }
             .main-container { width: 100%; padding: 12px; }
@@ -358,7 +77,6 @@
             .export-btn { width: 100%; text-align: center; margin-top: 5px; }
             .property-table th, .property-table td { padding: 8px; font-size: 13px; }
         }
-
         @media (max-width: 480px) {
             .dash-card { min-width: 100%; }
         }
@@ -436,71 +154,19 @@
 
         <h3 class="dash-section-title">Property Types Overview</h3>
         <div class="types-dashboard">
-            <div class="type-card">
-                <img src="building.png" class="type-icon">
-                <div class="dash-value" id="countBuilding">0</div>
-                <div class="dash-title">Building</div>
-            </div>
-            <div class="type-card">
-                <img src="flood.png" class="type-icon">
-                <div class="dash-value" id="countFlood">0</div>
-                <div class="dash-title">Flood Control</div>
-            </div>
-            <div class="type-card">
-                <img src="hospital.png" class="type-icon">
-                <div class="dash-value" id="countHospital">0</div>
-                <div class="dash-title">Hospitals</div>
-            </div>
-            <div class="type-card">
-                <img src="land.png" class="type-icon">
-                <div class="dash-value" id="countLand">0</div>
-                <div class="dash-title">Land</div>
-            </div>
-            <div class="type-card">
-                <img src="market.png" class="type-icon">
-                <div class="dash-value" id="countMarket">0</div>
-                <div class="dash-title">Markets</div>
-            </div>
-            <div class="type-card">
-                <img src="other.png" class="type-icon">
-                <div class="dash-value" id="countOtherInfra">0</div>
-                <div class="dash-title">Other Infra</div>
-            </div>
-            <div class="type-card">
-                <img src="other.png" class="type-icon">
-                <div class="dash-value" id="countOtherLand">0</div>
-                <div class="dash-title">Other Land Imp.</div>
-            </div>
-            <div class="type-card">
-                <img src="other.png" class="type-icon">
-                <div class="dash-value" id="countOtherStruct">0</div>
-                <div class="dash-title">Other Struct.</div>
-            </div>
-            <div class="type-card">
-                <img src="park.png" class="type-icon">
-                <div class="dash-value" id="countPark">0</div>
-                <div class="dash-title">Parks/Plazas</div>
-            </div>
-            <div class="type-card">
-                <img src="road.png" class="type-icon">
-                <div class="dash-value" id="countRoad">0</div>
-                <div class="dash-title">Roads</div>
-            </div>
-            <div class="type-card">
-                <img src="school.png" class="type-icon">
-                <div class="dash-value" id="countSchool">0</div>
-                <div class="dash-title">Schools</div>
-            </div>
-            <div class="type-card">
-                <img src="slaughterhouse.png" class="type-icon">
-                <div class="dash-value" id="countSlaughterhouse">0</div>
-                <div class="dash-title">Slaughterhouse</div>
-            </div>
-            <div class="type-card">
-                <img src="water.png" class="type-icon">
-                <div class="dash-value" id="countWater">0</div>
-                <div class="dash-title">Water Systems</div>
-            </div>
+            <div class="type-card"><img src="building.png" class="type-icon"><div class="dash-value" id="countBuilding">0</div><div class="dash-title">Building</div></div>
+            <div class="type-card"><img src="flood.png" class="type-icon"><div class="dash-value" id="countFlood">0</div><div class="dash-title">Flood Control</div></div>
+            <div class="type-card"><img src="hospital.png" class="type-icon"><div class="dash-value" id="countHospital">0</div><div class="dash-title">Hospitals</div></div>
+            <div class="type-card"><img src="land.png" class="type-icon"><div class="dash-value" id="countLand">0</div><div class="dash-title">Land</div></div>
+            <div class="type-card"><img src="market.png" class="type-icon"><div class="dash-value" id="countMarket">0</div><div class="dash-title">Markets</div></div>
+            <div class="type-card"><img src="other.png" class="type-icon"><div class="dash-value" id="countOtherInfra">0</div><div class="dash-title">Other Infra</div></div>
+            <div class="type-card"><img src="other.png" class="type-icon"><div class="dash-value" id="countOtherLand">0</div><div class="dash-title">Other Land Imp.</div></div>
+            <div class="type-card"><img src="other.png" class="type-icon"><div class="dash-value" id="countOtherStruct">0</div><div class="dash-title">Other Struct.</div></div>
+            <div class="type-card"><img src="park.png" class="type-icon"><div class="dash-value" id="countPark">0</div><div class="dash-title">Parks/Plazas</div></div>
+            <div class="type-card"><img src="road.png" class="type-icon"><div class="dash-value" id="countRoad">0</div><div class="dash-title">Roads</div></div>
+            <div class="type-card"><img src="school.png" class="type-icon"><div class="dash-value" id="countSchool">0</div><div class="dash-title">Schools</div></div>
+            <div class="type-card"><img src="slaughterhouse.png" class="type-icon"><div class="dash-value" id="countSlaughterhouse">0</div><div class="dash-title">Slaughterhouse</div></div>
+            <div class="type-card"><img src="water.png" class="type-icon"><div class="dash-value" id="countWater">0</div><div class="dash-title">Water Systems</div></div>
         </div>
 
         <div class="table-section">
@@ -518,14 +184,16 @@
                             <th>Unit Value</th>
                             <th>Remarks</th>
                             <th>Type</th>
-                            <th>PhotoLink</th>
+                            <th>Photo 1</th>
+                            <th>Photo 2</th>
+                            <th>Map Coordinates</th>
                             <th>UPDATED BY</th>
                             <th>LAST UPDATE</th>
                         </tr>
                     </thead>
                     <tbody id="tableBody">
                         <tr>
-                            <td colspan="9" class="no-data" id="fallbackTableMsg">Awaiting data stream parsing...</td>
+                            <td colspan="11" class="no-data" id="fallbackTableMsg">Awaiting data stream parsing...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -543,7 +211,7 @@
             <div class="modal-header">Property Details</div>
             <div id="modalFormContainer"></div>
             <div class="modal-actions">
-                <button id="uploadPhotoBtn" class="modal-btn btn-upload">Upload Photo</button>
+                <button id="uploadPhotoBtn" class="modal-btn btn-upload">Upload Photos</button>
                 <button id="modalEditBtn" class="modal-btn btn-edit">Edit Data</button>
                 <button id="modalSaveBtn" class="modal-btn btn-save">Save Changes</button>
                 <button id="modalCloseBtn" class="modal-btn btn-close">Close</button>
