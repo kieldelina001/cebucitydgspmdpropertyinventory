@@ -216,6 +216,7 @@ function renderHeaders(headers) {
         if (h.toLowerCase().includes('description')) th.className = 'col-description';
         else if (h.toLowerCase().includes('remarks')) th.className = 'col-remarks';
         else if (h.toLowerCase().includes('type')) th.className = 'col-type'; 
+        else if (h.toLowerCase().includes('last update')) th.className = 'col-last-update'; // Wraps the date
         else th.className = 'col-other';
         tableHeaderRow.appendChild(th);
     });
@@ -243,7 +244,7 @@ function renderTable(data) {
             const td = document.createElement('td');
             const resolvedKey = headerMapping[tKey];
             
-            // Render any image column as a thumbnail link
+            // Handles any photo column rendering dynamically
             if (tKey.includes('photo') || tKey.includes('map coordinates')) {
                 const url = resolvedKey ? (row[resolvedKey] || '') : '';
                 if (url.trim() !== '') {
@@ -258,6 +259,7 @@ function renderTable(data) {
                 if (tKey.includes('description')) td.className = 'col-description';
                 else if (tKey.includes('remarks')) td.className = 'col-remarks';
                 else if (tKey.includes('type')) td.className = 'col-type'; 
+                else if (tKey.includes('last update')) td.className = 'col-last-update'; // Wraps the date
                 else td.className = 'col-other';
             }
             
