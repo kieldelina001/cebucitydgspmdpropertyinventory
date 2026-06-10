@@ -194,7 +194,7 @@ function initializeSystemUI() {
         }
         isAppInitialized = true;
     } else {
-        // If data is reloading (e.g., after saving a change), re-apply the current search filters
+        // If data is reloading (e.g., after saving a change or closing modal), re-apply the current search filters
         executeSearch();
     }
 }
@@ -449,8 +449,10 @@ function setupSystemEventHandlers() {
 
     if(modalCloseBtn) {
         modalCloseBtn.addEventListener('click', () => {
-            // FIX: Just hide the modal, do not reload data, preserving the table view
+            // Hide modal and trigger a background data reload to fetch new uploaded pictures
+            // Since isAppInitialized is true, executeSearch() will run automatically and retain active filters.
             if(editModal) editModal.style.display = 'none';
+            loadInventoryFromGoogleSheets();
         });
     }
 
