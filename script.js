@@ -181,7 +181,15 @@ function initializeSystemUI() {
     populateDropdown('type', typeFilter, '-- All Types --');
     renderHeaders(displayHeaders);
     calculateStaticDashboardTotals(inventoryData);
-    executeSearch();
+    
+    // DELAYED RENDERING LOGIC (Prevents app freeze on load)
+    currentFilteredData = []; 
+    if(tableBody) {
+        tableBody.innerHTML = `<tr><td colspan="${displayHeaders.length}" class="no-data">Data loaded successfully. Apply a filter or search to view records.</td></tr>`;
+    }
+    if (foundCountDisplay) {
+        foundCountDisplay.textContent = `(0 items displayed)`;
+    }
 }
 
 function populateDropdown(type, selectEl, placeholderText) {
@@ -439,7 +447,7 @@ function setupSystemEventHandlers() {
         });
     }
 
-    // UPDATED EXPORT HANDLERS
+    // EXPORT HANDLERS
     if(exportButton) exportButton.addEventListener('click', () => exportToCSV(inventoryData, "Real_Estate_Inventory_Full"));
     if(exportFilteredButton) exportFilteredButton.addEventListener('click', () => exportToHTML(currentFilteredData, "Real_Estate_Inventory_Filtered"));
 
