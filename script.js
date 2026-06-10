@@ -13,6 +13,7 @@ let rawHeaders = [];
 let headerMapping = {}; 
 let activeEditIndex = null; 
 let parsedUniqueRemarks = []; 
+let isAppInitialized = false; // Flag to track startup state
 
 const searchInput = document.getElementById('searchInput');
 const searchButton = document.getElementById('searchButton');
@@ -182,13 +183,19 @@ function initializeSystemUI() {
     renderHeaders(displayHeaders);
     calculateStaticDashboardTotals(inventoryData);
     
-    // DELAYED RENDERING LOGIC (Prevents app freeze on load)
-    currentFilteredData = []; 
-    if(tableBody) {
-        tableBody.innerHTML = `<tr><td colspan="${displayHeaders.length}" class="no-data">Data loaded successfully. Apply a filter or search to view records.</td></tr>`;
-    }
-    if (foundCountDisplay) {
-        foundCountDisplay.textContent = `(0 items displayed)`;
+    // Check if this is the very first time the app is loading
+    if (!isAppInitialized) {
+        currentFilteredData = []; 
+        if(tableBody) {
+            tableBody.innerHTML = `<tr><td colspan="${displayHeaders.length}" class="no-data">Data loaded successfully. Apply a filter or search to view records.</td></tr>`;
+        }
+        if (foundCountDisplay) {
+            foundCountDisplay.textContent = `(0 items displayed)`;
+        }
+        isAppInitialized = true;
+    } else {
+        // If data is reloading (e.g., after saving a change), re-apply the current search filters
+        executeSearch();
     }
 }
 
@@ -442,8 +449,8 @@ function setupSystemEventHandlers() {
 
     if(modalCloseBtn) {
         modalCloseBtn.addEventListener('click', () => {
+            // FIX: Just hide the modal, do not reload data, preserving the table view
             if(editModal) editModal.style.display = 'none';
-            loadInventoryFromGoogleSheets();
         });
     }
 
