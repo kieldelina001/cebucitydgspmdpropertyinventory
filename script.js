@@ -34,6 +34,7 @@ const countNotFound = document.getElementById('countNotFound');
 const countVerification = document.getElementById('countVerification');
 const countWithPhotos = document.getElementById('countWithPhotos');
 const countBuilding = document.getElementById('countBuilding');
+const countAssetMod = document.getElementById('countAssetMod'); // NEW ASSET MOD ELEMENT
 const countFlood = document.getElementById('countFlood');
 const countHospital = document.getElementById('countHospital');
 const countLand = document.getElementById('countLand');
@@ -289,7 +290,7 @@ function calculateStaticDashboardTotals(items) {
     let activeCount = 0, missingCount = 0, pendingCount = 0, photoCount = 0;
     
     let typeCounts = { 
-        building: 0, flood: 0, hospital: 0, land: 0, market: 0, 
+        building: 0, assetMod: 0, flood: 0, hospital: 0, land: 0, market: 0, 
         otherInfra: 0, otherLand: 0, otherStruct: 0, park: 0, 
         road: 0, school: 0, slaughterhouse: 0, water: 0 
     };
@@ -308,8 +309,11 @@ function calculateStaticDashboardTotals(items) {
         
         if(photoVal1 !== '' || photoVal2 !== '' || photoVal3 !== '') photoCount++;
         
+        // UPDATED LOGIC TO INCLUDE ASSET MODIFICATIONS
         if (typeVal.includes('school') || typeVal.includes('school buildings')) {
             typeCounts.school++;
+        } else if (typeVal.includes('asset modifications') || typeVal.includes('asset mod')) {
+            typeCounts.assetMod++;
         } else if (typeVal.includes('other infrastructure') || typeVal.includes('other infra')) {
             typeCounts.otherInfra++;
         } else if (typeVal.includes('other land improvements') || typeVal.includes('other land imp')) {
@@ -343,6 +347,7 @@ function calculateStaticDashboardTotals(items) {
     if(countWithPhotos) countWithPhotos.textContent = photoCount;
     
     if(countBuilding) countBuilding.textContent = typeCounts.building;
+    if(countAssetMod) countAssetMod.textContent = typeCounts.assetMod; // POPULATE NEW ASSET MOD UI
     if(countFlood) countFlood.textContent = typeCounts.flood;
     if(countHospital) countHospital.textContent = typeCounts.hospital;
     if(countLand) countLand.textContent = typeCounts.land;
