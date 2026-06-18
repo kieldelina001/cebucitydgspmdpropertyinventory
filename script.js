@@ -13,7 +13,7 @@ let rawHeaders = [];
 let headerMapping = {}; 
 let activeEditIndex = null; 
 let parsedUniqueRemarks = []; 
-let isAppInitialized = false; 
+let isAppInitialized = false; // Flag to track startup state
 
 const searchInput = document.getElementById('searchInput');
 const searchButton = document.getElementById('searchButton');
@@ -34,7 +34,7 @@ const countNotFound = document.getElementById('countNotFound');
 const countVerification = document.getElementById('countVerification');
 const countWithPhotos = document.getElementById('countWithPhotos');
 const countBuilding = document.getElementById('countBuilding');
-const countAssetMod = document.getElementById('countAssetMod'); 
+const countAssetMod = document.getElementById('countAssetMod'); // NEW ASSET MOD ELEMENT
 const countFlood = document.getElementById('countFlood');
 const countHospital = document.getElementById('countHospital');
 const countLand = document.getElementById('countLand');
@@ -111,15 +111,6 @@ if (!customNameModal) {
     document.body.appendChild(customNameModal);
 }
 
-function escapeHTML(str) {
-    return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
-
 window.addEventListener('DOMContentLoaded', () => {
     setupSystemEventHandlers();
     loadInventoryFromGoogleSheets();
@@ -193,6 +184,7 @@ function initializeSystemUI() {
     renderHeaders(displayHeaders);
     calculateStaticDashboardTotals(inventoryData);
     
+    // Check if this is the very first time the app is loading
     if (!isAppInitialized) {
         currentFilteredData = []; 
         if(tableBody) {
@@ -203,6 +195,7 @@ function initializeSystemUI() {
         }
         isAppInitialized = true;
     } else {
+        // If data is reloading (e.g., after saving a change or closing modal), re-apply the current search filters
         executeSearch();
     }
 }
@@ -243,6 +236,7 @@ function renderHeaders(headers) {
     });
 }
 
+// Added an optional size string so export and table view can fetch different image resolutions
 function getDirectImageUrl(driveLink, sizeString = 'w200-h200') {
     if (!driveLink || typeof driveLink !== 'string') return null;
     const match = driveLink.match(/[-\w]{25,}/); 
@@ -268,6 +262,7 @@ function renderTable(data) {
             if (tKey.includes('photo') || tKey.includes('map coordinates')) {
                 const url = resolvedKey ? (row[resolvedKey] || '') : '';
                 if (url.trim() !== '') {
+                    // Get small thumbnails for fast UI rendering
                     const imgUrl = getDirectImageUrl(url, 'w200-h200') || url;
                     td.innerHTML = `<a href="${url}" target="_blank"><img src="${imgUrl}" alt="Preview" style="height:50px; max-width:80px; object-fit:cover; border:1px solid #ccc; border-radius:4px;"></a>`;
                 } else {
@@ -316,6 +311,7 @@ function calculateStaticDashboardTotals(items) {
         
         if(photoVal1 !== '' || photoVal2 !== '' || photoVal3 !== '') photoCount++;
         
+        // UPDATED LOGIC TO INCLUDE ASSET MODIFICATIONS
         if (typeVal.includes('school') || typeVal.includes('school buildings')) {
             typeCounts.school++;
         } else if (typeVal.includes('asset modifications') || typeVal.includes('asset mod')) {
@@ -353,7 +349,7 @@ function calculateStaticDashboardTotals(items) {
     if(countWithPhotos) countWithPhotos.textContent = photoCount;
     
     if(countBuilding) countBuilding.textContent = typeCounts.building;
-    if(countAssetMod) countAssetMod.textContent = typeCounts.assetMod; 
+    if(countAssetMod) countAssetMod.textContent = typeCounts.assetMod; // POPULATE NEW ASSET MOD UI
     if(countFlood) countFlood.textContent = typeCounts.flood;
     if(countHospital) countHospital.textContent = typeCounts.hospital;
     if(countLand) countLand.textContent = typeCounts.land;
@@ -460,11 +456,14 @@ function setupSystemEventHandlers() {
 
     if(modalCloseBtn) {
         modalCloseBtn.addEventListener('click', () => {
+            // Hide modal and trigger a background data reload to fetch new uploaded pictures
+            // Since isAppInitialized is true, executeSearch() will run automatically and retain active filters.
             if(editModal) editModal.style.display = 'none';
             loadInventoryFromGoogleSheets();
         });
     }
 
+    // EXPORT HANDLERS
     if(exportButton) exportButton.addEventListener('click', () => exportToCSV(inventoryData, "Real_Estate_Inventory_Full"));
     if(exportFilteredButton) exportFilteredButton.addEventListener('click', () => exportToHTML(currentFilteredData, "Real_Estate_Inventory_Filtered"));
 
@@ -475,6 +474,7 @@ function setupSystemEventHandlers() {
     if(photoFilter) photoFilter.addEventListener('change', executeSearch);
 }
 
+// EXPORT TO EXCEL/CSV
 function exportToCSV(data, filename) {
     if(data.length === 0) { alert("No data available to export."); return; }
     
@@ -499,7 +499,7 @@ function exportToCSV(data, filename) {
     document.body.removeChild(link);
 }
 
-// EXPORT TO HTML (Visual) - 500PX IMAGE SIZE
+// EXPORT TO HTML (Visual)
 function exportToHTML(data, title) {
     if(data.length === 0) { alert("No data available to export."); return; }
     
@@ -509,35 +509,28 @@ function exportToHTML(data, title) {
         <meta charset="utf-8">
         <title>${title}</title>
         <style>
-            body { font-family: Arial, sans-serif; margin: 20px; color: #333; background-color: #f8fafc; }
+            body { font-family: Arial, sans-serif; margin: 20px; color: #333; background-color: #f8fafc; font-size: 18px; }
             .header { text-align: center; margin-bottom: 30px; }
-            .header h1 { color: #1e293b; margin: 0; font-size: 28px; }
-            .print-btn { display: block; margin: 0 auto 30px; padding: 12px 24px; font-weight: bold; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
-            
-            /* FIT-TO-SCREEN TABLE WRAPPER */
-            .table-wrapper { width: 100%; overflow-x: auto; }
-            
-            table { width: 100%; border-collapse: collapse; background-color: white; table-layout: auto; }
-            th, td { border: 1px solid #cbd5e1; padding: 10px; font-size: 14px; text-align: left; }
-            th { background-color: #e2e8f0; font-weight: bold; }
-            
-            /* PICTURE SIZE: 500px */
-            .photo-cell { width: 500px; text-align: center; }
-            img { width: 500px; height: auto; display: block; margin: 0 auto; border: 1px solid #ccc; border-radius: 4px; }
-            
+            .header h1 { color: #1e293b; margin: 0; text-transform: uppercase; font-size: 28px; }
+            .print-btn { display: block; margin: 0 auto 30px; padding: 12px 24px; font-size: 16px; font-weight: bold; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
             @media print { 
-                @page { size: landscape; margin: 10mm; }
                 .print-btn { display: none; } 
+                body { background-color: white; margin: 0; }
             }
+            table { width: 100%; border-collapse: collapse; background-color: white; }
+            th, td { border: 1px solid #cbd5e1; padding: 12px; font-size: 18px; vertical-align: middle; }
+            th { background-color: #e2e8f0; }
+            tr { page-break-inside: avoid; } /* Important: prevents rows from splitting across PDF pages */
+            .photo-cell { text-align: center; width: 400px; }
+            img { max-width: 400px; max-height: 400px; object-fit: contain; border-radius: 4px; border: 1px solid #e2e8f0; page-break-inside: avoid; }
         </style>
     </head>
     <body>
         <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
-        <div class="header"><h1>${escapeHTML(title)}</h1></div>
-        <div class="table-wrapper">
-            <table><thead><tr>`;
+        <div class="header"><h1>${title}</h1><p>Generated on ${new Date().toLocaleDateString()}</p></div>
+        <table><thead><tr>`;
     
-    displayHeaders.forEach(h => { tableHTML += `<th>${escapeHTML(h)}</th>`; });
+    displayHeaders.forEach(h => { tableHTML += `<th>${h}</th>`; });
     tableHTML += `</tr></thead><tbody>`;
     
     data.forEach(row => {
@@ -546,19 +539,20 @@ function exportToHTML(data, title) {
             const resolvedKey = headerMapping[tKey];
             const val = resolvedKey ? (row[resolvedKey] || '') : '';
             if (tKey.includes('photo') || tKey.includes('map coordinates')) {
-                const imgUrl = getDirectImageUrl(val, 'w500-h500') || val;
-                if (imgUrl && imgUrl.trim() !== '' && imgUrl.startsWith('http')) {
-                    tableHTML += `<td class="photo-cell"><img src="${escapeHTML(imgUrl)}" /></td>`;
+                // Fetching large image for exported file (1000x1000 bounds)
+                const imgUrl = getDirectImageUrl(val, 'w1000-h1000') || val;
+                if (imgUrl.trim() !== '' && imgUrl.startsWith('http')) {
+                    tableHTML += `<td class="photo-cell"><img src="${imgUrl}" /></td>`;
                 } else {
-                    tableHTML += `<td>N/A</td>`;
+                    tableHTML += `<td class="photo-cell">No Photo</td>`;
                 }
             } else {
-                tableHTML += `<td>${escapeHTML(val)}</td>`;
+                tableHTML += `<td>${val}</td>`;
             }
         });
         tableHTML += `</tr>`;
     });
-    tableHTML += `</tbody></table></div></body></html>`;
+    tableHTML += `</tbody></table></body></html>`;
 
     const blob = new Blob([tableHTML], { type: 'text/html;charset=utf-8' });
     const link = document.createElement('a');
