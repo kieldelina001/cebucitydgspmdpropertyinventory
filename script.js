@@ -34,7 +34,7 @@ const countNotFound = document.getElementById('countNotFound');
 const countVerification = document.getElementById('countVerification');
 const countWithPhotos = document.getElementById('countWithPhotos');
 const countBuilding = document.getElementById('countBuilding');
-const countAssetMod = document.getElementById('countAssetMod'); 
+const countAssetMod = document.getElementById('countAssetMod'); // NEW ASSET MOD ELEMENT
 const countFlood = document.getElementById('countFlood');
 const countHospital = document.getElementById('countHospital');
 const countLand = document.getElementById('countLand');
@@ -236,6 +236,7 @@ function renderHeaders(headers) {
     });
 }
 
+// Added an optional size string so export and table view can fetch different image resolutions
 function getDirectImageUrl(driveLink, sizeString = 'w200-h200') {
     if (!driveLink || typeof driveLink !== 'string') return null;
     const match = driveLink.match(/[-\w]{25,}/); 
@@ -310,6 +311,7 @@ function calculateStaticDashboardTotals(items) {
         
         if(photoVal1 !== '' || photoVal2 !== '' || photoVal3 !== '') photoCount++;
         
+        // UPDATED LOGIC TO INCLUDE ASSET MODIFICATIONS
         if (typeVal.includes('school') || typeVal.includes('school buildings')) {
             typeCounts.school++;
         } else if (typeVal.includes('asset modifications') || typeVal.includes('asset mod')) {
@@ -347,7 +349,7 @@ function calculateStaticDashboardTotals(items) {
     if(countWithPhotos) countWithPhotos.textContent = photoCount;
     
     if(countBuilding) countBuilding.textContent = typeCounts.building;
-    if(countAssetMod) countAssetMod.textContent = typeCounts.assetMod;
+    if(countAssetMod) countAssetMod.textContent = typeCounts.assetMod; // POPULATE NEW ASSET MOD UI
     if(countFlood) countFlood.textContent = typeCounts.flood;
     if(countHospital) countHospital.textContent = typeCounts.hospital;
     if(countLand) countLand.textContent = typeCounts.land;
@@ -454,6 +456,8 @@ function setupSystemEventHandlers() {
 
     if(modalCloseBtn) {
         modalCloseBtn.addEventListener('click', () => {
+            // Hide modal and trigger a background data reload to fetch new uploaded pictures
+            // Since isAppInitialized is true, executeSearch() will run automatically and retain active filters.
             if(editModal) editModal.style.display = 'none';
             loadInventoryFromGoogleSheets();
         });
@@ -495,9 +499,7 @@ function exportToCSV(data, filename) {
     document.body.removeChild(link);
 }
 
-// =====================================================================
-// EXPORT TO HTML (Visual) - UPDATED FOR PRINT AUTO-FIT & PORTRAIT MODE
-// =====================================================================
+// EXPORT TO HTML (Visual) - MODIFIED FOR BALANCED LARGER FONT SCALE
 function exportToHTML(data, title) {
     if(data.length === 0) { alert("No data available to export."); return; }
     
@@ -507,64 +509,21 @@ function exportToHTML(data, title) {
         <meta charset="utf-8">
         <title>${title}</title>
         <style>
-            /* 1. Force Portrait Mode */
-            @page {
-                size: A4 portrait; 
-                margin: 10mm; /* Minimal margins for maximum printable space */
-            }
-            
-            body { font-family: Arial, sans-serif; margin: 20px; color: #333; background-color: #f8fafc; }
-            .header { text-align: center; margin-bottom: 20px; }
-            .header h1 { color: #1e293b; margin: 0; text-transform: uppercase; font-size: 24px; }
-            .print-btn { display: block; margin: 0 auto 20px; padding: 12px 24px; font-size: 16px; font-weight: bold; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
-            
-            /* 2. Force Table to fit 100% of the page width without overflowing */
-            table { 
-                width: 100%; 
-                border-collapse: collapse; 
-                background-color: white; 
-                table-layout: fixed; /* CRITICAL: This is what forces it to stay on one page */
-            }
-            
-            th, td { 
-                border: 1px solid #cbd5e1; 
-                padding: 6px; 
-                font-size: 10px; /* Small font size to ensure fit */
-                vertical-align: top; 
-                word-wrap: break-word; /* 3. Force description and long text to word-wrap */
-                overflow-wrap: break-word;
-            }
-            th { background-color: #e2e8f0; font-size: 11px; }
-            tr { page-break-inside: avoid; } /* Prevents rows from splitting across PDF pages */
-            
-            /* Assign specific widths to columns to allocate more space for the Description */
-            th:nth-child(1) { width: 8%; } /* Article */
-            th:nth-child(2) { width: 22%; } /* Description - Gets the most room for word-wrap */
-            th:nth-child(3) { width: 7%; } /* Acq Date */
-            th:nth-child(4) { width: 6%; } /* Value */
-            th:nth-child(5) { width: 8%; } /* Remarks */
-            th:nth-child(6) { width: 7%; } /* Type */
-            th:nth-child(7), th:nth-child(8), th:nth-child(9) { width: 10%; text-align: center; } /* Photos and Maps */
-            th:nth-child(10), th:nth-child(11) { width: 6%; } /* Updaters */
-
-            .photo-cell { text-align: center; padding: 4px; }
-            
-            /* 4. Make pictures fit inside the column constraints */
-            img { 
-                width: 100%; /* Dynamically size to the 10% column width */
-                max-height: 120px; /* Cap the height so rows don't get massive */
-                object-fit: contain; /* Keep aspect ratio */
-                border-radius: 4px; 
-                border: 1px solid #e2e8f0; 
-                page-break-inside: avoid; 
-            }
-
+            body { font-family: Arial, sans-serif; margin: 30px; color: #333; background-color: #f8fafc; }
+            .header { text-align: center; margin-bottom: 40px; }
+            .header h1 { color: #1e293b; margin: 0; text-transform: uppercase; font-size: 34px; letter-spacing: 0.5px; }
+            .header p { font-size: 18px; color: #64748b; margin-top: 8px; }
+            .print-btn { display: block; margin: 0 auto 40px; padding: 14px 28px; font-size: 18px; font-weight: bold; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
             @media print { 
                 .print-btn { display: none; } 
-                body { background-color: white; margin: 0; padding: 0; }
-                th, td { font-size: 8px; padding: 4px; } /* Shrink font slightly more for print dialog */
-                img { max-height: 100px; } /* Slightly smaller images for physical print */
+                body { background-color: white; margin: 0; }
             }
+            table { width: 100%; border-collapse: collapse; background-color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+            th, td { border: 1px solid #cbd5e1; padding: 16px; font-size: 18px; line-height: 1.6; vertical-align: middle; word-break: break-word; }
+            th { background-color: #e2e8f0; font-size: 20px; font-weight: bold; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; }
+            tr { page-break-inside: avoid; } /* Important: prevents rows from splitting across PDF pages */
+            .photo-cell { text-align: center; width: 520px; }
+            img { max-width: 500px; max-height: 500px; object-fit: contain; border-radius: 6px; border: 1px solid #cbd5e1; page-break-inside: avoid; background-color: #f8fafc; padding: 4px; }
         </style>
     </head>
     <body>
@@ -581,12 +540,12 @@ function exportToHTML(data, title) {
             const resolvedKey = headerMapping[tKey];
             const val = resolvedKey ? (row[resolvedKey] || '') : '';
             if (tKey.includes('photo') || tKey.includes('map coordinates')) {
-                // Fetching large image for exported file, but CSS constraints keep it responsive
+                // Fetching large image for exported file (1000x1000 bounds)
                 const imgUrl = getDirectImageUrl(val, 'w1000-h1000') || val;
                 if (imgUrl.trim() !== '' && imgUrl.startsWith('http')) {
                     tableHTML += `<td class="photo-cell"><img src="${imgUrl}" /></td>`;
                 } else {
-                    tableHTML += `<td class="photo-cell">No Photo</td>`;
+                    tableHTML += `<td class="photo-cell" style="color: #94a3b8; font-style: italic;">No Photo</td>`;
                 }
             } else {
                 tableHTML += `<td>${val}</td>`;
