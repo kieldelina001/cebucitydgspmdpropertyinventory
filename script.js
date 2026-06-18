@@ -236,11 +236,12 @@ function renderHeaders(headers) {
     });
 }
 
-function getDirectImageUrl(driveLink) {
+// Added an optional size string so export and table view can fetch different image resolutions
+function getDirectImageUrl(driveLink, sizeString = 'w200-h200') {
     if (!driveLink || typeof driveLink !== 'string') return null;
     const match = driveLink.match(/[-\w]{25,}/); 
     if (match) {
-        return `https://drive.google.com/thumbnail?id=${match[0]}&sz=w200-h200`;
+        return `https://drive.google.com/thumbnail?id=${match[0]}&sz=${sizeString}`;
     }
     return null;
 }
@@ -261,7 +262,8 @@ function renderTable(data) {
             if (tKey.includes('photo') || tKey.includes('map coordinates')) {
                 const url = resolvedKey ? (row[resolvedKey] || '') : '';
                 if (url.trim() !== '') {
-                    const imgUrl = getDirectImageUrl(url) || url;
+                    // Get small thumbnails for fast UI rendering
+                    const imgUrl = getDirectImageUrl(url, 'w200-h200') || url;
                     td.innerHTML = `<a href="${url}" target="_blank"><img src="${imgUrl}" alt="Preview" style="height:50px; max-width:80px; object-fit:cover; border:1px solid #ccc; border-radius:4px;"></a>`;
                 } else {
                     td.textContent = 'No Photo';
@@ -511,12 +513,16 @@ function exportToHTML(data, title) {
             .header { text-align: center; margin-bottom: 30px; }
             .header h1 { color: #1e293b; margin: 0; text-transform: uppercase; font-size: 28px; }
             .print-btn { display: block; margin: 0 auto 30px; padding: 12px 24px; font-size: 16px; font-weight: bold; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
-            @media print { .print-btn { display: none; } }
+            @media print { 
+                .print-btn { display: none; } 
+                body { background-color: white; margin: 0; }
+            }
             table { width: 100%; border-collapse: collapse; background-color: white; }
-            th, td { border: 1px solid #cbd5e1; padding: 12px; font-size: 13px; }
+            th, td { border: 1px solid #cbd5e1; padding: 12px; font-size: 13px; vertical-align: middle; }
             th { background-color: #e2e8f0; }
-            .photo-cell { text-align: center; width: 300px; }
-            img { max-width: 300px; max-height: 300px; object-fit: contain; border-radius: 4px; border: 1px solid #e2e8f0; }
+            tr { page-break-inside: avoid; } /* Important: prevents rows from splitting across PDF pages */
+            .photo-cell { text-align: center; width: 500px; }
+            img { max-width: 500px; max-height: 500px; object-fit: contain; border-radius: 4px; border: 1px solid #e2e8f0; page-break-inside: avoid; }
         </style>
     </head>
     <body>
@@ -533,7 +539,8 @@ function exportToHTML(data, title) {
             const resolvedKey = headerMapping[tKey];
             const val = resolvedKey ? (row[resolvedKey] || '') : '';
             if (tKey.includes('photo') || tKey.includes('map coordinates')) {
-                const imgUrl = getDirectImageUrl(val) || val;
+                // Fetching large image for exported file (1000x1000 bounds)
+                const imgUrl = getDirectImageUrl(val, 'w1000-h1000') || val;
                 if (imgUrl.trim() !== '' && imgUrl.startsWith('http')) {
                     tableHTML += `<td class="photo-cell"><img src="${imgUrl}" /></td>`;
                 } else {
