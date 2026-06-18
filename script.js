@@ -34,7 +34,7 @@ const countNotFound = document.getElementById('countNotFound');
 const countVerification = document.getElementById('countVerification');
 const countWithPhotos = document.getElementById('countWithPhotos');
 const countBuilding = document.getElementById('countBuilding');
-const countAssetMod = document.getElementById('countAssetMod'); // NEW ASSET MOD ELEMENT
+const countAssetMod = document.getElementById('countAssetMod'); 
 const countFlood = document.getElementById('countFlood');
 const countHospital = document.getElementById('countHospital');
 const countLand = document.getElementById('countLand');
@@ -109,6 +109,16 @@ if (!customNameModal) {
         alignItems: 'center', zIndex: '99999'
     });
     document.body.appendChild(customNameModal);
+}
+
+// Helper to prevent text with symbols like < or > from breaking the HTML export
+function escapeHTML(str) {
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -236,7 +246,6 @@ function renderHeaders(headers) {
     });
 }
 
-// Added an optional size string so export and table view can fetch different image resolutions
 function getDirectImageUrl(driveLink, sizeString = 'w200-h200') {
     if (!driveLink || typeof driveLink !== 'string') return null;
     const match = driveLink.match(/[-\w]{25,}/); 
@@ -311,7 +320,6 @@ function calculateStaticDashboardTotals(items) {
         
         if(photoVal1 !== '' || photoVal2 !== '' || photoVal3 !== '') photoCount++;
         
-        // UPDATED LOGIC TO INCLUDE ASSET MODIFICATIONS
         if (typeVal.includes('school') || typeVal.includes('school buildings')) {
             typeCounts.school++;
         } else if (typeVal.includes('asset modifications') || typeVal.includes('asset mod')) {
@@ -349,7 +357,7 @@ function calculateStaticDashboardTotals(items) {
     if(countWithPhotos) countWithPhotos.textContent = photoCount;
     
     if(countBuilding) countBuilding.textContent = typeCounts.building;
-    if(countAssetMod) countAssetMod.textContent = typeCounts.assetMod; // POPULATE NEW ASSET MOD UI
+    if(countAssetMod) countAssetMod.textContent = typeCounts.assetMod; 
     if(countFlood) countFlood.textContent = typeCounts.flood;
     if(countHospital) countHospital.textContent = typeCounts.hospital;
     if(countLand) countLand.textContent = typeCounts.land;
@@ -456,8 +464,6 @@ function setupSystemEventHandlers() {
 
     if(modalCloseBtn) {
         modalCloseBtn.addEventListener('click', () => {
-            // Hide modal and trigger a background data reload to fetch new uploaded pictures
-            // Since isAppInitialized is true, executeSearch() will run automatically and retain active filters.
             if(editModal) editModal.style.display = 'none';
             loadInventoryFromGoogleSheets();
         });
@@ -499,7 +505,7 @@ function exportToCSV(data, filename) {
     document.body.removeChild(link);
 }
 
-// EXPORT TO HTML (Visual) - MODIFIED FOR BALANCED LARGER FONT SCALE
+// EXPORT TO HTML (Visual) - MODIFIED FOR BALANCED LARGER FONT SCALE & SCROLLING
 function exportToHTML(data, title) {
     if(data.length === 0) { alert("No data available to export."); return; }
     
@@ -514,24 +520,42 @@ function exportToHTML(data, title) {
             .header h1 { color: #1e293b; margin: 0; text-transform: uppercase; font-size: 34px; letter-spacing: 0.5px; }
             .header p { font-size: 18px; color: #64748b; margin-top: 8px; }
             .print-btn { display: block; margin: 0 auto 40px; padding: 14px 28px; font-size: 18px; font-weight: bold; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+            
+            /* Layout fixes: Wrap the table so it can scroll horizontally without squishing */
+            .table-wrapper { width: 100%; overflow-x: auto; padding-bottom: 20px; }
+            table { width: 100%; min-width: 2500px; border-collapse: collapse; background-color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+            th, td { border: 1px solid #cbd5e1; padding: 16px; font-size: 18px; line-height: 1.6; vertical-align: middle; word-wrap: break-word; }
+            th { background-color: #e2e8f0; font-size: 20px; font-weight: bold; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; }
+            tr { page-break-inside: avoid; }
+            
+            /* Ensure text columns have breathing room */
+            .text-cell { min-width: 200px; }
+            
+            .photo-cell { text-align: center; min-width: 450px; width: 450px; }
+            img { width: 100%; max-width: 450px; max-height: 450px; object-fit: contain; border-radius: 6px; border: 1px solid #cbd5e1; page-break-inside: avoid; background-color: #f8fafc; padding: 4px; box-sizing: border-box; }
+            
+            /* Print scaling */
             @media print { 
+                @page { size: landscape; margin: 10mm; }
                 .print-btn { display: none; } 
                 body { background-color: white; margin: 0; }
+                .table-wrapper { overflow-x: visible; padding-bottom: 0; }
+                table { min-width: 100%; }
+                th, td { font-size: 12px; padding: 8px; }
+                th { font-size: 14px; }
+                .text-cell { min-width: auto; }
+                .photo-cell { min-width: 200px; width: 200px; }
+                img { max-width: 200px; max-height: 200px; }
             }
-            table { width: 100%; border-collapse: collapse; background-color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-            th, td { border: 1px solid #cbd5e1; padding: 16px; font-size: 18px; line-height: 1.6; vertical-align: middle; word-break: break-word; }
-            th { background-color: #e2e8f0; font-size: 20px; font-weight: bold; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; }
-            tr { page-break-inside: avoid; } /* Important: prevents rows from splitting across PDF pages */
-            .photo-cell { text-align: center; width: 520px; }
-            img { max-width: 500px; max-height: 500px; object-fit: contain; border-radius: 6px; border: 1px solid #cbd5e1; page-break-inside: avoid; background-color: #f8fafc; padding: 4px; }
         </style>
     </head>
     <body>
         <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
-        <div class="header"><h1>${title}</h1><p>Generated on ${new Date().toLocaleDateString()}</p></div>
-        <table><thead><tr>`;
+        <div class="header"><h1>${escapeHTML(title)}</h1><p>Generated on ${new Date().toLocaleDateString()}</p></div>
+        <div class="table-wrapper">
+            <table><thead><tr>`;
     
-    displayHeaders.forEach(h => { tableHTML += `<th>${h}</th>`; });
+    displayHeaders.forEach(h => { tableHTML += `<th>${escapeHTML(h)}</th>`; });
     tableHTML += `</tr></thead><tbody>`;
     
     data.forEach(row => {
@@ -540,20 +564,19 @@ function exportToHTML(data, title) {
             const resolvedKey = headerMapping[tKey];
             const val = resolvedKey ? (row[resolvedKey] || '') : '';
             if (tKey.includes('photo') || tKey.includes('map coordinates')) {
-                // Fetching large image for exported file (1000x1000 bounds)
                 const imgUrl = getDirectImageUrl(val, 'w1000-h1000') || val;
-                if (imgUrl.trim() !== '' && imgUrl.startsWith('http')) {
-                    tableHTML += `<td class="photo-cell"><img src="${imgUrl}" /></td>`;
+                if (imgUrl && imgUrl.trim() !== '' && imgUrl.startsWith('http')) {
+                    tableHTML += `<td class="photo-cell"><img src="${escapeHTML(imgUrl)}" /></td>`;
                 } else {
                     tableHTML += `<td class="photo-cell" style="color: #94a3b8; font-style: italic;">No Photo</td>`;
                 }
             } else {
-                tableHTML += `<td>${val}</td>`;
+                tableHTML += `<td class="text-cell">${escapeHTML(val)}</td>`;
             }
         });
         tableHTML += `</tr>`;
     });
-    tableHTML += `</tbody></table></body></html>`;
+    tableHTML += `</tbody></table></div></body></html>`;
 
     const blob = new Blob([tableHTML], { type: 'text/html;charset=utf-8' });
     const link = document.createElement('a');
