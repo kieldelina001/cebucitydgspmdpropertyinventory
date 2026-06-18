@@ -392,7 +392,7 @@ function openPopUp(rowId) {
             }
         } else if(tKey === 'description') {
             fieldEl = document.createElement('textarea');
-            fieldEl.rows = 3; fieldEl.value = currentVal;
+            fieldEl.rows = 4; fieldEl.value = currentVal;
         } else {
             fieldEl = document.createElement('input');
             fieldEl.type = 'text'; fieldEl.value = currentVal;
