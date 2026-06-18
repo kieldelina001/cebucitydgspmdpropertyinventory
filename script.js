@@ -13,7 +13,7 @@ let rawHeaders = [];
 let headerMapping = {}; 
 let activeEditIndex = null; 
 let parsedUniqueRemarks = []; 
-let isAppInitialized = false; // Flag to track startup state
+let isAppInitialized = false; 
 
 const searchInput = document.getElementById('searchInput');
 const searchButton = document.getElementById('searchButton');
@@ -111,7 +111,6 @@ if (!customNameModal) {
     document.body.appendChild(customNameModal);
 }
 
-// Helper to prevent text with symbols like < or > from breaking the HTML export
 function escapeHTML(str) {
     return String(str)
         .replace(/&/g, "&amp;")
@@ -194,7 +193,6 @@ function initializeSystemUI() {
     renderHeaders(displayHeaders);
     calculateStaticDashboardTotals(inventoryData);
     
-    // Check if this is the very first time the app is loading
     if (!isAppInitialized) {
         currentFilteredData = []; 
         if(tableBody) {
@@ -205,7 +203,6 @@ function initializeSystemUI() {
         }
         isAppInitialized = true;
     } else {
-        // If data is reloading (e.g., after saving a change or closing modal), re-apply the current search filters
         executeSearch();
     }
 }
@@ -271,7 +268,6 @@ function renderTable(data) {
             if (tKey.includes('photo') || tKey.includes('map coordinates')) {
                 const url = resolvedKey ? (row[resolvedKey] || '') : '';
                 if (url.trim() !== '') {
-                    // Get small thumbnails for fast UI rendering
                     const imgUrl = getDirectImageUrl(url, 'w200-h200') || url;
                     td.innerHTML = `<a href="${url}" target="_blank"><img src="${imgUrl}" alt="Preview" style="height:50px; max-width:80px; object-fit:cover; border:1px solid #ccc; border-radius:4px;"></a>`;
                 } else {
@@ -469,7 +465,6 @@ function setupSystemEventHandlers() {
         });
     }
 
-    // EXPORT HANDLERS
     if(exportButton) exportButton.addEventListener('click', () => exportToCSV(inventoryData, "Real_Estate_Inventory_Full"));
     if(exportFilteredButton) exportFilteredButton.addEventListener('click', () => exportToHTML(currentFilteredData, "Real_Estate_Inventory_Filtered"));
 
@@ -480,7 +475,6 @@ function setupSystemEventHandlers() {
     if(photoFilter) photoFilter.addEventListener('change', executeSearch);
 }
 
-// EXPORT TO EXCEL/CSV
 function exportToCSV(data, filename) {
     if(data.length === 0) { alert("No data available to export."); return; }
     
@@ -505,7 +499,7 @@ function exportToCSV(data, filename) {
     document.body.removeChild(link);
 }
 
-// EXPORT TO HTML (Visual) - MODIFIED FOR FORCED HORIZONTAL SCROLLBAR
+// EXPORT TO HTML (Visual) - FORCED SCROLLBAR WIDTH
 function exportToHTML(data, title) {
     if(data.length === 0) { alert("No data available to export."); return; }
     
@@ -521,51 +515,32 @@ function exportToHTML(data, title) {
             .header p { font-size: 18px; color: #64748b; margin-top: 8px; }
             .print-btn { display: block; margin: 0 auto 40px; padding: 14px 28px; font-size: 18px; font-weight: bold; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
             
-            /* FORCED SCROLLBAR STYLING */
+            /* FORCED SCROLLBAR */
             .table-wrapper { 
                 width: 100%; 
-                overflow-x: auto; 
+                overflow-x: scroll; 
                 padding-bottom: 20px; 
+                display: block;
                 -webkit-overflow-scrolling: touch;
             }
-            .table-wrapper::-webkit-scrollbar {
-                height: 14px; /* Makes the scrollbar nice and thick */
-            }
-            .table-wrapper::-webkit-scrollbar-track {
-                background: #e2e8f0; 
-                border-radius: 8px;
-            }
-            .table-wrapper::-webkit-scrollbar-thumb {
-                background: #64748b; 
-                border-radius: 8px;
-                border: 2px solid #e2e8f0;
-            }
-            .table-wrapper::-webkit-scrollbar-thumb:hover {
-                background: #475569; 
-            }
+            .table-wrapper::-webkit-scrollbar { height: 16px; background: #e2e8f0; }
+            .table-wrapper::-webkit-scrollbar-thumb { background: #64748b; border-radius: 8px; border: 3px solid #e2e8f0; }
 
-            table { width: 100%; min-width: 2500px; border-collapse: collapse; background-color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+            /* TABLE WIDTH FORCED TO 2500px to trigger scroll */
+            table { width: 2500px; table-layout: fixed; border-collapse: collapse; background-color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
             th, td { border: 1px solid #cbd5e1; padding: 16px; font-size: 18px; line-height: 1.6; vertical-align: middle; word-wrap: break-word; }
             th { background-color: #e2e8f0; font-size: 20px; font-weight: bold; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; }
-            tr { page-break-inside: avoid; }
             
-            .text-cell { min-width: 200px; }
+            .text-cell { width: 200px; }
+            .photo-cell { width: 450px; text-align: center; }
+            img { width: 100%; max-width: 450px; max-height: 450px; object-fit: contain; border-radius: 6px; border: 1px solid #cbd5e1; background-color: #f8fafc; padding: 4px; box-sizing: border-box; }
             
-            .photo-cell { text-align: center; min-width: 450px; width: 450px; }
-            img { width: 100%; max-width: 450px; max-height: 450px; object-fit: contain; border-radius: 6px; border: 1px solid #cbd5e1; page-break-inside: avoid; background-color: #f8fafc; padding: 4px; box-sizing: border-box; }
-            
-            /* Print scaling */
             @media print { 
                 @page { size: landscape; margin: 10mm; }
                 .print-btn { display: none; } 
                 body { background-color: white; margin: 0; }
-                .table-wrapper { overflow-x: visible; padding-bottom: 0; }
-                table { min-width: 100%; }
-                th, td { font-size: 12px; padding: 8px; }
-                th { font-size: 14px; }
-                .text-cell { min-width: auto; }
-                .photo-cell { min-width: 200px; width: 200px; }
-                img { max-width: 200px; max-height: 200px; }
+                .table-wrapper { overflow-x: visible; }
+                table { width: 100%; table-layout: auto; }
             }
         </style>
     </head>
