@@ -509,49 +509,20 @@ function exportToHTML(data, title) {
         <meta charset="utf-8">
         <title>${title}</title>
         <style>
-            @page { size: portrait; margin: 0.5in; }
             body { font-family: Arial, sans-serif; margin: 20px; color: #333; background-color: #f8fafc; }
             .header { text-align: center; margin-bottom: 30px; }
             .header h1 { color: #1e293b; margin: 0; text-transform: uppercase; font-size: 28px; }
             .print-btn { display: block; margin: 0 auto 30px; padding: 12px 24px; font-size: 16px; font-weight: bold; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
-            
-            table { 
-                width: 100%; 
-                border-collapse: collapse; 
-                background-color: white;
-                table-layout: fixed; /* Forces columns to fit page width */
-            }
-            th, td { 
-                border: 1px solid #cbd5e1; 
-                padding: 6px; 
-                font-size: 10px; /* Reduced for better fit on portrait */
-                vertical-align: middle; 
-                word-wrap: break-word; /* Wraps text naturally */
-                overflow-wrap: break-word;
-            }
-            th { background-color: #e2e8f0; }
-            
-            /* Give Description column a bit more breathing room */
-            td:nth-child(2), th:nth-child(2) { width: 25%; }
-            
-            tr { page-break-inside: avoid; }
-            
-            .photo-cell { text-align: center; }
-            img { 
-                max-width: 100%; /* Adapts to column width */
-                height: auto; 
-                object-fit: contain; 
-                border-radius: 4px; 
-                border: 1px solid #e2e8f0; 
-                page-break-inside: avoid; 
-                display: block;
-                margin: 0 auto;
-            }
-
             @media print { 
                 .print-btn { display: none; } 
                 body { background-color: white; margin: 0; }
             }
+            table { width: 100%; border-collapse: collapse; background-color: white; }
+            th, td { border: 1px solid #cbd5e1; padding: 12px; font-size: 13px; vertical-align: middle; }
+            th { background-color: #e2e8f0; }
+            tr { page-break-inside: avoid; } /* Important: prevents rows from splitting across PDF pages */
+            .photo-cell { text-align: center; width: 500px; }
+            img { max-width: 500px; max-height: 500px; object-fit: contain; border-radius: 4px; border: 1px solid #e2e8f0; page-break-inside: avoid; }
         </style>
     </head>
     <body>
