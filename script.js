@@ -505,7 +505,7 @@ function exportToCSV(data, filename) {
     document.body.removeChild(link);
 }
 
-// EXPORT TO HTML (Visual) - MODIFIED FOR BALANCED LARGER FONT SCALE & SCROLLING
+// EXPORT TO HTML (Visual) - MODIFIED FOR FORCED HORIZONTAL SCROLLBAR
 function exportToHTML(data, title) {
     if(data.length === 0) { alert("No data available to export."); return; }
     
@@ -521,14 +521,34 @@ function exportToHTML(data, title) {
             .header p { font-size: 18px; color: #64748b; margin-top: 8px; }
             .print-btn { display: block; margin: 0 auto 40px; padding: 14px 28px; font-size: 18px; font-weight: bold; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
             
-            /* Layout fixes: Wrap the table so it can scroll horizontally without squishing */
-            .table-wrapper { width: 100%; overflow-x: auto; padding-bottom: 20px; }
+            /* FORCED SCROLLBAR STYLING */
+            .table-wrapper { 
+                width: 100%; 
+                overflow-x: auto; 
+                padding-bottom: 20px; 
+                -webkit-overflow-scrolling: touch;
+            }
+            .table-wrapper::-webkit-scrollbar {
+                height: 14px; /* Makes the scrollbar nice and thick */
+            }
+            .table-wrapper::-webkit-scrollbar-track {
+                background: #e2e8f0; 
+                border-radius: 8px;
+            }
+            .table-wrapper::-webkit-scrollbar-thumb {
+                background: #64748b; 
+                border-radius: 8px;
+                border: 2px solid #e2e8f0;
+            }
+            .table-wrapper::-webkit-scrollbar-thumb:hover {
+                background: #475569; 
+            }
+
             table { width: 100%; min-width: 2500px; border-collapse: collapse; background-color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
             th, td { border: 1px solid #cbd5e1; padding: 16px; font-size: 18px; line-height: 1.6; vertical-align: middle; word-wrap: break-word; }
             th { background-color: #e2e8f0; font-size: 20px; font-weight: bold; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; }
             tr { page-break-inside: avoid; }
             
-            /* Ensure text columns have breathing room */
             .text-cell { min-width: 200px; }
             
             .photo-cell { text-align: center; min-width: 450px; width: 450px; }
