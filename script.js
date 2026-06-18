@@ -499,7 +499,7 @@ function exportToCSV(data, filename) {
     document.body.removeChild(link);
 }
 
-// EXPORT TO HTML (Visual) - FORCED SCROLLBAR WIDTH
+// EXPORT TO HTML (Visual) - RESPONSIVE FIT
 function exportToHTML(data, title) {
     if(data.length === 0) { alert("No data available to export."); return; }
     
@@ -509,44 +509,32 @@ function exportToHTML(data, title) {
         <meta charset="utf-8">
         <title>${title}</title>
         <style>
-            body { font-family: Arial, sans-serif; margin: 30px; color: #333; background-color: #f8fafc; }
-            .header { text-align: center; margin-bottom: 40px; }
-            .header h1 { color: #1e293b; margin: 0; text-transform: uppercase; font-size: 34px; letter-spacing: 0.5px; }
-            .header p { font-size: 18px; color: #64748b; margin-top: 8px; }
-            .print-btn { display: block; margin: 0 auto 40px; padding: 14px 28px; font-size: 18px; font-weight: bold; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+            body { font-family: Arial, sans-serif; margin: 20px; color: #333; background-color: #f8fafc; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .header h1 { color: #1e293b; margin: 0; font-size: 28px; }
+            .print-btn { display: block; margin: 0 auto 30px; padding: 12px 24px; font-weight: bold; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
             
-            /* FORCED SCROLLBAR */
-            .table-wrapper { 
-                width: 100%; 
-                overflow-x: scroll; 
-                padding-bottom: 20px; 
-                display: block;
-                -webkit-overflow-scrolling: touch;
-            }
-            .table-wrapper::-webkit-scrollbar { height: 16px; background: #e2e8f0; }
-            .table-wrapper::-webkit-scrollbar-thumb { background: #64748b; border-radius: 8px; border: 3px solid #e2e8f0; }
-
-            /* TABLE WIDTH FORCED TO 2500px to trigger scroll */
-            table { width: 2500px; table-layout: fixed; border-collapse: collapse; background-color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-            th, td { border: 1px solid #cbd5e1; padding: 16px; font-size: 18px; line-height: 1.6; vertical-align: middle; word-wrap: break-word; }
-            th { background-color: #e2e8f0; font-size: 20px; font-weight: bold; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; }
+            /* RESPONSIVE TABLE WRAPPER */
+            .table-wrapper { width: 100%; overflow-x: auto; }
             
-            .text-cell { width: 200px; }
-            .photo-cell { width: 450px; text-align: center; }
-            img { width: 100%; max-width: 450px; max-height: 450px; object-fit: contain; border-radius: 6px; border: 1px solid #cbd5e1; background-color: #f8fafc; padding: 4px; box-sizing: border-box; }
+            /* TABLE STYLING - WIDTH: 100% FOR FIT-TO-SCREEN */
+            table { width: 100%; border-collapse: collapse; background-color: white; table-layout: auto; }
+            th, td { border: 1px solid #cbd5e1; padding: 10px; font-size: 14px; text-align: left; }
+            th { background-color: #e2e8f0; font-weight: bold; }
+            
+            /* IMAGE RESPONSIVENESS */
+            .photo-cell { width: 150px; text-align: center; }
+            img { max-width: 100%; height: auto; display: block; margin: 0 auto; border: 1px solid #ddd; border-radius: 4px; }
             
             @media print { 
                 @page { size: landscape; margin: 10mm; }
                 .print-btn { display: none; } 
-                body { background-color: white; margin: 0; }
-                .table-wrapper { overflow-x: visible; }
-                table { width: 100%; table-layout: auto; }
             }
         </style>
     </head>
     <body>
         <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
-        <div class="header"><h1>${escapeHTML(title)}</h1><p>Generated on ${new Date().toLocaleDateString()}</p></div>
+        <div class="header"><h1>${escapeHTML(title)}</h1></div>
         <div class="table-wrapper">
             <table><thead><tr>`;
     
@@ -559,14 +547,14 @@ function exportToHTML(data, title) {
             const resolvedKey = headerMapping[tKey];
             const val = resolvedKey ? (row[resolvedKey] || '') : '';
             if (tKey.includes('photo') || tKey.includes('map coordinates')) {
-                const imgUrl = getDirectImageUrl(val, 'w1000-h1000') || val;
+                const imgUrl = getDirectImageUrl(val, 'w500-h500') || val;
                 if (imgUrl && imgUrl.trim() !== '' && imgUrl.startsWith('http')) {
                     tableHTML += `<td class="photo-cell"><img src="${escapeHTML(imgUrl)}" /></td>`;
                 } else {
-                    tableHTML += `<td class="photo-cell" style="color: #94a3b8; font-style: italic;">No Photo</td>`;
+                    tableHTML += `<td>N/A</td>`;
                 }
             } else {
-                tableHTML += `<td class="text-cell">${escapeHTML(val)}</td>`;
+                tableHTML += `<td>${escapeHTML(val)}</td>`;
             }
         });
         tableHTML += `</tr>`;
