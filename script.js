@@ -13,7 +13,7 @@ let rawHeaders = [];
 let headerMapping = {}; 
 let activeEditIndex = null; 
 let parsedUniqueRemarks = []; 
-let isAppInitialized = false; // Flag to track startup state
+let isAppInitialized = false; 
 
 const searchInput = document.getElementById('searchInput');
 const searchButton = document.getElementById('searchButton');
@@ -109,6 +109,15 @@ if (!customNameModal) {
         alignItems: 'center', zIndex: '99999'
     });
     document.body.appendChild(customNameModal);
+}
+
+function escapeHTML(str) {
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -344,7 +353,7 @@ function calculateStaticDashboardTotals(items) {
     if(countWithPhotos) countWithPhotos.textContent = photoCount;
     
     if(countBuilding) countBuilding.textContent = typeCounts.building;
-    if(countAssetMod) countAssetMod.textContent = typeCounts.assetMod;
+    if(countAssetMod) countAssetMod.textContent = typeCounts.assetMod; 
     if(countFlood) countFlood.textContent = typeCounts.flood;
     if(countHospital) countHospital.textContent = typeCounts.hospital;
     if(countLand) countLand.textContent = typeCounts.land;
@@ -490,7 +499,7 @@ function exportToCSV(data, filename) {
     document.body.removeChild(link);
 }
 
-// EXPORT TO HTML (Visual)
+// EXPORT TO HTML (Visual) - 500PX IMAGE SIZE
 function exportToHTML(data, title) {
     if(data.length === 0) { alert("No data available to export."); return; }
     
@@ -502,26 +511,33 @@ function exportToHTML(data, title) {
         <style>
             body { font-family: Arial, sans-serif; margin: 20px; color: #333; background-color: #f8fafc; }
             .header { text-align: center; margin-bottom: 30px; }
-            .header h1 { color: #1e293b; margin: 0; text-transform: uppercase; font-size: 28px; }
-            .print-btn { display: block; margin: 0 auto 30px; padding: 12px 24px; font-size: 16px; font-weight: bold; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
-            @media print { 
-                .print-btn { display: none; } 
-                body { background-color: white; margin: 0; }
-            }
-            table { width: 100%; border-collapse: collapse; background-color: white; table-layout: fixed; } 
-            th, td { border: 1px solid #cbd5e1; padding: 15px; font-size: 16px; vertical-align: middle; word-wrap: break-word; }
+            .header h1 { color: #1e293b; margin: 0; font-size: 28px; }
+            .print-btn { display: block; margin: 0 auto 30px; padding: 12px 24px; font-weight: bold; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
+            
+            /* FIT-TO-SCREEN TABLE WRAPPER */
+            .table-wrapper { width: 100%; overflow-x: auto; }
+            
+            table { width: 100%; border-collapse: collapse; background-color: white; table-layout: auto; }
+            th, td { border: 1px solid #cbd5e1; padding: 10px; font-size: 14px; text-align: left; }
             th { background-color: #e2e8f0; font-weight: bold; }
-            tr { page-break-inside: avoid; }
-            .photo-cell { text-align: center; width: 250px; }
-            img { max-width: 100%; height: auto; object-fit: contain; border-radius: 4px; border: 1px solid #e2e8f0; page-break-inside: avoid; }
+            
+            /* PICTURE SIZE: 500px */
+            .photo-cell { width: 500px; text-align: center; }
+            img { width: 500px; height: auto; display: block; margin: 0 auto; border: 1px solid #ccc; border-radius: 4px; }
+            
+            @media print { 
+                @page { size: landscape; margin: 10mm; }
+                .print-btn { display: none; } 
+            }
         </style>
     </head>
     <body>
         <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
-        <div class="header"><h1>${title}</h1><p>Generated on ${new Date().toLocaleDateString()}</p></div>
-        <table><thead><tr>`;
+        <div class="header"><h1>${escapeHTML(title)}</h1></div>
+        <div class="table-wrapper">
+            <table><thead><tr>`;
     
-    displayHeaders.forEach(h => { tableHTML += `<th>${h}</th>`; });
+    displayHeaders.forEach(h => { tableHTML += `<th>${escapeHTML(h)}</th>`; });
     tableHTML += `</tr></thead><tbody>`;
     
     data.forEach(row => {
@@ -530,19 +546,19 @@ function exportToHTML(data, title) {
             const resolvedKey = headerMapping[tKey];
             const val = resolvedKey ? (row[resolvedKey] || '') : '';
             if (tKey.includes('photo') || tKey.includes('map coordinates')) {
-                const imgUrl = getDirectImageUrl(val, 'w1000-h1000') || val;
-                if (imgUrl.trim() !== '' && imgUrl.startsWith('http')) {
-                    tableHTML += `<td class="photo-cell"><img src="${imgUrl}" /></td>`;
+                const imgUrl = getDirectImageUrl(val, 'w500-h500') || val;
+                if (imgUrl && imgUrl.trim() !== '' && imgUrl.startsWith('http')) {
+                    tableHTML += `<td class="photo-cell"><img src="${escapeHTML(imgUrl)}" /></td>`;
                 } else {
-                    tableHTML += `<td class="photo-cell">No Photo</td>`;
+                    tableHTML += `<td>N/A</td>`;
                 }
             } else {
-                tableHTML += `<td>${val}</td>`;
+                tableHTML += `<td>${escapeHTML(val)}</td>`;
             }
         });
         tableHTML += `</tr>`;
     });
-    tableHTML += `</tbody></table></body></html>`;
+    tableHTML += `</tbody></table></div></body></html>`;
 
     const blob = new Blob([tableHTML], { type: 'text/html;charset=utf-8' });
     const link = document.createElement('a');
