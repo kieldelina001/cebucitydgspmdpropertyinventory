@@ -509,25 +509,25 @@ function exportToHTML(data, title) {
             .print-btn { display: block; margin: 0 auto 20px; padding: 10px 20px; font-size: 14px; font-weight: bold; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
             
             table { width: 100%; border-collapse: collapse; background-color: white; table-layout: fixed; word-wrap: break-word; }
-            th, td { border: 1px solid #cbd5e1; padding: 6px; font-size: 11px; vertical-align: top; overflow-wrap: break-word; }
-            th { background-color: #e2e8f0; font-size: 12px; font-weight: bold; }
+            th, td { border: 1px solid #cbd5e1; padding: 5px; font-size: 14px; vertical-align: top; overflow-wrap: break-word; }
+            th { background-color: #e2e8f0; font-size: 15px; font-weight: bold; }
             tr { page-break-inside: avoid; } 
             
             .photo-cell { text-align: center; vertical-align: middle; }
             img { max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 4px; border: 1px solid #e2e8f0; page-break-inside: avoid; }
             
-            /* Column Width Constraints to Prioritize Images */
-            th:nth-child(1), td:nth-child(1) { width: 5%; }  /* Article */
-            th:nth-child(2), td:nth-child(2) { width: 16%; } /* Description */
-            th:nth-child(3), td:nth-child(3) { width: 6%; }  /* Acquisition Date */
+            /* Column Width Constraints to accommodate 14px font and prioritize Images */
+            th:nth-child(1), td:nth-child(1) { width: 6%; }  /* Article */
+            th:nth-child(2), td:nth-child(2) { width: 18%; } /* Description */
+            th:nth-child(3), td:nth-child(3) { width: 8%; }  /* Acquisition Date */
             th:nth-child(4), td:nth-child(4) { width: 6%; }  /* Unit Value */
-            th:nth-child(5), td:nth-child(5) { width: 6%; }  /* Remarks */
-            th:nth-child(6), td:nth-child(6) { width: 6%; }  /* Type */
-            th:nth-child(7), td:nth-child(7) { width: 16%; } /* Photo 1 */
-            th:nth-child(8), td:nth-child(8) { width: 16%; } /* Photo 2 */
-            th:nth-child(9), td:nth-child(9) { width: 16%; } /* Map Coordinates */
-            th:nth-child(10), td:nth-child(10) { width: 4%; } /* UPDATED BY */
-            th:nth-child(11), td:nth-child(11) { width: 3%; } /* LAST UPDATE */
+            th:nth-child(5), td:nth-child(5) { width: 7%; }  /* Remarks */
+            th:nth-child(6), td:nth-child(6) { width: 8%; }  /* Type */
+            th:nth-child(7), td:nth-child(7) { width: 13%; } /* Photo 1 */
+            th:nth-child(8), td:nth-child(8) { width: 13%; } /* Photo 2 */
+            th:nth-child(9), td:nth-child(9) { width: 13%; } /* Map Coordinates */
+            th:nth-child(10), td:nth-child(10) { width: 5%; } /* UPDATED BY */
+            th:nth-child(11), td:nth-child(11) { width: 5%; } /* LAST UPDATE */
             
             @media print { 
                 @page { size: landscape; margin: 5mm; }
