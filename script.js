@@ -3,8 +3,9 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrqoIQ1
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
 const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
 
-const displayHeaders = ["Article", "Description", "Acquisition Date", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Coordinates", "UPDATED BY", "LAST UPDATE"];
-const targetHeadersLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "updated by", "last update"];
+// Added Tax Declaration to headers
+const displayHeaders = ["Article", "Description", "Acquisition Date", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Coordinates", "Tax Declaration", "UPDATED BY", "LAST UPDATE"];
+const targetHeadersLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "updated by", "last update"];
 const popupOrderLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type"]; 
 
 let inventoryData = []; 
@@ -33,7 +34,8 @@ const countExisting = document.getElementById('countExisting');
 const countNotFound = document.getElementById('countNotFound');
 const countVerification = document.getElementById('countVerification');
 const countWithPhotos = document.getElementById('countWithPhotos');
-const countTaxDeclaration = document.getElementById('countTaxDeclaration');
+const countTaxDec = document.getElementById('countTaxDec'); // New Tax Declaration Counter
+
 const countBuilding = document.getElementById('countBuilding');
 const countAssetMod = document.getElementById('countAssetMod'); 
 const countFlood = document.getElementById('countFlood');
@@ -257,7 +259,8 @@ function renderTable(data) {
             const td = document.createElement('td');
             const resolvedKey = headerMapping[tKey];
             
-            if (tKey.includes('photo') || tKey.includes('map coordinates')) {
+            // Added tax declaration to render logic
+            if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration')) {
                 const url = resolvedKey ? (row[resolvedKey] || '') : '';
                 if (url.trim() !== '') {
                     const imgUrl = getDirectImageUrl(url, 'w200-h200') || url;
@@ -285,6 +288,7 @@ function calculateStaticDashboardTotals(items) {
     const pKey1 = headerMapping['photo 1'];
     const pKey2 = headerMapping['photo 2'];
     const pKey3 = headerMapping['map coordinates'];
+    const pKey4 = headerMapping['tax declaration']; // Added mapping
     
     let activeCount = 0, missingCount = 0, pendingCount = 0, photoCount = 0, taxDecCount = 0;
     
@@ -301,13 +305,15 @@ function calculateStaticDashboardTotals(items) {
         const photoVal1 = pKey1 ? String(row[pKey1] || '').trim() : '';
         const photoVal2 = pKey2 ? String(row[pKey2] || '').trim() : '';
         const photoVal3 = pKey3 ? String(row[pKey3] || '').trim() : '';
+        const photoVal4 = pKey4 ? String(row[pKey4] || '').trim() : ''; // Get tax dec cell
         
         if(remVal.includes('existing') || typeVal.includes('existing')) activeCount++;
         if(remVal.includes('not found')) missingCount++;
         if(remVal.includes('for verification') || remVal.includes('verification')) pendingCount++;
-        if(remVal.includes('tax declaration') || remVal.includes('tax dec') || remVal.includes('td')) taxDecCount++;
         
-        if(photoVal1 !== '' || photoVal2 !== '' || photoVal3 !== '') photoCount++;
+        // Dashboard Counter updates
+        if(photoVal4 !== '') taxDecCount++; 
+        if(photoVal1 !== '' || photoVal2 !== '' || photoVal3 !== '' || photoVal4 !== '') photoCount++;
         
         if (typeVal.includes('school') || typeVal.includes('school buildings')) {
             typeCounts.school++;
@@ -344,7 +350,7 @@ function calculateStaticDashboardTotals(items) {
     if(countNotFound) countNotFound.textContent = missingCount;
     if(countVerification) countVerification.textContent = pendingCount;
     if(countWithPhotos) countWithPhotos.textContent = photoCount;
-    if(countTaxDeclaration) countTaxDeclaration.textContent = taxDecCount;
+    if(countTaxDec) countTaxDec.textContent = taxDecCount; // Setting the dashboard total
     
     if(countBuilding) countBuilding.textContent = typeCounts.building;
     if(countAssetMod) countAssetMod.textContent = typeCounts.assetMod; 
@@ -496,6 +502,7 @@ function exportToCSV(data, filename) {
 function exportToHTML(data, title) {
     if(data.length === 0) { alert("No data available to export."); return; }
     
+    // Updated Table column styling for 12 columns
     let tableHTML = `<!DOCTYPE html>
     <html lang="en">
     <head>
@@ -515,17 +522,18 @@ function exportToHTML(data, title) {
             .photo-cell { text-align: center; vertical-align: middle; }
             img { max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 4px; border: 1px solid #e2e8f0; page-break-inside: avoid; }
             
-            th:nth-child(1), td:nth-child(1) { width: 6%; }  /* Article */
-            th:nth-child(2), td:nth-child(2) { width: 18%; } /* Description */
+            th:nth-child(1), td:nth-child(1) { width: 5%; }  /* Article */
+            th:nth-child(2), td:nth-child(2) { width: 15%; } /* Description */
             th:nth-child(3), td:nth-child(3) { width: 4%; }  /* Acquisition Date */
             th:nth-child(4), td:nth-child(4) { width: 4%; }  /* Unit Value */
             th:nth-child(5), td:nth-child(5) { width: 6%; }  /* Remarks */
             th:nth-child(6), td:nth-child(6) { width: 7%; }  /* Type */
-            th:nth-child(7), td:nth-child(7) { width: 16%; } /* Photo 1 */
-            th:nth-child(8), td:nth-child(8) { width: 17%; } /* Photo 2 */
-            th:nth-child(9), td:nth-child(9) { width: 16%; } /* Map Coordinates */
-            th:nth-child(10), td:nth-child(10) { width: 3%; } /* UPDATED BY */
-            th:nth-child(11), td:nth-child(11) { width: 3%; } /* LAST UPDATE */
+            th:nth-child(7), td:nth-child(7) { width: 12%; } /* Photo 1 */
+            th:nth-child(8), td:nth-child(8) { width: 12%; } /* Photo 2 */
+            th:nth-child(9), td:nth-child(9) { width: 12%; } /* Map Coordinates */
+            th:nth-child(10), td:nth-child(10) { width: 12%; } /* Tax Declaration */
+            th:nth-child(11), td:nth-child(11) { width: 5.5%; } /* UPDATED BY */
+            th:nth-child(12), td:nth-child(12) { width: 5.5%; } /* LAST UPDATE */
             
             @media print { 
                 @page { size: landscape; margin: 5mm; }
@@ -547,7 +555,7 @@ function exportToHTML(data, title) {
         targetHeadersLowercase.forEach(tKey => {
             const resolvedKey = headerMapping[tKey];
             const val = resolvedKey ? (row[resolvedKey] || '') : '';
-            if (tKey.includes('photo') || tKey.includes('map coordinates')) {
+            if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration')) {
                 const imgUrl = getDirectImageUrl(val, 'w1000-h1000') || val;
                 if (imgUrl.trim() !== '' && imgUrl.startsWith('http')) {
                     tableHTML += `<td class="photo-cell"><img src="${imgUrl}" /></td>`;
@@ -618,6 +626,7 @@ function executeSearch() {
     const pKey1 = headerMapping['photo 1'];
     const pKey2 = headerMapping['photo 2'];
     const pKey3 = headerMapping['map coordinates'];
+    const pKey4 = headerMapping['tax declaration']; // Added new map key
     
     let filtered = inventoryData;
 
@@ -626,9 +635,11 @@ function executeSearch() {
     
     if(photoSel !== "ALL") {
         filtered = filtered.filter(row => {
+            // Check all 4 photo categories
             const hasPhoto = (pKey1 && String(row[pKey1] || '').trim() !== '') ||
                              (pKey2 && String(row[pKey2] || '').trim() !== '') ||
-                             (pKey3 && String(row[pKey3] || '').trim() !== '');
+                             (pKey3 && String(row[pKey3] || '').trim() !== '') ||
+                             (pKey4 && String(row[pKey4] || '').trim() !== '');
             return photoSel === "WITH_PHOTO" ? hasPhoto : !hasPhoto;
         });
     }
