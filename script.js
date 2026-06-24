@@ -3,8 +3,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrqoIQ1
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
 const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
 
-const displayHeaders = ["Article", "Description", "Acquisition Date", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Coordinates", "UPDATED BY", "LAST UPDATE"];
-const targetHeadersLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "updated by", "last update"];
+const displayHeaders = ["Article", "Description", "Acquisition Date", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Coordinates", "Tax Declaration", "UPDATED BY", "LAST UPDATE"];
+const targetHeadersLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "updated by", "last update"];
 const popupOrderLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type"]; 
 
 let inventoryData = []; 
@@ -33,6 +33,7 @@ const countExisting = document.getElementById('countExisting');
 const countNotFound = document.getElementById('countNotFound');
 const countVerification = document.getElementById('countVerification');
 const countWithPhotos = document.getElementById('countWithPhotos');
+const countTaxDec = document.getElementById('countTaxDec');
 const countBuilding = document.getElementById('countBuilding');
 const countAssetMod = document.getElementById('countAssetMod'); 
 const countFlood = document.getElementById('countFlood');
@@ -256,13 +257,13 @@ function renderTable(data) {
             const td = document.createElement('td');
             const resolvedKey = headerMapping[tKey];
             
-            if (tKey.includes('photo') || tKey.includes('map coordinates')) {
+            if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration')) {
                 const url = resolvedKey ? (row[resolvedKey] || '') : '';
                 if (url.trim() !== '') {
                     const imgUrl = getDirectImageUrl(url, 'w200-h200') || url;
                     td.innerHTML = `<a href="${url}" target="_blank"><img src="${imgUrl}" alt="Preview" style="height:50px; max-width:80px; object-fit:cover; border:1px solid #ccc; border-radius:4px;"></a>`;
                 } else {
-                    td.textContent = 'No Photo';
+                    td.textContent = tKey.includes('tax declaration') ? 'No Document' : 'No Photo';
                 }
             } else {
                 td.textContent = resolvedKey ? (row[resolvedKey] || '') : '';
@@ -284,8 +285,9 @@ function calculateStaticDashboardTotals(items) {
     const pKey1 = headerMapping['photo 1'];
     const pKey2 = headerMapping['photo 2'];
     const pKey3 = headerMapping['map coordinates'];
+    const pKey4 = headerMapping['tax declaration'];
     
-    let activeCount = 0, missingCount = 0, pendingCount = 0, photoCount = 0;
+    let activeCount = 0, missingCount = 0, pendingCount = 0, photoCount = 0, taxDecCount = 0;
     
     let typeCounts = { 
         building: 0, assetMod: 0, flood: 0, hospital: 0, land: 0, market: 0, 
@@ -300,12 +302,14 @@ function calculateStaticDashboardTotals(items) {
         const photoVal1 = pKey1 ? String(row[pKey1] || '').trim() : '';
         const photoVal2 = pKey2 ? String(row[pKey2] || '').trim() : '';
         const photoVal3 = pKey3 ? String(row[pKey3] || '').trim() : '';
+        const photoVal4 = pKey4 ? String(row[pKey4] || '').trim() : '';
         
         if(remVal.includes('existing') || typeVal.includes('existing')) activeCount++;
         if(remVal.includes('not found')) missingCount++;
         if(remVal.includes('for verification') || remVal.includes('verification')) pendingCount++;
         
         if(photoVal1 !== '' || photoVal2 !== '' || photoVal3 !== '') photoCount++;
+        if(photoVal4 !== '') taxDecCount++;
         
         if (typeVal.includes('school') || typeVal.includes('school buildings')) {
             typeCounts.school++;
@@ -342,6 +346,7 @@ function calculateStaticDashboardTotals(items) {
     if(countNotFound) countNotFound.textContent = missingCount;
     if(countVerification) countVerification.textContent = pendingCount;
     if(countWithPhotos) countWithPhotos.textContent = photoCount;
+    if(countTaxDec) countTaxDec.textContent = taxDecCount;
     
     if(countBuilding) countBuilding.textContent = typeCounts.building;
     if(countAssetMod) countAssetMod.textContent = typeCounts.assetMod; 
@@ -395,7 +400,7 @@ function openPopUp(rowId) {
             fieldEl.type = 'text'; fieldEl.value = currentVal;
         }
         
-        fieldEl.id = 'modal-input-' + tKey.replace('/', '');
+        fieldEl.id = 'modal-input-' + tKey.replace('/', '').replace(' ', '');
         fieldEl.disabled = true;
         
         const label = document.createElement('label');
@@ -512,17 +517,18 @@ function exportToHTML(data, title) {
             .photo-cell { text-align: center; vertical-align: middle; }
             img { max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 4px; border: 1px solid #e2e8f0; page-break-inside: avoid; }
             
-            th:nth-child(1), td:nth-child(1) { width: 6%; }  /* Article */
-            th:nth-child(2), td:nth-child(2) { width: 18%; } /* Description */
+            th:nth-child(1), td:nth-child(1) { width: 5%; }  /* Article */
+            th:nth-child(2), td:nth-child(2) { width: 16%; } /* Description */
             th:nth-child(3), td:nth-child(3) { width: 4%; }  /* Acquisition Date */
             th:nth-child(4), td:nth-child(4) { width: 4%; }  /* Unit Value */
-            th:nth-child(5), td:nth-child(5) { width: 6%; }  /* Remarks */
-            th:nth-child(6), td:nth-child(6) { width: 7%; }  /* Type */
-            th:nth-child(7), td:nth-child(7) { width: 16%; } /* Photo 1 */
-            th:nth-child(8), td:nth-child(8) { width: 17%; } /* Photo 2 */
-            th:nth-child(9), td:nth-child(9) { width: 16%; } /* Map Coordinates */
-            th:nth-child(10), td:nth-child(10) { width: 3%; } /* UPDATED BY */
-            th:nth-child(11), td:nth-child(11) { width: 3%; } /* LAST UPDATE */
+            th:nth-child(5), td:nth-child(5) { width: 5%; }  /* Remarks */
+            th:nth-child(6), td:nth-child(6) { width: 6%; }  /* Type */
+            th:nth-child(7), td:nth-child(7) { width: 14%; } /* Photo 1 */
+            th:nth-child(8), td:nth-child(8) { width: 14%; } /* Photo 2 */
+            th:nth-child(9), td:nth-child(9) { width: 14%; } /* Map Coordinates */
+            th:nth-child(10), td:nth-child(10) { width: 14%; } /* Tax Declaration */
+            th:nth-child(11), td:nth-child(11) { width: 2%; } /* UPDATED BY */
+            th:nth-child(12), td:nth-child(12) { width: 2%; } /* LAST UPDATE */
             
             @media print { 
                 @page { size: landscape; margin: 5mm; }
@@ -544,12 +550,12 @@ function exportToHTML(data, title) {
         targetHeadersLowercase.forEach(tKey => {
             const resolvedKey = headerMapping[tKey];
             const val = resolvedKey ? (row[resolvedKey] || '') : '';
-            if (tKey.includes('photo') || tKey.includes('map coordinates')) {
+            if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration')) {
                 const imgUrl = getDirectImageUrl(val, 'w1000-h1000') || val;
                 if (imgUrl.trim() !== '' && imgUrl.startsWith('http')) {
                     tableHTML += `<td class="photo-cell"><img src="${imgUrl}" /></td>`;
                 } else {
-                    tableHTML += `<td class="photo-cell">No Photo</td>`;
+                    tableHTML += `<td class="photo-cell">${tKey.includes('tax declaration') ? 'No Document' : 'No Photo'}</td>`;
                 }
             } else {
                 tableHTML += `<td>${val}</td>`;
