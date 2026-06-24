@@ -507,16 +507,30 @@ function exportToHTML(data, title) {
             .header { text-align: center; margin-bottom: 20px; }
             .header h1 { color: #1e293b; margin: 0; text-transform: uppercase; font-size: 24px; }
             .print-btn { display: block; margin: 0 auto 20px; padding: 10px 20px; font-size: 14px; font-weight: bold; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
+            
             table { width: 100%; border-collapse: collapse; background-color: white; table-layout: fixed; word-wrap: break-word; }
-            th, td { border: 1px solid #cbd5e1; padding: 8px; font-size: 12px; vertical-align: top; overflow-wrap: break-word; }
-            th { background-color: #e2e8f0; font-size: 13px; font-weight: bold; }
+            th, td { border: 1px solid #cbd5e1; padding: 6px; font-size: 11px; vertical-align: top; overflow-wrap: break-word; }
+            th { background-color: #e2e8f0; font-size: 12px; font-weight: bold; }
             tr { page-break-inside: avoid; } 
+            
             .photo-cell { text-align: center; vertical-align: middle; }
-            /* Retains image size up to 450px but guarantees it shrinks to fit the cell gracefully on print */
-            img { max-width: 100%; max-height: 450px; object-fit: contain; border-radius: 4px; border: 1px solid #e2e8f0; page-break-inside: avoid; }
+            img { max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 4px; border: 1px solid #e2e8f0; page-break-inside: avoid; }
+            
+            /* Column Width Constraints to Prioritize Images */
+            th:nth-child(1), td:nth-child(1) { width: 5%; }  /* Article */
+            th:nth-child(2), td:nth-child(2) { width: 16%; } /* Description */
+            th:nth-child(3), td:nth-child(3) { width: 6%; }  /* Acquisition Date */
+            th:nth-child(4), td:nth-child(4) { width: 6%; }  /* Unit Value */
+            th:nth-child(5), td:nth-child(5) { width: 6%; }  /* Remarks */
+            th:nth-child(6), td:nth-child(6) { width: 6%; }  /* Type */
+            th:nth-child(7), td:nth-child(7) { width: 16%; } /* Photo 1 */
+            th:nth-child(8), td:nth-child(8) { width: 16%; } /* Photo 2 */
+            th:nth-child(9), td:nth-child(9) { width: 16%; } /* Map Coordinates */
+            th:nth-child(10), td:nth-child(10) { width: 4%; } /* UPDATED BY */
+            th:nth-child(11), td:nth-child(11) { width: 3%; } /* LAST UPDATE */
             
             @media print { 
-                @page { size: landscape; margin: 10mm; }
+                @page { size: landscape; margin: 5mm; }
                 .print-btn { display: none; } 
                 body { background-color: white; margin: 0; }
             }
