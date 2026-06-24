@@ -13,7 +13,7 @@ let rawHeaders = [];
 let headerMapping = {}; 
 let activeEditIndex = null; 
 let parsedUniqueRemarks = []; 
-let isAppInitialized = false; // Flag to track startup state
+let isAppInitialized = false; 
 
 const searchInput = document.getElementById('searchInput');
 const searchButton = document.getElementById('searchButton');
@@ -184,7 +184,6 @@ function initializeSystemUI() {
     renderHeaders(displayHeaders);
     calculateStaticDashboardTotals(inventoryData);
     
-    // Check if this is the very first time the app is loading
     if (!isAppInitialized) {
         currentFilteredData = []; 
         if(tableBody) {
@@ -195,7 +194,6 @@ function initializeSystemUI() {
         }
         isAppInitialized = true;
     } else {
-        // If data is reloading (e.g., after saving a change or closing modal), re-apply the current search filters
         executeSearch();
     }
 }
@@ -468,7 +466,6 @@ function setupSystemEventHandlers() {
     if(photoFilter) photoFilter.addEventListener('change', executeSearch);
 }
 
-// EXPORT TO EXCEL/CSV
 function exportToCSV(data, filename) {
     if(data.length === 0) { alert("No data available to export."); return; }
     
@@ -493,7 +490,6 @@ function exportToCSV(data, filename) {
     document.body.removeChild(link);
 }
 
-// EXPORT TO HTML (Visual & Print Optimized)
 function exportToHTML(data, title) {
     if(data.length === 0) { alert("No data available to export."); return; }
     
@@ -516,18 +512,17 @@ function exportToHTML(data, title) {
             .photo-cell { text-align: center; vertical-align: middle; }
             img { max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 4px; border: 1px solid #e2e8f0; page-break-inside: avoid; }
             
-            /* Column Width Constraints to accommodate 20px font and prioritize Images */
             th:nth-child(1), td:nth-child(1) { width: 6%; }  /* Article */
             th:nth-child(2), td:nth-child(2) { width: 18%; } /* Description */
-            th:nth-child(3), td:nth-child(3) { width: 8%; }  /* Acquisition Date */
-            th:nth-child(4), td:nth-child(4) { width: 6%; }  /* Unit Value */
-            th:nth-child(5), td:nth-child(5) { width: 7%; }  /* Remarks */
-            th:nth-child(6), td:nth-child(6) { width: 8%; }  /* Type */
-            th:nth-child(7), td:nth-child(7) { width: 13%; } /* Photo 1 */
-            th:nth-child(8), td:nth-child(8) { width: 13%; } /* Photo 2 */
-            th:nth-child(9), td:nth-child(9) { width: 13%; } /* Map Coordinates */
-            th:nth-child(10), td:nth-child(10) { width: 5%; } /* UPDATED BY */
-            th:nth-child(11), td:nth-child(11) { width: 5%; } /* LAST UPDATE */
+            th:nth-child(3), td:nth-child(3) { width: 4%; }  /* Acquisition Date */
+            th:nth-child(4), td:nth-child(4) { width: 4%; }  /* Unit Value */
+            th:nth-child(5), td:nth-child(5) { width: 6%; }  /* Remarks */
+            th:nth-child(6), td:nth-child(6) { width: 7%; }  /* Type */
+            th:nth-child(7), td:nth-child(7) { width: 16%; } /* Photo 1 */
+            th:nth-child(8), td:nth-child(8) { width: 17%; } /* Photo 2 */
+            th:nth-child(9), td:nth-child(9) { width: 16%; } /* Map Coordinates */
+            th:nth-child(10), td:nth-child(10) { width: 3%; } /* UPDATED BY */
+            th:nth-child(11), td:nth-child(11) { width: 3%; } /* LAST UPDATE */
             
             @media print { 
                 @page { size: landscape; margin: 5mm; }
