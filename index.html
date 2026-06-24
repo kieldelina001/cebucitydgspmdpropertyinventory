@@ -23,7 +23,7 @@
         .dash-card.card-notfound { border-left-color: #dc3545; }
         .dash-card.card-verification { border-left-color: #ffc107; }
         .dash-card.card-photos { border-left-color: #17a2b8; }
-        .dash-card.card-taxdeclaration { border-left-color: #6f42c1; }
+        .dash-card.card-taxdec { border-left-color: #6f42c1; } /* New Color for Tax Declaration */
         .dash-title { font-size: 12px; font-weight: bold; text-transform: uppercase; color: #64748b; margin-bottom: 5px; }
         .dash-value { font-size: 24px; font-weight: bold; color: #1e293b; }
         
@@ -128,9 +128,9 @@
                 <div class="dash-title">With Pictures</div>
                 <div id="countWithPhotos" class="dash-value">0</div>
             </div>
-            <div class="dash-card card-taxdeclaration">
-                <div class="dash-title">Tax Declaration</div>
-                <div id="countTaxDeclaration" class="dash-value">0</div>
+            <div class="dash-card card-taxdec">
+                <div class="dash-title">Tax Declarations</div>
+                <div id="countTaxDec" class="dash-value">0</div>
             </div>
         </div>
 
@@ -203,7 +203,7 @@
                     </thead>
                     <tbody id="tableBody">
                         <tr>
-                            <td colspan="11" class="no-data" id="fallbackTableMsg">Awaiting data stream parsing...</td>
+                            <td colspan="12" class="no-data" id="fallbackTableMsg">Awaiting data stream parsing...</td>
                         </tr>
                     </tbody>
                 </table>
