@@ -309,7 +309,7 @@ function calculateStaticDashboardTotals(items) {
         
         if (typeVal.includes('school') || typeVal.includes('school buildings')) {
             typeCounts.school++;
-        } else if (typeVal.includes('asset modifications') || typeVal.includes('asset mod')) {
+        } else if (typeVal.includes('building modifications') || typeVal.includes('asset modifications') || typeVal.includes('asset mod')) {
             typeCounts.assetMod++;
         } else if (typeVal.includes('other infrastructure') || typeVal.includes('other infra')) {
             typeCounts.otherInfra++;
