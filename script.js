@@ -635,11 +635,18 @@ function executeSearch() {
     
     if(photoSel !== "ALL") {
         filtered = filtered.filter(row => {
-            // Check all 4 photo categories
-            const hasPhoto = (pKey1 && String(row[pKey1] || '').trim() !== '') ||
-                             (pKey2 && String(row[pKey2] || '').trim() !== '') ||
-                             (pKey3 && String(row[pKey3] || '').trim() !== '') ||
-                             (pKey4 && String(row[pKey4] || '').trim() !== '');
+            const val1 = pKey1 ? String(row[pKey1] || '').trim() : '';
+            const val2 = pKey2 ? String(row[pKey2] || '').trim() : '';
+            const val3 = pKey3 ? String(row[pKey3] || '').trim() : '';
+            const val4 = pKey4 ? String(row[pKey4] || '').trim() : ''; // Tax Declaration
+
+            // If user explicitly asks for Tax Declaration
+            if (photoSel === "WITH_TAX_DEC") {
+                return val4 !== '';
+            }
+
+            // Standard picture check
+            const hasPhoto = (val1 !== '') || (val2 !== '') || (val3 !== '') || (val4 !== '');
             return photoSel === "WITH_PHOTO" ? hasPhoto : !hasPhoto;
         });
     }
