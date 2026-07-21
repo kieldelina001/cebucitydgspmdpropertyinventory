@@ -34,7 +34,7 @@ const countExisting = document.getElementById('countExisting');
 const countNotFound = document.getElementById('countNotFound');
 const countVerification = document.getElementById('countVerification');
 const countWithPhotos = document.getElementById('countWithPhotos');
-const countTaxDec = document.getElementById('countTaxDec'); // New Tax Declaration Counter
+const countTaxDec = document.getElementById('countTaxDec'); 
 
 const countBuilding = document.getElementById('countBuilding');
 const countAssetMod = document.getElementById('countAssetMod'); 
@@ -114,9 +114,35 @@ if (!customNameModal) {
     document.body.appendChild(customNameModal);
 }
 
+// 🔐 LOGIN HANDLER & INITIALIZATION
 window.addEventListener('DOMContentLoaded', () => {
-    setupSystemEventHandlers();
-    loadInventoryFromGoogleSheets();
+    const loginBtn = document.getElementById('loginBtn');
+    const userIn = document.getElementById('usernameIn');
+    const passIn = document.getElementById('passwordIn');
+    const loginErr = document.getElementById('loginError');
+
+    const executeLogin = () => {
+        if (userIn.value === 'ADMIN' && passIn.value === '1234567890') {
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'block';
+            
+            // Only start loading data and listeners when logged in
+            setupSystemEventHandlers();
+            loadInventoryFromGoogleSheets();
+        } else {
+            loginErr.textContent = 'Invalid Username or Password';
+        }
+    };
+
+    if (loginBtn) {
+        loginBtn.addEventListener('click', executeLogin);
+    }
+    
+    if (passIn) {
+        passIn.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') executeLogin();
+        });
+    }
 });
 
 async function loadInventoryFromGoogleSheets() {
@@ -259,7 +285,6 @@ function renderTable(data) {
             const td = document.createElement('td');
             const resolvedKey = headerMapping[tKey];
             
-            // Added tax declaration to render logic
             if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration')) {
                 const url = resolvedKey ? (row[resolvedKey] || '') : '';
                 if (url.trim() !== '') {
@@ -288,7 +313,7 @@ function calculateStaticDashboardTotals(items) {
     const pKey1 = headerMapping['photo 1'];
     const pKey2 = headerMapping['photo 2'];
     const pKey3 = headerMapping['map coordinates'];
-    const pKey4 = headerMapping['tax declaration']; // Added mapping
+    const pKey4 = headerMapping['tax declaration']; 
     
     let activeCount = 0, missingCount = 0, pendingCount = 0, photoCount = 0, taxDecCount = 0;
     
@@ -305,13 +330,12 @@ function calculateStaticDashboardTotals(items) {
         const photoVal1 = pKey1 ? String(row[pKey1] || '').trim() : '';
         const photoVal2 = pKey2 ? String(row[pKey2] || '').trim() : '';
         const photoVal3 = pKey3 ? String(row[pKey3] || '').trim() : '';
-        const photoVal4 = pKey4 ? String(row[pKey4] || '').trim() : ''; // Get tax dec cell
+        const photoVal4 = pKey4 ? String(row[pKey4] || '').trim() : ''; 
         
         if(remVal.includes('existing') || typeVal.includes('existing')) activeCount++;
         if(remVal.includes('not found')) missingCount++;
         if(remVal.includes('for verification') || remVal.includes('verification')) pendingCount++;
         
-        // Dashboard Counter updates
         if(photoVal4 !== '') taxDecCount++; 
         if(photoVal1 !== '' || photoVal2 !== '' || photoVal3 !== '' || photoVal4 !== '') photoCount++;
         
@@ -350,7 +374,7 @@ function calculateStaticDashboardTotals(items) {
     if(countNotFound) countNotFound.textContent = missingCount;
     if(countVerification) countVerification.textContent = pendingCount;
     if(countWithPhotos) countWithPhotos.textContent = photoCount;
-    if(countTaxDec) countTaxDec.textContent = taxDecCount; // Setting the dashboard total
+    if(countTaxDec) countTaxDec.textContent = taxDecCount; 
     
     if(countBuilding) countBuilding.textContent = typeCounts.building;
     if(countAssetMod) countAssetMod.textContent = typeCounts.assetMod; 
@@ -502,7 +526,6 @@ function exportToCSV(data, filename) {
 function exportToHTML(data, title) {
     if(data.length === 0) { alert("No data available to export."); return; }
     
-    // Updated Table column styling for 12 columns
     let tableHTML = `<!DOCTYPE html>
     <html lang="en">
     <head>
@@ -522,18 +545,18 @@ function exportToHTML(data, title) {
             .photo-cell { text-align: center; vertical-align: middle; }
             img { max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 4px; border: 1px solid #e2e8f0; page-break-inside: avoid; }
             
-            th:nth-child(1), td:nth-child(1) { width: 5%; }  /* Article */
-            th:nth-child(2), td:nth-child(2) { width: 15%; } /* Description */
-            th:nth-child(3), td:nth-child(3) { width: 4%; }  /* Acquisition Date */
-            th:nth-child(4), td:nth-child(4) { width: 4%; }  /* Unit Value */
-            th:nth-child(5), td:nth-child(5) { width: 6%; }  /* Remarks */
-            th:nth-child(6), td:nth-child(6) { width: 7%; }  /* Type */
-            th:nth-child(7), td:nth-child(7) { width: 12%; } /* Photo 1 */
-            th:nth-child(8), td:nth-child(8) { width: 12%; } /* Photo 2 */
-            th:nth-child(9), td:nth-child(9) { width: 12%; } /* Map Coordinates */
-            th:nth-child(10), td:nth-child(10) { width: 12%; } /* Tax Declaration */
-            th:nth-child(11), td:nth-child(11) { width: 5.5%; } /* UPDATED BY */
-            th:nth-child(12), td:nth-child(12) { width: 5.5%; } /* LAST UPDATE */
+            th:nth-child(1), td:nth-child(1) { width: 5%; }  
+            th:nth-child(2), td:nth-child(2) { width: 15%; } 
+            th:nth-child(3), td:nth-child(3) { width: 4%; }  
+            th:nth-child(4), td:nth-child(4) { width: 4%; }  
+            th:nth-child(5), td:nth-child(5) { width: 6%; }  
+            th:nth-child(6), td:nth-child(6) { width: 7%; }  
+            th:nth-child(7), td:nth-child(7) { width: 12%; } 
+            th:nth-child(8), td:nth-child(8) { width: 12%; } 
+            th:nth-child(9), td:nth-child(9) { width: 12%; } 
+            th:nth-child(10), td:nth-child(10) { width: 12%; } 
+            th:nth-child(11), td:nth-child(11) { width: 5.5%; } 
+            th:nth-child(12), td:nth-child(12) { width: 5.5%; } 
             
             @media print { 
                 @page { size: landscape; margin: 5mm; }
@@ -626,7 +649,7 @@ function executeSearch() {
     const pKey1 = headerMapping['photo 1'];
     const pKey2 = headerMapping['photo 2'];
     const pKey3 = headerMapping['map coordinates'];
-    const pKey4 = headerMapping['tax declaration']; // Added new map key
+    const pKey4 = headerMapping['tax declaration']; 
     
     let filtered = inventoryData;
 
@@ -638,14 +661,12 @@ function executeSearch() {
             const val1 = pKey1 ? String(row[pKey1] || '').trim() : '';
             const val2 = pKey2 ? String(row[pKey2] || '').trim() : '';
             const val3 = pKey3 ? String(row[pKey3] || '').trim() : '';
-            const val4 = pKey4 ? String(row[pKey4] || '').trim() : ''; // Tax Declaration
+            const val4 = pKey4 ? String(row[pKey4] || '').trim() : ''; 
 
-            // If user explicitly asks for Tax Declaration
             if (photoSel === "WITH_TAX_DEC") {
                 return val4 !== '';
             }
 
-            // Standard picture check
             const hasPhoto = (val1 !== '') || (val2 !== '') || (val3 !== '') || (val4 !== '');
             return photoSel === "WITH_PHOTO" ? hasPhoto : !hasPhoto;
         });
