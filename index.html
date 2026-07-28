@@ -131,6 +131,8 @@
         .no-data { text-align: center; padding: 20px; color: #666; font-style: italic; }
         
         .site-footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 14px; color: #64748b; }
+        
+        /* Modals */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); z-index: 100; justify-content: center; align-items: center; }
         .modal-box { background-color: white; padding: 25px; border-radius: 8px; width: 450px; max-width: 90%; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: 2px solid #57a1e0; box-sizing: border-box; }
         .modal-header { font-size: 22px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 1px solid #eee; padding-bottom: 5px; }
@@ -144,6 +146,28 @@
         .btn-save { background-color: #28a745; color: white; display: none; } 
         .btn-close { background-color: #dc3545; color: white; }
         
+        /* --- Image Preview Tooltip --- */
+        #imagePreviewTooltip {
+            position: fixed;
+            display: none;
+            z-index: 999999;
+            background-color: white;
+            border: 2px solid #57a1e0;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            padding: 5px;
+            max-width: 400px;
+            max-height: 400px;
+            pointer-events: none; /* Prevents tooltip from interfering with the cursor */
+        }
+        #imagePreviewTooltip img {
+            max-width: 100%;
+            max-height: 380px;
+            object-fit: contain;
+            display: block;
+            border-radius: 4px;
+        }
+
         /* --- Mobile Responsiveness Updates --- */
         @media (max-width: 768px) {
             #mainApp { margin: 10px; }
@@ -167,6 +191,7 @@
             }
             .property-table th, .property-table td { padding: 8px; font-size: 12px; }
             .types-dashboard { margin: 0; }
+            #imagePreviewTooltip { display: none !important; } /* Disable tooltip on mobile */
         }
     </style>
 </head>
@@ -324,6 +349,11 @@
                 <button id="modalCloseBtn" class="modal-btn btn-close">Close</button>
             </div>
         </div>
+    </div>
+    
+    <!-- HOVER PREVIEW TOOLTIP -->
+    <div id="imagePreviewTooltip">
+        <img id="imagePreviewTooltipImg" src="" alt="Enlarged Preview">
     </div>
 
     <script src="script.js"></script>
