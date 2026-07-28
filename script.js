@@ -59,6 +59,10 @@ const modalSaveBtn = document.getElementById('modalSaveBtn');
 const modalCloseBtn = document.getElementById('modalCloseBtn');
 const uploadPhotoBtn = document.getElementById('uploadPhotoBtn'); 
 
+// Tooltip Elements
+const tooltip = document.getElementById('imagePreviewTooltip');
+const tooltipImg = document.getElementById('imagePreviewTooltipImg');
+
 // ⏳ LOADING OVERLAY GENERATOR
 let loadingOverlay = document.getElementById('dynamicLoadingOverlay');
 if (!loadingOverlay) {
@@ -143,6 +147,44 @@ window.addEventListener('DOMContentLoaded', () => {
             if (e.key === 'Enter') executeLogin();
         });
     }
+    
+    // --- HOVER PREVIEW EVENT LISTENERS ---
+    document.addEventListener('mouseover', function(e) {
+        if (e.target && e.target.classList.contains('hover-preview-img')) {
+            const fullSrc = e.target.getAttribute('data-fullsrc');
+            if (fullSrc) {
+                tooltipImg.src = fullSrc;
+                tooltip.style.display = 'block';
+            }
+        }
+    });
+
+    document.addEventListener('mousemove', function(e) {
+        if (e.target && e.target.classList.contains('hover-preview-img') && tooltip.style.display === 'block') {
+            // Position the tooltip near the cursor with a slight offset
+            let x = e.clientX + 15;
+            let y = e.clientY + 15;
+            
+            // Ensure tooltip stays within window bounds
+            const tooltipRect = tooltip.getBoundingClientRect();
+            if (x + tooltipRect.width > window.innerWidth) {
+                x = e.clientX - tooltipRect.width - 15;
+            }
+            if (y + tooltipRect.height > window.innerHeight) {
+                y = e.clientY - tooltipRect.height - 15;
+            }
+            
+            tooltip.style.left = x + 'px';
+            tooltip.style.top = y + 'px';
+        }
+    });
+
+    document.addEventListener('mouseout', function(e) {
+        if (e.target && e.target.classList.contains('hover-preview-img')) {
+            tooltip.style.display = 'none';
+            tooltipImg.src = '';
+        }
+    });
 });
 
 async function loadInventoryFromGoogleSheets() {
@@ -289,7 +331,9 @@ function renderTable(data) {
                 const url = resolvedKey ? (row[resolvedKey] || '') : '';
                 if (url.trim() !== '') {
                     const imgUrl = getDirectImageUrl(url, 'w200-h200') || url;
-                    td.innerHTML = `<a href="${url}" target="_blank"><img src="${imgUrl}" alt="Preview" style="height:50px; max-width:80px; object-fit:cover; border:1px solid #ccc; border-radius:4px;"></a>`;
+                    const fullImgUrl = getDirectImageUrl(url, 'w800-h800') || url; // Higher resolution for hover
+                    // Added hover-preview-img class and data-fullsrc attribute. Added event.stopPropagation to prevent row click modal trigger.
+                    td.innerHTML = `<a href="${url}" target="_blank" onclick="event.stopPropagation();"><img src="${imgUrl}" data-fullsrc="${fullImgUrl}" class="hover-preview-img" alt="Preview" style="height:50px; max-width:80px; object-fit:cover; border:1px solid #ccc; border-radius:4px; cursor:zoom-in;"></a>`;
                 } else {
                     td.textContent = 'No Photo';
                 }
