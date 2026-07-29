@@ -118,12 +118,26 @@ if (!customNameModal) {
     document.body.appendChild(customNameModal);
 }
 
+// --- BACK TO TOP SCROLL LISTENER ---
+window.addEventListener('scroll', () => {
+    const backToTopBtn = document.getElementById('backToTopBtn');
+    if (backToTopBtn) {
+        // Show button when scrolled down more than 300px
+        if (document.body.scrollTop > 300 || document.documentElement.scrollTop > 300) {
+            backToTopBtn.style.display = "block";
+        } else {
+            backToTopBtn.style.display = "none";
+        }
+    }
+});
+
 // 🔐 LOGIN HANDLER & INITIALIZATION
 window.addEventListener('DOMContentLoaded', () => {
     const loginBtn = document.getElementById('loginBtn');
     const userIn = document.getElementById('usernameIn');
     const passIn = document.getElementById('passwordIn');
     const loginErr = document.getElementById('loginError');
+    const backToTopBtn = document.getElementById('backToTopBtn'); // Added Back to Top Button reference
 
     const executeLogin = () => {
         if (userIn.value === 'ADMIN' && passIn.value === '1234567890') {
@@ -145,6 +159,13 @@ window.addEventListener('DOMContentLoaded', () => {
     if (passIn) {
         passIn.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') executeLogin();
+        });
+    }
+
+    // Initialize Back to Top Click Action
+    if (backToTopBtn) {
+        backToTopBtn.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         });
     }
     
