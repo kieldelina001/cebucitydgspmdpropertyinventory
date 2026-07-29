@@ -93,15 +93,28 @@
         .status-banner { background-color: #fff3cd; padding: 12px; border: 1px solid #ffeeba; margin-bottom: 25px; text-align: center; font-weight: bold; color: #856404; border-radius: 4px; word-break: break-word; }
         
         /* --- LIVE STATUS ANIMATION --- */
-        @keyframes livePulse {
-            0% { opacity: 1; transform: scale(1); text-shadow: 0 0 5px rgba(21, 87, 36, 0.2); }
-            50% { opacity: 0.7; transform: scale(1.02); text-shadow: 0 0 12px rgba(21, 87, 36, 0.5); }
-            100% { opacity: 1; transform: scale(1); text-shadow: 0 0 5px rgba(21, 87, 36, 0.2); }
-        }
-        .live-animated-text {
-            display: inline-block;
-            animation: livePulse 2s infinite ease-in-out;
-        }
+     @keyframes livePulse {
+    0% { 
+        opacity: 1; 
+        transform: scale(1); 
+        text-shadow: 0 0 2px rgba(21, 87, 36, 0.2); 
+    }
+    50% { 
+        opacity: 0.3; /* Fades out more for high contrast */
+        transform: scale(1.08); /* Grows larger (was 1.02) */
+        text-shadow: 0 0 18px rgba(40, 167, 69, 0.9); /* Stronger green glow */
+    }
+    100% { 
+        opacity: 1; 
+        transform: scale(1); 
+        text-shadow: 0 0 2px rgba(21, 87, 36, 0.2); 
+    }
+}
+
+.live-animated-text {
+    display: inline-block;
+    animation: livePulse 1s infinite ease-in-out; /* Speed increased from 2s to 1s */
+}
         /* --------------------------- */
 
         .dashboard-row { display: flex; justify-content: center; gap: 15px; margin-bottom: 25px; padding-left: 0; flex-wrap: wrap; }
