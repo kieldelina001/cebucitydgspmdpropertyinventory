@@ -92,6 +92,18 @@
         .sub-title { font-size: 18px; margin: 5px 0 0 0; color: #475569; }
         .status-banner { background-color: #fff3cd; padding: 12px; border: 1px solid #ffeeba; margin-bottom: 25px; text-align: center; font-weight: bold; color: #856404; border-radius: 4px; word-break: break-word; }
         
+        /* --- LIVE STATUS ANIMATION --- */
+        @keyframes livePulse {
+            0% { opacity: 1; transform: scale(1); text-shadow: 0 0 5px rgba(21, 87, 36, 0.2); }
+            50% { opacity: 0.7; transform: scale(1.02); text-shadow: 0 0 12px rgba(21, 87, 36, 0.5); }
+            100% { opacity: 1; transform: scale(1); text-shadow: 0 0 5px rgba(21, 87, 36, 0.2); }
+        }
+        .live-animated-text {
+            display: inline-block;
+            animation: livePulse 2s infinite ease-in-out;
+        }
+        /* --------------------------- */
+
         .dashboard-row { display: flex; justify-content: center; gap: 15px; margin-bottom: 25px; padding-left: 0; flex-wrap: wrap; }
         .dash-card { background-color: #f8f9fa; border-left: 5px solid #57a1e0; border-top: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; padding: 12px 15px; border-radius: 4px; min-width: 130px; flex: 1; max-width: 200px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
         .dash-card.card-existing { border-left-color: #28a745; }
