@@ -180,6 +180,30 @@
             border-radius: 4px;
         }
 
+        /* --- Back to Top Button --- */
+        #backToTopBtn {
+            display: none;
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 9999;
+            font-size: 14px;
+            font-weight: bold;
+            border: none;
+            outline: none;
+            background-color: #57a1e0;
+            color: white;
+            cursor: pointer;
+            padding: 12px 20px;
+            border-radius: 50px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: background-color 0.3s ease, transform 0.3s ease;
+        }
+        #backToTopBtn:hover {
+            background-color: #1e293b;
+            transform: scale(1.05);
+        }
+
         /* --- Mobile Responsiveness Updates --- */
         @media (max-width: 768px) {
             #mainApp { margin: 10px; }
@@ -204,6 +228,14 @@
             .property-table th, .property-table td { padding: 8px; font-size: 12px; }
             .types-dashboard { margin: 0; }
             #imagePreviewTooltip { display: none !important; } /* Disable tooltip on mobile */
+            
+            /* Adjust Back to Top button for mobile */
+            #backToTopBtn {
+                bottom: 20px;
+                right: 20px;
+                padding: 10px 16px;
+                font-size: 12px;
+            }
         }
     </style>
 </head>
@@ -367,6 +399,9 @@
     <div id="imagePreviewTooltip">
         <img id="imagePreviewTooltipImg" src="" alt="Enlarged Preview">
     </div>
+
+    <!-- BACK TO TOP BUTTON -->
+    <button id="backToTopBtn" title="Go to top">⬆️ Top</button>
 
     <script src="script.js"></script>
 </body>
