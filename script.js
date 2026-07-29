@@ -68,12 +68,14 @@ let loadingOverlay = document.getElementById('dynamicLoadingOverlay');
 if (!loadingOverlay) {
     loadingOverlay = document.createElement('div');
     loadingOverlay.id = 'dynamicLoadingOverlay';
-    loadingOverlay.innerHTML = `
-        <div style="text-align: center; color: #ffffff !important; font-family: Arial, sans-serif !important; z-index: 100000 !important;">
-            <div style="width: 60px !important; height: 60px !important; border: 6px solid rgba(255,255,255,0.2) !important; border-radius: 50% !important; border-top-color: #ffffff !important; animation: spin 0.8s linear infinite !important; margin: 0 auto 20px auto !important;"></div>
-            <div id="loadingOverlayText" style="font-size: 20px !important; font-weight: bold !important; color: #ffffff !important; text-shadow: 1px 1px 5px rgba(0,0,0,0.5) !important;">Connecting...</div>
-        </div>
-    `;
+   // Find this block in script.js and update it:
+loadingOverlay.innerHTML = `
+    <div style="text-align: center; color: #ffffff !important; font-family: Arial, sans-serif !important; z-index: 100000 !important;">
+        <!-- Increased size to 80px, border thickness to 8px, added a green accent and glowing shadow -->
+        <div style="width: 80px !important; height: 80px !important; border: 8px solid rgba(255,255,255,0.2) !important; border-radius: 50% !important; border-top-color: #28a745 !important; animation: spin 0.4s linear infinite !important; margin: 0 auto 20px auto !important; box-shadow: 0 0 20px rgba(40, 167, 69, 0.6) !important;"></div>
+        <div id="loadingOverlayText" style="font-size: 20px !important; font-weight: bold !important; color: #ffffff !important; text-shadow: 1px 1px 5px rgba(0,0,0,0.5) !important;">Connecting...</div>
+    </div>
+`;
     Object.assign(loadingOverlay.style, {
         position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
         backgroundColor: 'rgba(0, 0, 0, 0.85)', display: 'none', justifyContent: 'center',
