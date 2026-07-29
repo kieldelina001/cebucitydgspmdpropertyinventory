@@ -239,7 +239,9 @@ async function loadInventoryFromGoogleSheets() {
 function initializeSystemUI() {
     statusBanner.style.backgroundColor = "#d4edda";
     statusBanner.style.color = "#155724";
-    statusBanner.textContent = "✅ Connected to Google Sheets: Live View Active.";
+    
+    // --> CHANGED FROM textContent TO innerHTML TO ALLOW CSS ANIMATION SPAN
+    statusBanner.innerHTML = `<span class="live-animated-text">✅ Connected to Google Sheets: Live View Active.</span>`;
 
     if (searchInput) searchInput.disabled = false;
     if (searchButton) searchButton.disabled = false;
