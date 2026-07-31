@@ -16,6 +16,10 @@ let activeEditIndex = null;
 let parsedUniqueRemarks = []; 
 let isAppInitialized = false; 
 
+// Pagination Variables
+let currentPage = 1;
+const itemsPerPage = 50;
+
 const searchInput = document.getElementById('searchInput');
 const searchButton = document.getElementById('searchButton');
 const exportButton = document.getElementById('exportButton');
@@ -27,6 +31,12 @@ const tableHeaderRow = document.getElementById('tableHeaderRow');
 const tableBody = document.getElementById('tableBody');
 const statusBanner = document.getElementById('statusBanner');
 const foundCountDisplay = document.getElementById('foundCountDisplay'); 
+
+// Pagination Elements
+const paginationContainer = document.getElementById('paginationContainer');
+const prevPageBtn = document.getElementById('prevPageBtn');
+const nextPageBtn = document.getElementById('nextPageBtn');
+const pageIndicator = document.getElementById('pageIndicator');
 
 // Dashboard elements
 const countTotal = document.getElementById('countTotal');
@@ -165,6 +175,26 @@ window.addEventListener('DOMContentLoaded', () => {
             window.scrollTo({ top: 0, behavior: 'smooth' });
         });
     }
+
+    // Pagination Listeners
+    if (prevPageBtn) {
+        prevPageBtn.addEventListener('click', () => {
+            if (currentPage > 1) {
+                renderTable(currentFilteredData, currentPage - 1);
+                window.scrollTo({ top: document.querySelector('.table-section').offsetTop - 20, behavior: 'smooth' });
+            }
+        });
+    }
+
+    if (nextPageBtn) {
+        nextPageBtn.addEventListener('click', () => {
+            const totalPages = Math.ceil(currentFilteredData.length / itemsPerPage);
+            if (currentPage < totalPages) {
+                renderTable(currentFilteredData, currentPage + 1);
+                window.scrollTo({ top: document.querySelector('.table-section').offsetTop - 20, behavior: 'smooth' });
+            }
+        });
+    }
     
     // --- HOVER PREVIEW EVENT LISTENERS ---
     document.addEventListener('mouseover', function(e) {
@@ -280,6 +310,7 @@ function initializeSystemUI() {
         if (foundCountDisplay) {
             foundCountDisplay.textContent = `(0 items displayed)`;
         }
+        updatePaginationUI(0);
         isAppInitialized = true;
     } else {
         executeSearch();
@@ -337,13 +368,36 @@ function getDirectImageUrl(driveLink, requestType = 'view') {
     return null;
 }
 
-function renderTable(data) {
+function updatePaginationUI(totalPages) {
+    if (totalPages <= 1) {
+        if (paginationContainer) paginationContainer.style.display = 'none';
+    } else {
+        if (paginationContainer) paginationContainer.style.display = 'flex';
+        if (pageIndicator) pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
+        if (prevPageBtn) prevPageBtn.disabled = currentPage === 1;
+        if (nextPageBtn) nextPageBtn.disabled = currentPage === totalPages;
+    }
+}
+
+function renderTable(data, page = 1) {
     if(!tableBody) return; tableBody.innerHTML = '';
+    
+    const totalPages = Math.ceil(data.length / itemsPerPage);
+    if (page > totalPages) page = totalPages;
+    if (page < 1) page = 1;
+    currentPage = page;
+
     if(data.length === 0) {
         tableBody.innerHTML = `<tr><td colspan="${displayHeaders.length}" class="no-data">No records match the active matrix search filters.</td></tr>`;
+        updatePaginationUI(0);
         return;
     }
-    data.forEach(row => {
+
+    const startIndex = (page - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedData = data.slice(startIndex, endIndex);
+
+    paginatedData.forEach(row => {
         const tr = document.createElement('tr');
         tr.setAttribute('data-id', row._rowId);
         targetHeadersLowercase.forEach(tKey => {
@@ -372,6 +426,8 @@ function renderTable(data) {
         tr.addEventListener('click', () => openPopUp(row._rowId));
         tableBody.appendChild(tr);
     });
+
+    updatePaginationUI(totalPages);
 }
 
 function calculateStaticDashboardTotals(items) {
@@ -563,6 +619,7 @@ function setupSystemEventHandlers() {
         });
     }
 
+    // Export retains the full datasets since it passes inventoryData / currentFilteredData untouched
     if(exportButton) exportButton.addEventListener('click', () => exportToCSV(inventoryData, "Real_Estate_Inventory_Full"));
     if(exportFilteredButton) exportFilteredButton.addEventListener('click', () => exportToHTML(currentFilteredData, "Real_Estate_Inventory_Filtered"));
 
@@ -771,8 +828,9 @@ function executeSearch() {
         });
     }
     
+    // Store full results for the export function, but reset table page to 1
     currentFilteredData = filtered; 
-    renderTable(filtered);
+    renderTable(filtered, 1);
 
     if (foundCountDisplay) {
         foundCountDisplay.textContent = `(${filtered.length} items found)`;
