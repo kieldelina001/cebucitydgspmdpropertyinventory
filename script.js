@@ -3,9 +3,9 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrqoIQ1
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
 const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
 
-// Added Tax Declaration to headers and changed Article to Article no./ TCT no.
-const displayHeaders = ["Article no./ TCT no.", "Description", "Acquisition Date", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Coordinates", "Tax Declaration", "UPDATED BY", "LAST UPDATE"];
-const targetHeadersLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "updated by", "last update"];
+// Added Tax Declaration to headers and changed Article to Article no./ TCT no. + Added Transfer Certificates
+const displayHeaders = ["Article no./ TCT no.", "Description", "Acquisition Date", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Coordinates", "Tax Declaration", "Transfer Cert 1", "Transfer Cert 2", "UPDATED BY", "LAST UPDATE"];
+const targetHeadersLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "transfer_cert1", "transfer_cert2", "updated by", "last update"];
 const popupOrderLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type"]; 
 
 let inventoryData = []; 
@@ -68,10 +68,8 @@ let loadingOverlay = document.getElementById('dynamicLoadingOverlay');
 if (!loadingOverlay) {
     loadingOverlay = document.createElement('div');
     loadingOverlay.id = 'dynamicLoadingOverlay';
-   // Find this block in script.js and update it:
-loadingOverlay.innerHTML = `
+    loadingOverlay.innerHTML = `
     <div style="text-align: center; color: #ffffff !important; font-family: Arial, sans-serif !important; z-index: 100000 !important;">
-        <!-- Increased size to 80px, border thickness to 8px, added a green accent and glowing shadow -->
         <div style="width: 80px !important; height: 80px !important; border: 8px solid rgba(255,255,255,0.2) !important; border-radius: 50% !important; border-top-color: #28a745 !important; animation: spin 0.4s linear infinite !important; margin: 0 auto 20px auto !important; box-shadow: 0 0 20px rgba(40, 167, 69, 0.6) !important;"></div>
         <div id="loadingOverlayText" style="font-size: 20px !important; font-weight: bold !important; color: #ffffff !important; text-shadow: 1px 1px 5px rgba(0,0,0,0.5) !important;">Connecting...</div>
     </div>
@@ -124,7 +122,6 @@ if (!customNameModal) {
 window.addEventListener('scroll', () => {
     const backToTopBtn = document.getElementById('backToTopBtn');
     if (backToTopBtn) {
-        // Show button when scrolled down more than 300px
         if (document.body.scrollTop > 300 || document.documentElement.scrollTop > 300) {
             backToTopBtn.style.display = "block";
         } else {
@@ -139,14 +136,13 @@ window.addEventListener('DOMContentLoaded', () => {
     const userIn = document.getElementById('usernameIn');
     const passIn = document.getElementById('passwordIn');
     const loginErr = document.getElementById('loginError');
-    const backToTopBtn = document.getElementById('backToTopBtn'); // Added Back to Top Button reference
+    const backToTopBtn = document.getElementById('backToTopBtn');
 
     const executeLogin = () => {
         if (userIn.value === 'ADMIN' && passIn.value === '1234567890') {
             document.getElementById('loginScreen').style.display = 'none';
             document.getElementById('mainApp').style.display = 'block';
             
-            // Only start loading data and listeners when logged in
             setupSystemEventHandlers();
             loadInventoryFromGoogleSheets();
         } else {
@@ -164,7 +160,6 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Initialize Back to Top Click Action
     if (backToTopBtn) {
         backToTopBtn.addEventListener('click', () => {
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -184,11 +179,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
     document.addEventListener('mousemove', function(e) {
         if (e.target && e.target.classList.contains('hover-preview-img') && tooltip.style.display === 'block') {
-            // Position the tooltip near the cursor with a slight offset
             let x = e.clientX + 15;
             let y = e.clientY + 15;
             
-            // Ensure tooltip stays within window bounds
             const tooltipRect = tooltip.getBoundingClientRect();
             if (x + tooltipRect.width > window.innerWidth) {
                 x = e.clientX - tooltipRect.width - 15;
@@ -262,8 +255,6 @@ async function loadInventoryFromGoogleSheets() {
 function initializeSystemUI() {
     statusBanner.style.backgroundColor = "#d4edda";
     statusBanner.style.color = "#155724";
-    
-    // --> CHANGED FROM textContent TO innerHTML TO ALLOW CSS ANIMATION SPAN
     statusBanner.innerHTML = `<span class="live-animated-text">✅ Connected to Google Sheets: Live View Active.</span>`;
 
     if (searchInput) searchInput.disabled = false;
@@ -352,12 +343,12 @@ function renderTable(data) {
             const td = document.createElement('td');
             const resolvedKey = headerMapping[tKey];
             
-            if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration')) {
+            // Includes transfer certificates to render as image links
+            if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration') || tKey.includes('transfer_cert')) {
                 const url = resolvedKey ? (row[resolvedKey] || '') : '';
                 if (url.trim() !== '') {
                     const imgUrl = getDirectImageUrl(url, 'w200-h200') || url;
-                    const fullImgUrl = getDirectImageUrl(url, 'w800-h800') || url; // Higher resolution for hover
-                    // Added hover-preview-img class and data-fullsrc attribute. Added event.stopPropagation to prevent row click modal trigger.
+                    const fullImgUrl = getDirectImageUrl(url, 'w800-h800') || url;
                     td.innerHTML = `<a href="${url}" target="_blank" onclick="event.stopPropagation();"><img src="${imgUrl}" data-fullsrc="${fullImgUrl}" class="hover-preview-img" alt="Preview" style="height:50px; max-width:80px; object-fit:cover; border:1px solid #ccc; border-radius:4px; cursor:zoom-in;"></a>`;
                 } else {
                     td.textContent = 'No Photo';
@@ -383,6 +374,8 @@ function calculateStaticDashboardTotals(items) {
     const pKey2 = headerMapping['photo 2'];
     const pKey3 = headerMapping['map coordinates'];
     const pKey4 = headerMapping['tax declaration']; 
+    const pKey5 = headerMapping['transfer_cert1']; 
+    const pKey6 = headerMapping['transfer_cert2']; 
     
     let activeCount = 0, missingCount = 0, pendingCount = 0, photoCount = 0, taxDecCount = 0;
     
@@ -400,13 +393,15 @@ function calculateStaticDashboardTotals(items) {
         const photoVal2 = pKey2 ? String(row[pKey2] || '').trim() : '';
         const photoVal3 = pKey3 ? String(row[pKey3] || '').trim() : '';
         const photoVal4 = pKey4 ? String(row[pKey4] || '').trim() : ''; 
+        const photoVal5 = pKey5 ? String(row[pKey5] || '').trim() : ''; 
+        const photoVal6 = pKey6 ? String(row[pKey6] || '').trim() : ''; 
         
         if(remVal.includes('existing') || typeVal.includes('existing')) activeCount++;
         if(remVal.includes('not found')) missingCount++;
         if(remVal.includes('for verification') || remVal.includes('verification')) pendingCount++;
         
         if(photoVal4 !== '') taxDecCount++; 
-        if(photoVal1 !== '' || photoVal2 !== '' || photoVal3 !== '' || photoVal4 !== '') photoCount++;
+        if(photoVal1 !== '' || photoVal2 !== '' || photoVal3 !== '' || photoVal4 !== '' || photoVal5 !== '' || photoVal6 !== '') photoCount++;
         
         if (typeVal.includes('school') || typeVal.includes('school buildings')) {
             typeCounts.school++;
@@ -615,17 +610,19 @@ function exportToHTML(data, title) {
             img { max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 4px; border: 1px solid #e2e8f0; page-break-inside: avoid; }
             
             th:nth-child(1), td:nth-child(1) { width: 5%; }  
-            th:nth-child(2), td:nth-child(2) { width: 15%; } 
+            th:nth-child(2), td:nth-child(2) { width: 12%; } 
             th:nth-child(3), td:nth-child(3) { width: 4%; }  
             th:nth-child(4), td:nth-child(4) { width: 4%; }  
             th:nth-child(5), td:nth-child(5) { width: 6%; }  
             th:nth-child(6), td:nth-child(6) { width: 7%; }  
-            th:nth-child(7), td:nth-child(7) { width: 12%; } 
-            th:nth-child(8), td:nth-child(8) { width: 12%; } 
-            th:nth-child(9), td:nth-child(9) { width: 12%; } 
-            th:nth-child(10), td:nth-child(10) { width: 12%; } 
-            th:nth-child(11), td:nth-child(11) { width: 5.5%; } 
-            th:nth-child(12), td:nth-child(12) { width: 5.5%; } 
+            th:nth-child(7), td:nth-child(7) { width: 9%; } 
+            th:nth-child(8), td:nth-child(8) { width: 9%; } 
+            th:nth-child(9), td:nth-child(9) { width: 9%; } 
+            th:nth-child(10), td:nth-child(10) { width: 9%; } 
+            th:nth-child(11), td:nth-child(11) { width: 9%; } 
+            th:nth-child(12), td:nth-child(12) { width: 9%; } 
+            th:nth-child(13), td:nth-child(13) { width: 4%; } 
+            th:nth-child(14), td:nth-child(14) { width: 4%; } 
             
             @media print { 
                 @page { size: landscape; margin: 5mm; }
@@ -647,7 +644,8 @@ function exportToHTML(data, title) {
         targetHeadersLowercase.forEach(tKey => {
             const resolvedKey = headerMapping[tKey];
             const val = resolvedKey ? (row[resolvedKey] || '') : '';
-            if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration')) {
+            // Checks for any media column to render as an image element
+            if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration') || tKey.includes('transfer_cert')) {
                 const imgUrl = getDirectImageUrl(val, 'w1000-h1000') || val;
                 if (imgUrl.trim() !== '' && imgUrl.startsWith('http')) {
                     tableHTML += `<td class="photo-cell"><img src="${imgUrl}" /></td>`;
@@ -719,6 +717,8 @@ function executeSearch() {
     const pKey2 = headerMapping['photo 2'];
     const pKey3 = headerMapping['map coordinates'];
     const pKey4 = headerMapping['tax declaration']; 
+    const pKey5 = headerMapping['transfer_cert1']; 
+    const pKey6 = headerMapping['transfer_cert2']; 
     
     let filtered = inventoryData;
 
@@ -731,12 +731,14 @@ function executeSearch() {
             const val2 = pKey2 ? String(row[pKey2] || '').trim() : '';
             const val3 = pKey3 ? String(row[pKey3] || '').trim() : '';
             const val4 = pKey4 ? String(row[pKey4] || '').trim() : ''; 
+            const val5 = pKey5 ? String(row[pKey5] || '').trim() : ''; 
+            const val6 = pKey6 ? String(row[pKey6] || '').trim() : ''; 
 
             if (photoSel === "WITH_TAX_DEC") {
                 return val4 !== '';
             }
 
-            const hasPhoto = (val1 !== '') || (val2 !== '') || (val3 !== '') || (val4 !== '');
+            const hasPhoto = (val1 !== '') || (val2 !== '') || (val3 !== '') || (val4 !== '') || (val5 !== '') || (val6 !== '');
             return photoSel === "WITH_PHOTO" ? hasPhoto : !hasPhoto;
         });
     }
