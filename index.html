@@ -56,7 +56,7 @@
             border: 1px solid #cbd5e1;
             border-radius: 4px;
             box-sizing: border-box;
-            font-size: 16px; /* Prevents auto-zoom on iOS */
+            font-size: 16px; 
         }
         .login-btn {
             width: 100%;
@@ -93,29 +93,16 @@
         .status-banner { background-color: #fff3cd; padding: 12px; border: 1px solid #ffeeba; margin-bottom: 25px; text-align: center; font-weight: bold; color: #856404; border-radius: 4px; word-break: break-word; }
         
         /* --- LIVE STATUS ANIMATION --- */
-     @keyframes livePulse {
-    0% { 
-        opacity: 1; 
-        transform: scale(1); 
-        text-shadow: 0 0 2px rgba(21, 87, 36, 0.2); 
-    }
-    50% { 
-        opacity: 0.3; /* Fades out more for high contrast */
-        transform: scale(1.08); /* Grows larger (was 1.02) */
-        text-shadow: 0 0 18px rgba(40, 167, 69, 0.9); /* Stronger green glow */
-    }
-    100% { 
-        opacity: 1; 
-        transform: scale(1); 
-        text-shadow: 0 0 2px rgba(21, 87, 36, 0.2); 
-    }
-}
+        @keyframes livePulse {
+            0% { opacity: 1; transform: scale(1); text-shadow: 0 0 2px rgba(21, 87, 36, 0.2); }
+            50% { opacity: 0.3; transform: scale(1.08); text-shadow: 0 0 18px rgba(40, 167, 69, 0.9); }
+            100% { opacity: 1; transform: scale(1); text-shadow: 0 0 2px rgba(21, 87, 36, 0.2); }
+        }
 
-.live-animated-text {
-    display: inline-block;
-    animation: livePulse 1s infinite ease-in-out; /* Speed increased from 2s to 1s */
-}
-        /* --------------------------- */
+        .live-animated-text {
+            display: inline-block;
+            animation: livePulse 1s infinite ease-in-out;
+        }
 
         .dashboard-row { display: flex; justify-content: center; gap: 15px; margin-bottom: 25px; padding-left: 0; flex-wrap: wrap; }
         .dash-card { background-color: #f8f9fa; border-left: 5px solid #57a1e0; border-top: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; padding: 12px 15px; border-radius: 4px; min-width: 130px; flex: 1; max-width: 200px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
@@ -183,7 +170,7 @@
             padding: 5px;
             max-width: 400px;
             max-height: 400px;
-            pointer-events: none; /* Prevents tooltip from interfering with the cursor */
+            pointer-events: none;
         }
         #imagePreviewTooltip img {
             max-width: 100%;
@@ -233,16 +220,11 @@
             .export-group { width: 100%; justify-content: space-between; }
             .export-btn { width: 48%; }
             
-            /* Enable horizontal scrolling for mobile tables */
-            .property-table-container { 
-                overflow-x: auto; 
-                -webkit-overflow-scrolling: touch; 
-            }
+            .property-table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
             .property-table th, .property-table td { padding: 8px; font-size: 12px; }
             .types-dashboard { margin: 0; }
-            #imagePreviewTooltip { display: none !important; } /* Disable tooltip on mobile */
+            #imagePreviewTooltip { display: none !important; }
             
-            /* Adjust Back to Top button for mobile */
             #backToTopBtn {
                 bottom: 20px;
                 right: 20px;
@@ -269,7 +251,7 @@
         </div>
     </div>
 
-    <!-- MAIN APPLICATION (Initially Hidden) -->
+    <!-- MAIN APPLICATION -->
     <div id="mainApp" style="display: none;">
         <div class="main-container">
             <div class="header-container">
