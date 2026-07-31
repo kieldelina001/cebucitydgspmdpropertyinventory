@@ -3,8 +3,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrqoIQ1
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
 const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
 
-// Added Tax Declaration to headers and changed Article to Article no./ TCT no. + Added Transfer Certificates
-const displayHeaders = ["Article no./ TCT no.", "Description", "Acquisition Date", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Coordinates", "Tax Declaration", "Transfer Cert 1", "Transfer Cert 2", "UPDATED BY", "LAST UPDATE"];
+// Added Tax Declaration to headers, changed Article to Article no./ TCT no. and applied full names for Transfer Certificates
+const displayHeaders = ["Article no./ TCT no.", "Description", "Acquisition Date", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Coordinates", "Tax Declaration", "Transfer Certificate of Title Page 1", "Transfer Certificate of Title Page 2", "UPDATED BY", "LAST UPDATE"];
 const targetHeadersLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "transfer_cert1", "transfer_cert2", "updated by", "last update"];
 const popupOrderLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type"]; 
 
@@ -169,9 +169,10 @@ window.addEventListener('DOMContentLoaded', () => {
     // --- HOVER PREVIEW EVENT LISTENERS ---
     document.addEventListener('mouseover', function(e) {
         if (e.target && e.target.classList.contains('hover-preview-img')) {
-            const fullSrc = e.target.getAttribute('data-fullsrc');
-            if (fullSrc) {
-                tooltipImg.src = fullSrc;
+            // Uses the source from the table element (which has already handled fallbacks)
+            const srcToUse = e.target.src;
+            if (srcToUse) {
+                tooltipImg.src = srcToUse;
                 tooltip.style.display = 'block';
             }
         }
@@ -321,11 +322,17 @@ function renderHeaders(headers) {
     });
 }
 
-function getDirectImageUrl(driveLink, sizeString = 'w200-h200') {
+// 🛡️ Enhanced URL resolution handling PDFs and standard images gracefully
+function getDirectImageUrl(driveLink, requestType = 'view') {
     if (!driveLink || typeof driveLink !== 'string') return null;
     const match = driveLink.match(/[-\w]{25,}/); 
     if (match) {
-        return `https://drive.google.com/thumbnail?id=${match[0]}&sz=${sizeString}`;
+        if (requestType === 'thumbnail') {
+            // Uses thumbnail endpoint to force render a preview of PDF files
+            return `https://drive.google.com/thumbnail?id=${match[0]}&sz=w800`;
+        }
+        // Direct View endpoint works universally for standard images
+        return `https://drive.google.com/uc?export=view&id=${match[0]}`;
     }
     return null;
 }
@@ -343,13 +350,16 @@ function renderTable(data) {
             const td = document.createElement('td');
             const resolvedKey = headerMapping[tKey];
             
-            // Includes transfer certificates to render as image links
             if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration') || tKey.includes('transfer_cert')) {
                 const url = resolvedKey ? (row[resolvedKey] || '') : '';
                 if (url.trim() !== '') {
-                    const imgUrl = getDirectImageUrl(url, 'w200-h200') || url;
-                    const fullImgUrl = getDirectImageUrl(url, 'w800-h800') || url;
-                    td.innerHTML = `<a href="${url}" target="_blank" onclick="event.stopPropagation();"><img src="${imgUrl}" data-fullsrc="${fullImgUrl}" class="hover-preview-img" alt="Preview" style="height:50px; max-width:80px; object-fit:cover; border:1px solid #ccc; border-radius:4px; cursor:zoom-in;"></a>`;
+                    // Try the standard view. If it breaks (like a PDF), the inline onerror swaps to the thumbnail API
+                    const viewUrl = getDirectImageUrl(url, 'view') || url;
+                    const thumbUrl = getDirectImageUrl(url, 'thumbnail') || url;
+                    
+                    td.innerHTML = `<a href="${url}" target="_blank" onclick="event.stopPropagation();">
+                                        <img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" class="hover-preview-img" alt="Preview" style="height:50px; max-width:80px; object-fit:cover; border:1px solid #ccc; border-radius:4px; cursor:zoom-in;">
+                                    </a>`;
                 } else {
                     td.textContent = 'No Photo';
                 }
@@ -644,11 +654,13 @@ function exportToHTML(data, title) {
         targetHeadersLowercase.forEach(tKey => {
             const resolvedKey = headerMapping[tKey];
             const val = resolvedKey ? (row[resolvedKey] || '') : '';
-            // Checks for any media column to render as an image element
+            
             if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration') || tKey.includes('transfer_cert')) {
-                const imgUrl = getDirectImageUrl(val, 'w1000-h1000') || val;
-                if (imgUrl.trim() !== '' && imgUrl.startsWith('http')) {
-                    tableHTML += `<td class="photo-cell"><img src="${imgUrl}" /></td>`;
+                const viewUrl = getDirectImageUrl(val, 'view') || val;
+                const thumbUrl = getDirectImageUrl(val, 'thumbnail') || val;
+
+                if (val.trim() !== '' && val.startsWith('http')) {
+                    tableHTML += `<td class="photo-cell"><img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" /></td>`;
                 } else {
                     tableHTML += `<td class="photo-cell">No Photo</td>`;
                 }
