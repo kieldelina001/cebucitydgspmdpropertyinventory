@@ -3,7 +3,6 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrqoIQ1
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
 const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
 
-// Added Tax Declaration to headers, changed Article to Article no./ TCT no. and applied full names for Transfer Certificates
 const displayHeaders = ["Article no./ TCT no.", "Description", "Acquisition Date", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Coordinates", "Tax Declaration", "Transfer Certificate of Title Page 1", "Transfer Certificate of Title Page 2", "UPDATED BY", "LAST UPDATE"];
 const targetHeadersLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "transfer_cert1", "transfer_cert2", "updated by", "last update"];
 const popupOrderLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type"]; 
@@ -199,7 +198,6 @@ window.addEventListener('DOMContentLoaded', () => {
     // --- HOVER PREVIEW EVENT LISTENERS ---
     document.addEventListener('mouseover', function(e) {
         if (e.target && e.target.classList.contains('hover-preview-img')) {
-            // Uses the source from the table element (which has already handled fallbacks)
             const srcToUse = e.target.src;
             if (srcToUse) {
                 tooltipImg.src = srcToUse;
@@ -313,7 +311,8 @@ function initializeSystemUI() {
         updatePaginationUI(0);
         isAppInitialized = true;
     } else {
-        executeSearch();
+        // Pass true to keep the current page position after modal updates/refreshes
+        executeSearch(true);
     }
 }
 
@@ -353,16 +352,13 @@ function renderHeaders(headers) {
     });
 }
 
-// 🛡️ Enhanced URL resolution handling PDFs and standard images gracefully
 function getDirectImageUrl(driveLink, requestType = 'view') {
     if (!driveLink || typeof driveLink !== 'string') return null;
     const match = driveLink.match(/[-\w]{25,}/); 
     if (match) {
         if (requestType === 'thumbnail') {
-            // Uses thumbnail endpoint to force render a preview of PDF files
             return `https://drive.google.com/thumbnail?id=${match[0]}&sz=w800`;
         }
-        // Direct View endpoint works universally for standard images
         return `https://drive.google.com/uc?export=view&id=${match[0]}`;
     }
     return null;
@@ -407,7 +403,6 @@ function renderTable(data, page = 1) {
             if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration') || tKey.includes('transfer_cert')) {
                 const url = resolvedKey ? (row[resolvedKey] || '') : '';
                 if (url.trim() !== '') {
-                    // Try the standard view. If it breaks (like a PDF), the inline onerror swaps to the thumbnail API
                     const viewUrl = getDirectImageUrl(url, 'view') || url;
                     const thumbUrl = getDirectImageUrl(url, 'thumbnail') || url;
                     
@@ -615,19 +610,20 @@ function setupSystemEventHandlers() {
     if(modalCloseBtn) {
         modalCloseBtn.addEventListener('click', () => {
             if(editModal) editModal.style.display = 'none';
+            // Sync background changes without resetting page 1
             loadInventoryFromGoogleSheets();
         });
     }
 
-    // Export retains the full datasets since it passes inventoryData / currentFilteredData untouched
     if(exportButton) exportButton.addEventListener('click', () => exportToCSV(inventoryData, "Real_Estate_Inventory_Full"));
     if(exportFilteredButton) exportFilteredButton.addEventListener('click', () => exportToHTML(currentFilteredData, "Real_Estate_Inventory_Filtered"));
 
-    if(searchButton) searchButton.addEventListener('click', executeSearch);
-    if(searchInput) searchInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') executeSearch(); });
-    if(remarksFilter) remarksFilter.addEventListener('change', executeSearch);
-    if(typeFilter) typeFilter.addEventListener('change', executeSearch);
-    if(photoFilter) photoFilter.addEventListener('change', executeSearch);
+    // Filter controls reset to Page 1 on user input change
+    if(searchButton) searchButton.addEventListener('click', () => executeSearch(false));
+    if(searchInput) searchInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') executeSearch(false); });
+    if(remarksFilter) remarksFilter.addEventListener('change', () => executeSearch(false));
+    if(typeFilter) typeFilter.addEventListener('change', () => executeSearch(false));
+    if(photoFilter) photoFilter.addEventListener('change', () => executeSearch(false));
 }
 
 function exportToCSV(data, filename) {
@@ -772,7 +768,7 @@ async function transmitUpdateToCloud(remark, user) {
     }
 }
 
-function executeSearch() {
+function executeSearch(keepCurrentPage = false) {
     if(!searchInput || !remarksFilter || !typeFilter || !photoFilter) return;
 
     const term = searchInput.value.toLowerCase().trim();
@@ -828,9 +824,11 @@ function executeSearch() {
         });
     }
     
-    // Store full results for the export function, but reset table page to 1
     currentFilteredData = filtered; 
-    renderTable(filtered, 1);
+    
+    // Determine target page: keep current page position if keepCurrentPage flag is true
+    const targetPage = keepCurrentPage ? currentPage : 1;
+    renderTable(filtered, targetPage);
 
     if (foundCountDisplay) {
         foundCountDisplay.textContent = `(${filtered.length} items found)`;
