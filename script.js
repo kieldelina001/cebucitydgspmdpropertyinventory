@@ -3,6 +3,7 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrqoIQ1
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
 const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
 
+// Added Tax Declaration to headers, changed Article to Article no./ TCT no. and applied full names for Transfer Certificates
 const displayHeaders = ["Article no./ TCT no.", "Description", "Acquisition Date", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Coordinates", "Tax Declaration", "Transfer Certificate of Title Page 1", "Transfer Certificate of Title Page 2", "UPDATED BY", "LAST UPDATE"];
 const targetHeadersLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "transfer_cert1", "transfer_cert2", "updated by", "last update"];
 const popupOrderLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type"]; 
@@ -168,6 +169,7 @@ window.addEventListener('DOMContentLoaded', () => {
     // --- HOVER PREVIEW EVENT LISTENERS ---
     document.addEventListener('mouseover', function(e) {
         if (e.target && e.target.classList.contains('hover-preview-img')) {
+            // Uses the source from the table element (which has already handled fallbacks)
             const srcToUse = e.target.src;
             if (srcToUse) {
                 tooltipImg.src = srcToUse;
@@ -320,20 +322,17 @@ function renderHeaders(headers) {
     });
 }
 
-// 🛡️ Bulletproof 3-Tier Image URL Resolution (Handles Google Drive JPG/PNG links reliably)
-function getDirectImageUrl(driveLink, requestType = 'primary') {
+// 🛡️ Enhanced URL resolution handling PDFs and standard images gracefully
+function getDirectImageUrl(driveLink, requestType = 'view') {
     if (!driveLink || typeof driveLink !== 'string') return null;
     const match = driveLink.match(/[-\w]{25,}/); 
     if (match) {
-        const fileId = match[0];
         if (requestType === 'thumbnail') {
-            return `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`;
+            // Uses thumbnail endpoint to force render a preview of PDF files
+            return `https://drive.google.com/thumbnail?id=${match[0]}&sz=w800`;
         }
-        if (requestType === 'secondary') {
-            return `https://drive.google.com/uc?export=view&id=${fileId}`;
-        }
-        // Primary: Standard direct googleusercontent stream for drive images
-        return `https://lh3.googleusercontent.com/d/${fileId}`;
+        // Direct View endpoint works universally for standard images
+        return `https://drive.google.com/uc?export=view&id=${match[0]}`;
     }
     return null;
 }
@@ -354,12 +353,12 @@ function renderTable(data) {
             if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration') || tKey.includes('transfer_cert')) {
                 const url = resolvedKey ? (row[resolvedKey] || '') : '';
                 if (url.trim() !== '') {
-                    const primaryUrl = getDirectImageUrl(url, 'primary') || url;
-                    const secondaryUrl = getDirectImageUrl(url, 'secondary') || url;
+                    // Try the standard view. If it breaks (like a PDF), the inline onerror swaps to the thumbnail API
+                    const viewUrl = getDirectImageUrl(url, 'view') || url;
                     const thumbUrl = getDirectImageUrl(url, 'thumbnail') || url;
                     
                     td.innerHTML = `<a href="${url}" target="_blank" onclick="event.stopPropagation();">
-                                        <img src="${primaryUrl}" onerror="this.onerror=function(){this.src='${thumbUrl}';}; this.src='${secondaryUrl}';" class="hover-preview-img" alt="Preview" style="height:50px; max-width:80px; object-fit:cover; border:1px solid #ccc; border-radius:4px; cursor:zoom-in;">
+                                        <img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" class="hover-preview-img" alt="Preview" style="height:50px; max-width:80px; object-fit:cover; border:1px solid #ccc; border-radius:4px; cursor:zoom-in;">
                                     </a>`;
                 } else {
                     td.textContent = 'No Photo';
@@ -657,12 +656,11 @@ function exportToHTML(data, title) {
             const val = resolvedKey ? (row[resolvedKey] || '') : '';
             
             if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration') || tKey.includes('transfer_cert')) {
-                if (val.trim() !== '' && val.startsWith('http')) {
-                    const primaryUrl = getDirectImageUrl(val, 'primary') || val;
-                    const secondaryUrl = getDirectImageUrl(val, 'secondary') || val;
-                    const thumbUrl = getDirectImageUrl(val, 'thumbnail') || val;
+                const viewUrl = getDirectImageUrl(val, 'view') || val;
+                const thumbUrl = getDirectImageUrl(val, 'thumbnail') || val;
 
-                    tableHTML += `<td class="photo-cell"><img src="${primaryUrl}" onerror="this.onerror=function(){this.src='${thumbUrl}';}; this.src='${secondaryUrl}';" /></td>`;
+                if (val.trim() !== '' && val.startsWith('http')) {
+                    tableHTML += `<td class="photo-cell"><img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" /></td>`;
                 } else {
                     tableHTML += `<td class="photo-cell">No Photo</td>`;
                 }
