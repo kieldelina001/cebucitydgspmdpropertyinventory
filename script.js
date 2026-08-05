@@ -16,6 +16,10 @@ let parsedUniqueRemarks = [];
 let isAppInitialized = false; 
 let modalModified = false; // Flag to track if modal actions were triggered
 
+// Modal Photo Gallery State
+let modalPhotos = [];
+let currentPhotoIndex = 0;
+
 // Pagination Variables
 let currentPage = 1;
 const itemsPerPage = 50;
@@ -571,39 +575,33 @@ function openPopUp(rowId) {
         fieldsSide.appendChild(wrapper);
     });
 
+    // --- POPULATE MULTIPLE PHOTOS FOR VIEWER ---
+    modalPhotos = [];
+    const photoKeysDef = [
+        { key: 'photo 1', label: 'Photo 1' },
+        { key: 'photo 2', label: 'Photo 2' },
+        { key: 'map coordinates', label: 'Map Coordinates' },
+        { key: 'tax declaration', label: 'Tax Declaration' },
+        { key: 'transfer_cert1', label: 'Transfer Certificate of Title Page 1' },
+        { key: 'transfer_cert2', label: 'Transfer Certificate of Title Page 2' }
+    ];
+
+    photoKeysDef.forEach(p => {
+        const mappedKey = headerMapping[p.key];
+        if (mappedKey && itemData[mappedKey] && itemData[mappedKey].trim() !== '') {
+            const val = itemData[mappedKey].trim();
+            if (val.startsWith('http')) {
+                modalPhotos.push({ label: p.label, url: val });
+            }
+        }
+    });
+
+    currentPhotoIndex = 0;
+
     const photoSide = document.createElement('div');
     photoSide.className = 'modal-photo-side';
     
-    const photoKeys = ['photo 1', 'photo 2', 'map coordinates', 'tax declaration', 'transfer_cert1', 'transfer_cert2'];
-    let firstPhotoUrl = '';
-    
-    for (let i = 0; i < photoKeys.length; i++) {
-        const mappedKey = headerMapping[photoKeys[i]];
-        if (mappedKey && itemData[mappedKey] && itemData[mappedKey].trim() !== '') {
-            firstPhotoUrl = itemData[mappedKey].trim();
-            break;
-        }
-    }
-
-    if (firstPhotoUrl !== '') {
-        const viewUrl = getDirectImageUrl(firstPhotoUrl, 'view') || firstPhotoUrl;
-        const thumbUrl = getDirectImageUrl(firstPhotoUrl, 'thumbnail') || firstPhotoUrl;
-        
-        const imgEl = document.createElement('img');
-        imgEl.src = viewUrl;
-        imgEl.onerror = function() { this.onerror=null; this.src = thumbUrl; };
-        imgEl.alt = "Property Photo Preview";
-        imgEl.onclick = () => window.open(firstPhotoUrl, '_blank');
-        
-        photoSide.appendChild(imgEl);
-    } else {
-        const noPhotoText = document.createElement('div');
-        noPhotoText.textContent = 'No Photo Available';
-        noPhotoText.style.color = '#64748b';
-        noPhotoText.style.fontStyle = 'italic';
-        noPhotoText.style.textAlign = 'center';
-        photoSide.appendChild(noPhotoText);
-    }
+    renderModalPhotoViewer(photoSide);
     
     flexLayout.appendChild(fieldsSide);
     flexLayout.appendChild(photoSide);
@@ -613,6 +611,68 @@ function openPopUp(rowId) {
     if(modalEditBtn) modalEditBtn.style.display = 'inline-block';
     if(modalSaveBtn) modalSaveBtn.style.display = 'none';
     if(editModal) editModal.style.display = 'flex';
+}
+
+function renderModalPhotoViewer(container) {
+    container.innerHTML = '';
+
+    if (modalPhotos.length === 0) {
+        const noPhotoText = document.createElement('div');
+        noPhotoText.textContent = 'No Photo Available';
+        noPhotoText.style.color = '#64748b';
+        noPhotoText.style.fontStyle = 'italic';
+        noPhotoText.style.textAlign = 'center';
+        container.appendChild(noPhotoText);
+        return;
+    }
+
+    const photoContainer = document.createElement('div');
+    photoContainer.className = 'modal-photo-container';
+
+    const currentPhoto = modalPhotos[currentPhotoIndex];
+    const viewUrl = getDirectImageUrl(currentPhoto.url, 'view') || currentPhoto.url;
+    const thumbUrl = getDirectImageUrl(currentPhoto.url, 'thumbnail') || currentPhoto.url;
+
+    const imgEl = document.createElement('img');
+    imgEl.src = viewUrl;
+    imgEl.onerror = function() { this.onerror=null; this.src = thumbUrl; };
+    imgEl.alt = currentPhoto.label;
+    imgEl.onclick = () => window.open(currentPhoto.url, '_blank');
+    photoContainer.appendChild(imgEl);
+
+    // Render Navigation Arrows if there are multiple photos
+    if (modalPhotos.length > 1) {
+        const prevBtn = document.createElement('button');
+        prevBtn.className = 'photo-nav-btn photo-prev-btn';
+        prevBtn.innerHTML = '&#10094;'; // Left Arrow
+        prevBtn.title = 'Previous Photo';
+        prevBtn.onclick = (e) => {
+            e.stopPropagation();
+            currentPhotoIndex = (currentPhotoIndex - 1 + modalPhotos.length) % modalPhotos.length;
+            renderModalPhotoViewer(container);
+        };
+
+        const nextBtn = document.createElement('button');
+        nextBtn.className = 'photo-nav-btn photo-next-btn';
+        nextBtn.innerHTML = '&#10095;'; // Right Arrow
+        nextBtn.title = 'Next Photo';
+        nextBtn.onclick = (e) => {
+            e.stopPropagation();
+            currentPhotoIndex = (currentPhotoIndex + 1) % modalPhotos.length;
+            renderModalPhotoViewer(container);
+        };
+
+        photoContainer.appendChild(prevBtn);
+        photoContainer.appendChild(nextBtn);
+    }
+
+    container.appendChild(photoContainer);
+
+    // Caption Displaying Label and Counter
+    const captionEl = document.createElement('div');
+    captionEl.className = 'photo-caption';
+    captionEl.textContent = `${currentPhoto.label} (${currentPhotoIndex + 1} of ${modalPhotos.length})`;
+    container.appendChild(captionEl);
 }
 
 function setupSystemEventHandlers() {
