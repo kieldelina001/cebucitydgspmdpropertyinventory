@@ -522,6 +522,45 @@ function openPopUp(rowId) {
     const itemData = inventoryData.find(r => r._rowId === rowId);
     if(!modalFormContainer) return; modalFormContainer.innerHTML = '';
     
+    // --- MODIFICATION: Fetch and display the 1st available photo ---
+    const photoKeys = ['photo 1', 'photo 2', 'map coordinates', 'tax declaration', 'transfer_cert1', 'transfer_cert2'];
+    let firstPhotoUrl = '';
+    
+    for (let i = 0; i < photoKeys.length; i++) {
+        const mappedKey = headerMapping[photoKeys[i]];
+        if (mappedKey && itemData[mappedKey] && itemData[mappedKey].trim() !== '') {
+            firstPhotoUrl = itemData[mappedKey].trim();
+            break;
+        }
+    }
+
+    if (firstPhotoUrl !== '') {
+        const imgContainer = document.createElement('div');
+        imgContainer.style.textAlign = 'center';
+        imgContainer.style.marginBottom = '15px';
+        
+        const viewUrl = getDirectImageUrl(firstPhotoUrl, 'view') || firstPhotoUrl;
+        const thumbUrl = getDirectImageUrl(firstPhotoUrl, 'thumbnail') || firstPhotoUrl;
+        
+        const imgEl = document.createElement('img');
+        imgEl.src = viewUrl;
+        imgEl.onerror = function() { this.onerror=null; this.src = thumbUrl; };
+        imgEl.alt = "Property Photo Preview";
+        imgEl.style.maxWidth = '100%';
+        imgEl.style.maxHeight = '250px';
+        imgEl.style.objectFit = 'contain';
+        imgEl.style.borderRadius = '4px';
+        imgEl.style.border = '1px solid #ccc';
+        imgEl.style.cursor = 'pointer';
+        
+        // Allow clicking the image to open it in a new tab
+        imgEl.onclick = () => window.open(firstPhotoUrl, '_blank');
+        
+        imgContainer.appendChild(imgEl);
+        modalFormContainer.appendChild(imgContainer);
+    }
+    // ---------------------------------------------------------------
+    
     popupOrderLowercase.forEach(tKey => {
         const realKey = headerMapping[tKey];
         const currentVal = realKey ? (itemData[realKey] || '') : '';
