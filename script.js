@@ -71,6 +71,7 @@ const modalFormContainer = document.getElementById('modalFormContainer');
 const modalEditBtn = document.getElementById('modalEditBtn');
 const modalSaveBtn = document.getElementById('modalSaveBtn');
 const modalCloseBtn = document.getElementById('modalCloseBtn');
+const modalCloseX = document.getElementById('modalCloseX'); // New X Button variable
 const uploadPhotoBtn = document.getElementById('uploadPhotoBtn'); 
 
 // Tooltip Elements
@@ -718,8 +719,19 @@ function setupSystemEventHandlers() {
         });
     }
 
+    // Existing Bottom Close Button
     if(modalCloseBtn) {
         modalCloseBtn.addEventListener('click', () => {
+            if(editModal) editModal.style.display = 'none';
+            if (modalModified) {
+                loadInventoryFromGoogleSheets();
+            }
+        });
+    }
+
+    // New Top Right X Close Button logic
+    if(modalCloseX) {
+        modalCloseX.addEventListener('click', () => {
             if(editModal) editModal.style.display = 'none';
             if (modalModified) {
                 loadInventoryFromGoogleSheets();
