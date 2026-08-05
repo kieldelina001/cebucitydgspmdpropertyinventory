@@ -252,15 +252,16 @@
             border-radius: 4px;
         }
 
-        /* --- Floating Controls --- */
+        /* --- Floating Controls (Fixed Stack Layout) --- */
         .floating-controls {
             position: fixed;
             bottom: 30px;
             right: 30px;
             z-index: 9999;
             display: flex;
-            align-items: center;
-            gap: 15px;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 12px;
         }
         #paginationContainer {
             display: none;
@@ -340,8 +341,6 @@
             .floating-controls {
                 bottom: 20px;
                 right: 20px;
-                flex-direction: column;
-                align-items: flex-end;
                 gap: 10px;
             }
             #paginationContainer {
@@ -517,7 +516,7 @@
         <img id="imagePreviewTooltipImg" src="" alt="Enlarged Preview">
     </div>
 
-    <!-- FLOATING PAGE SELECTOR & BACK TO TOP -->
+    <!-- FLOATING CONTROLS (STACKED LAYOUT) -->
     <div class="floating-controls">
         <div id="paginationContainer">
             <button id="prevPageBtn" class="page-btn" title="Previous Page">◀</button>
