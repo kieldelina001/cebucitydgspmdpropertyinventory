@@ -311,7 +311,6 @@ function initializeSystemUI() {
         updatePaginationUI(0);
         isAppInitialized = true;
     } else {
-        // Pass true to keep the current page position after modal updates/refreshes
         executeSearch(true);
     }
 }
@@ -520,46 +519,16 @@ function calculateStaticDashboardTotals(items) {
 function openPopUp(rowId) {
     activeEditIndex = rowId;
     const itemData = inventoryData.find(r => r._rowId === rowId);
-    if(!modalFormContainer) return; modalFormContainer.innerHTML = '';
+    if(!modalFormContainer) return; 
+    modalFormContainer.innerHTML = '';
     
-    // --- MODIFICATION: Fetch and display the 1st available photo ---
-    const photoKeys = ['photo 1', 'photo 2', 'map coordinates', 'tax declaration', 'transfer_cert1', 'transfer_cert2'];
-    let firstPhotoUrl = '';
+    // --- MODAL SPLIT LAYOUT CONTAINER ---
+    const flexLayout = document.createElement('div');
+    flexLayout.className = 'modal-flex-layout';
     
-    for (let i = 0; i < photoKeys.length; i++) {
-        const mappedKey = headerMapping[photoKeys[i]];
-        if (mappedKey && itemData[mappedKey] && itemData[mappedKey].trim() !== '') {
-            firstPhotoUrl = itemData[mappedKey].trim();
-            break;
-        }
-    }
-
-    if (firstPhotoUrl !== '') {
-        const imgContainer = document.createElement('div');
-        imgContainer.style.textAlign = 'center';
-        imgContainer.style.marginBottom = '15px';
-        
-        const viewUrl = getDirectImageUrl(firstPhotoUrl, 'view') || firstPhotoUrl;
-        const thumbUrl = getDirectImageUrl(firstPhotoUrl, 'thumbnail') || firstPhotoUrl;
-        
-        const imgEl = document.createElement('img');
-        imgEl.src = viewUrl;
-        imgEl.onerror = function() { this.onerror=null; this.src = thumbUrl; };
-        imgEl.alt = "Property Photo Preview";
-        imgEl.style.maxWidth = '100%';
-        imgEl.style.maxHeight = '250px';
-        imgEl.style.objectFit = 'contain';
-        imgEl.style.borderRadius = '4px';
-        imgEl.style.border = '1px solid #ccc';
-        imgEl.style.cursor = 'pointer';
-        
-        // Allow clicking the image to open it in a new tab
-        imgEl.onclick = () => window.open(firstPhotoUrl, '_blank');
-        
-        imgContainer.appendChild(imgEl);
-        modalFormContainer.appendChild(imgContainer);
-    }
-    // ---------------------------------------------------------------
+    // Left Side: Form Fields Container
+    const fieldsSide = document.createElement('div');
+    fieldsSide.className = 'modal-fields-side';
     
     popupOrderLowercase.forEach(tKey => {
         const realKey = headerMapping[tKey];
@@ -597,9 +566,49 @@ function openPopUp(rowId) {
         
         const label = document.createElement('label');
         label.textContent = labelText;
-        wrapper.appendChild(label); wrapper.appendChild(fieldEl);
-        modalFormContainer.appendChild(wrapper);
+        wrapper.appendChild(label); 
+        wrapper.appendChild(fieldEl);
+        fieldsSide.appendChild(wrapper);
     });
+
+    // Right Side: Photo Container (Matches Popup Height/Size)
+    const photoSide = document.createElement('div');
+    photoSide.className = 'modal-photo-side';
+    
+    const photoKeys = ['photo 1', 'photo 2', 'map coordinates', 'tax declaration', 'transfer_cert1', 'transfer_cert2'];
+    let firstPhotoUrl = '';
+    
+    for (let i = 0; i < photoKeys.length; i++) {
+        const mappedKey = headerMapping[photoKeys[i]];
+        if (mappedKey && itemData[mappedKey] && itemData[mappedKey].trim() !== '') {
+            firstPhotoUrl = itemData[mappedKey].trim();
+            break;
+        }
+    }
+
+    if (firstPhotoUrl !== '') {
+        const viewUrl = getDirectImageUrl(firstPhotoUrl, 'view') || firstPhotoUrl;
+        const thumbUrl = getDirectImageUrl(firstPhotoUrl, 'thumbnail') || firstPhotoUrl;
+        
+        const imgEl = document.createElement('img');
+        imgEl.src = viewUrl;
+        imgEl.onerror = function() { this.onerror=null; this.src = thumbUrl; };
+        imgEl.alt = "Property Photo Preview";
+        imgEl.onclick = () => window.open(firstPhotoUrl, '_blank');
+        
+        photoSide.appendChild(imgEl);
+    } else {
+        const noPhotoText = document.createElement('div');
+        noPhotoText.textContent = 'No Photo Available';
+        noPhotoText.style.color = '#64748b';
+        noPhotoText.style.fontStyle = 'italic';
+        noPhotoText.style.textAlign = 'center';
+        photoSide.appendChild(noPhotoText);
+    }
+    
+    flexLayout.appendChild(fieldsSide);
+    flexLayout.appendChild(photoSide);
+    modalFormContainer.appendChild(flexLayout);
     
     if(uploadPhotoBtn) uploadPhotoBtn.style.display = 'inline-block';
     if(modalEditBtn) modalEditBtn.style.display = 'inline-block';
@@ -649,7 +658,6 @@ function setupSystemEventHandlers() {
     if(modalCloseBtn) {
         modalCloseBtn.addEventListener('click', () => {
             if(editModal) editModal.style.display = 'none';
-            // Sync background changes without resetting page 1
             loadInventoryFromGoogleSheets();
         });
     }
@@ -657,7 +665,6 @@ function setupSystemEventHandlers() {
     if(exportButton) exportButton.addEventListener('click', () => exportToCSV(inventoryData, "Real_Estate_Inventory_Full"));
     if(exportFilteredButton) exportFilteredButton.addEventListener('click', () => exportToHTML(currentFilteredData, "Real_Estate_Inventory_Filtered"));
 
-    // Filter controls reset to Page 1 on user input change
     if(searchButton) searchButton.addEventListener('click', () => executeSearch(false));
     if(searchInput) searchInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') executeSearch(false); });
     if(remarksFilter) remarksFilter.addEventListener('change', () => executeSearch(false));
@@ -865,7 +872,6 @@ function executeSearch(keepCurrentPage = false) {
     
     currentFilteredData = filtered; 
     
-    // Determine target page: keep current page position if keepCurrentPage flag is true
     const targetPage = keepCurrentPage ? currentPage : 1;
     renderTable(filtered, targetPage);
 
