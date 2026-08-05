@@ -146,9 +146,29 @@
         
         /* --- Modals & Split Layout (EXPANDED PHOTO VIEWER) --- */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); z-index: 100000; justify-content: center; align-items: center; }
-        .modal-box { background-color: white; padding: 25px; border-radius: 8px; width: 1200px; max-width: 95%; box-shadow: 0 10px 30px rgba(0,0,0,0.4); border: 2px solid #57a1e0; box-sizing: border-box; max-height: 92vh; overflow-y: auto; }
+        .modal-box { background-color: white; padding: 25px; border-radius: 8px; width: 1200px; max-width: 95%; box-shadow: 0 10px 30px rgba(0,0,0,0.4); border: 2px solid #57a1e0; box-sizing: border-box; max-height: 92vh; overflow-y: auto; position: relative; }
         .modal-header { font-size: 24px; font-weight: bold; margin-bottom: 20px; color: #333; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; text-align: center; }
         
+        /* --- Close X Button --- */
+        .close-x-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: transparent;
+            border: none;
+            font-size: 28px;
+            font-weight: bold;
+            color: #64748b;
+            cursor: pointer;
+            transition: color 0.2s, transform 0.2s;
+            z-index: 10;
+            line-height: 1;
+        }
+        .close-x-btn:hover {
+            color: #dc3545;
+            transform: scale(1.1);
+        }
+
         .modal-flex-layout { display: flex; gap: 25px; align-items: stretch; }
         .modal-fields-side { flex: 1; max-height: 75vh; overflow-y: auto; padding-right: 10px; }
         
@@ -510,6 +530,7 @@
     <!-- MODALS -->
     <div id="editModal" class="modal-overlay">
         <div class="modal-box">
+            <button id="modalCloseX" class="close-x-btn">&times;</button>
             <div class="modal-header">Property Details</div>
             <div id="modalFormContainer"></div>
             <div class="modal-actions">
