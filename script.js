@@ -14,7 +14,7 @@ let headerMapping = {};
 let activeEditIndex = null; 
 let parsedUniqueRemarks = []; 
 let isAppInitialized = false; 
-let modalModified = false; // Flag to track if modal actions were triggered
+let modalModified = false;
 
 // Modal Photo Gallery State
 let modalPhotos = [];
@@ -132,7 +132,7 @@ if (!customNameModal) {
     document.body.appendChild(customNameModal);
 }
 
-// --- BACK TO TOP SCROLL LISTENER (Using visibility/opacity to reserve space and prevent shifting) ---
+// --- BACK TO TOP SCROLL LISTENER ---
 window.addEventListener('scroll', () => {
     const backToTopBtn = document.getElementById('backToTopBtn');
     if (backToTopBtn) {
@@ -166,9 +166,7 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    if (loginBtn) {
-        loginBtn.addEventListener('click', executeLogin);
-    }
+    if (loginBtn) loginBtn.addEventListener('click', executeLogin);
     
     if (passIn) {
         passIn.addEventListener('keypress', (e) => {
@@ -363,7 +361,7 @@ function getDirectImageUrl(driveLink, requestType = 'view') {
     const match = driveLink.match(/[-\w]{25,}/); 
     if (match) {
         if (requestType === 'thumbnail') {
-            return `https://drive.google.com/thumbnail?id=${match[0]}&sz=w800`;
+            return `https://drive.google.com/thumbnail?id=${match[0]}&sz=w1600`;
         }
         return `https://drive.google.com/uc?export=view&id=${match[0]}`;
     }
@@ -525,7 +523,7 @@ function calculateStaticDashboardTotals(items) {
 
 function openPopUp(rowId) {
     activeEditIndex = rowId;
-    modalModified = false; // Reset modifier flag on open
+    modalModified = false; 
     const itemData = inventoryData.find(r => r._rowId === rowId);
     if(!modalFormContainer) return; 
     modalFormContainer.innerHTML = '';
@@ -561,9 +559,9 @@ function openPopUp(rowId) {
             }
         } else if(tKey === 'description') {
             fieldEl = document.createElement('textarea');
-            fieldEl.rows = 10; // Increased rows for more space to display full description
-            fieldEl.style.minHeight = '150px'; // Ensure a substantial minimum height
-            fieldEl.style.resize = 'vertical'; // Allow the user to drag the corner to resize if needed
+            fieldEl.rows = 7; // Adjusted strictly to 7 rows
+            fieldEl.style.minHeight = '120px';
+            fieldEl.style.resize = 'vertical';
             fieldEl.value = currentVal;
         } else {
             fieldEl = document.createElement('input');
@@ -645,11 +643,10 @@ function renderModalPhotoViewer(container) {
     imgEl.onclick = () => window.open(currentPhoto.url, '_blank');
     photoContainer.appendChild(imgEl);
 
-    // Render Navigation Arrows if there are multiple photos
     if (modalPhotos.length > 1) {
         const prevBtn = document.createElement('button');
         prevBtn.className = 'photo-nav-btn photo-prev-btn';
-        prevBtn.innerHTML = '&#10094;'; // Left Arrow
+        prevBtn.innerHTML = '&#10094;'; 
         prevBtn.title = 'Previous Photo';
         prevBtn.onclick = (e) => {
             e.stopPropagation();
@@ -659,7 +656,7 @@ function renderModalPhotoViewer(container) {
 
         const nextBtn = document.createElement('button');
         nextBtn.className = 'photo-nav-btn photo-next-btn';
-        nextBtn.innerHTML = '&#10095;'; // Right Arrow
+        nextBtn.innerHTML = '&#10095;'; 
         nextBtn.title = 'Next Photo';
         nextBtn.onclick = (e) => {
             e.stopPropagation();
@@ -673,7 +670,6 @@ function renderModalPhotoViewer(container) {
 
     container.appendChild(photoContainer);
 
-    // Caption Displaying Label and Counter
     const captionEl = document.createElement('div');
     captionEl.className = 'photo-caption';
     captionEl.textContent = `${currentPhoto.label} (${currentPhotoIndex + 1} of ${modalPhotos.length})`;
@@ -683,7 +679,7 @@ function renderModalPhotoViewer(container) {
 function setupSystemEventHandlers() {
     if(uploadPhotoBtn) {
         uploadPhotoBtn.addEventListener('click', () => {
-            modalModified = true; // Mark as modified when action is clicked
+            modalModified = true; 
             const activeRecord = inventoryData.find(r => r._rowId === activeEditIndex);
             const aKey = headerMapping['article/item'];
             const itemCode = encodeURIComponent(activeRecord[aKey] || 'unknown');
@@ -693,7 +689,7 @@ function setupSystemEventHandlers() {
 
     if(modalEditBtn) {
         modalEditBtn.addEventListener('click', () => {
-            modalModified = true; // Mark as modified when edit mode is toggled
+            modalModified = true; 
             const remInput = document.getElementById('modal-input-remarks');
             if(remInput) remInput.disabled = false;
             modalEditBtn.style.display = 'none';
@@ -725,7 +721,6 @@ function setupSystemEventHandlers() {
     if(modalCloseBtn) {
         modalCloseBtn.addEventListener('click', () => {
             if(editModal) editModal.style.display = 'none';
-            // Refresh table only if modal features were modified/interacted with
             if (modalModified) {
                 loadInventoryFromGoogleSheets();
             }
