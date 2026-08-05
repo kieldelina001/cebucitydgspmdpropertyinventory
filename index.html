@@ -144,12 +144,11 @@
         
         .site-footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 14px; color: #64748b; }
         
-        /* --- Modals & Split Layout (Updated for Centered Header & Footer Buttons) --- */
+        /* --- Modals & Split Layout --- */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); z-index: 100000; justify-content: center; align-items: center; }
         .modal-box { background-color: white; padding: 25px; border-radius: 8px; width: 900px; max-width: 95%; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: 2px solid #57a1e0; box-sizing: border-box; max-height: 90vh; overflow-y: auto; }
         .modal-header { font-size: 22px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 1px solid #eee; padding-bottom: 5px; text-align: center; }
         
-        /* Side-by-Side Flex Grid for Modal Property Details */
         .modal-flex-layout { display: flex; gap: 20px; align-items: stretch; }
         .modal-fields-side { flex: 1.1; max-height: 65vh; overflow-y: auto; padding-right: 5px; }
         .modal-photo-side { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; min-height: 380px; box-sizing: border-box; }
@@ -187,7 +186,7 @@
             border-radius: 4px;
         }
 
-        /* --- Floating Controls (Pagination + Back to Top) --- */
+        /* --- Floating Controls --- */
         .floating-controls {
             position: fixed;
             bottom: 30px;
@@ -249,7 +248,6 @@
             transform: scale(1.05);
         }
 
-        /* --- Mobile Responsiveness Updates --- */
         @media (max-width: 768px) {
             #mainApp { margin: 10px; }
             .main-container { width: 100%; padding: 12px; }
@@ -400,7 +398,8 @@
                         <option value="ALL">-- All Media --</option>
                         <option value="WITH_PHOTO">With Pictures Only</option>
                         <option value="NO_PHOTO">No Pictures</option>
-                        <option value="WITH_TAX_DEC">With Tax Declaration</option> </select>
+                        <option value="WITH_TAX_DEC">With Tax Declaration</option>
+                    </select>
                 </div>
             </div>
 
