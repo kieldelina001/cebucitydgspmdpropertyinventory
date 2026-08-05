@@ -1,77 +1,390 @@
 # 🏢 Real Estate Inventory Management System
 
-A lightweight, serverless web application built for the **Property Management Division**. This system transforms a Google Spreadsheet into a live, interactive database—allowing users to view, search, filter, export, and update real estate inventory directly from the browser.
+A modern, web-based Real Estate Inventory Management System designed for the **Property Management Division (PMD)**. This application streams data directly from **Google Sheets**, allowing real-time monitoring, searching, reporting, and updating of government property records.
 
-## ✨ Key Features
+![Status](https://img.shields.io/badge/Status-Active-success)
+![Platform](https://img.shields.io/badge/Platform-Web-blue)
+![Google%20Sheets-Live-green)
+![License](https://img.shields.io/badge/License-MIT-orange)
 
-*   **Live Google Sheets Datastream:** Uses `PapaParse` to fetch and parse live CSV data directly from a published Google Sheet. No traditional database required.
-*   **Dynamic Dashboard Analytics:** Automatically calculates and displays live counts of properties by status (Existing, Not Found, For Verification, With Pictures) and type (Buildings, Hospitals, Land, Schools, etc.).
-*   **Advanced Search & Filtering:** 
-    *   Multi-keyword text search.
-    *   Dropdown filters for Remarks, Property Types, and Media (Photos).
-*   **Secure Cloud Updates:** Utilizes a Google Apps Script (GAS) Web App gateway to process and log user updates (Remarks, Operator Name, Timestamp) back to the Google Sheet.
-*   **Export Capabilities:** 
-    *   Export the complete dataset to **CSV**.
-    *   Export filtered search results to a clean, print-ready **HTML/PDF** report with image previews.
-*   **Responsive UI:** Mobile-friendly design with horizontal scrolling for large tables, dynamic loading overlays, and a clean, centered dashboard.
+---
 
-## 🛠️ Tech Stack
+# 📖 Overview
 
-*   **Frontend:** HTML5, CSS3, Vanilla JavaScript
-*   **Data Parsing:** [PapaParse](https://www.papaparse.com/) (CDN)
-*   **Database:** Google Sheets
-*   **Backend / API Gateway:** Google Apps Script (GAS)
+The Real Estate Inventory Management System provides a centralized dashboard for managing government real estate assets.
 
-## 🏗️ Architecture
+Instead of maintaining standalone spreadsheets, this system connects directly to Google Sheets, providing a live database that can be viewed and updated from any device with internet access.
 
-1.  **Data Read:** The app constructs a direct CSV export URL using the target `SPREADSHEET_ID`. `PapaParse` reads this URL upon page load to generate the table and dashboard.
-2.  **Data Write:** When a user updates a property's "Remarks", the app prompts for the operator's name, then sends a `POST` request to the `GOOGLE_APPS_SCRIPT_URL`.
-3.  **GAS Handling:** The Google Apps Script receives the POST parameters (`article`, `remarks`, `updatedby`, `timestamp`) and updates the corresponding row in the spreadsheet. 
+Designed specifically for:
 
-## 🚀 Setup & Installation
+- Property Management Division
+- Government Asset Inventory
+- Real Estate Monitoring
+- Building & Land Inventory
+- Infrastructure Tracking
 
-To deploy this project for your own organization, follow these steps:
+---
 
-### 1. Clone the Repository
-\`\`\`bash
-git clone https://github.com/yourusername/real-estate-inventory.git
-cd real-estate-inventory
-\`\`\`
+# ✨ Features
 
-### 2. Configure Google Sheets
-1. Create a Google Sheet with headers matching the expected layout (e.g., *Article/Item, Description, Acquisition Date, Unit Value, Remarks, Type, Photo 1, Photo 2, Map Coordinates, Updated By, Last Update*).
-2. Change the sharing settings of the Google Sheet to **"Anyone with the link can view"**.
-3. Copy the **Spreadsheet ID** from the URL (the long string of characters between `/d/` and `/edit`).
-4. Open `script.js` and replace the `SPREADSHEET_ID` variable with your ID:
-   \`\`\`javascript
-   const SPREADSHEET_ID = "YOUR_SPREADSHEET_ID_HERE";
-   \`\`\`
+## 🔐 Secure Login
 
-### 3. Configure Google Apps Script (For Updates)
-1. In your Google Sheet, go to **Extensions > Apps Script**.
-2. Write a `doPost(e)` function to handle the incoming data and update your sheet.
-3. Deploy the script as a **Web App**:
-   * **Execute as:** Me
-   * **Who has access:** Anyone
-4. Copy the deployment Web App URL.
-5. Open `script.js` and replace the `GOOGLE_APPS_SCRIPT_URL`:
-   \`\`\`javascript
-   const GOOGLE_APPS_SCRIPT_URL = "YOUR_APPS_SCRIPT_WEB_APP_URL_HERE";
-   \`\`\`
+- Username & Password authentication
+- Protected inventory dashboard
+- Prevents unauthorized access
 
-### 4. Run the Application
-Since this is a client-side application, you can simply open `index.html` in any modern web browser or host it on platforms like **GitHub Pages**, **Vercel**, or **Netlify**.
+---
 
-## 📸 Image Assets
+## 📡 Live Google Sheets Integration
 
-Ensure the following image files are located in the root directory for the dashboard icons and header to load correctly:
-*   `Ph_seal_cebucity.png` (Header Logo)
-*   `building.png`, `flood.png`, `hospital.png`, `land.png`, `market.png`, `other.png`, `park.png`, `road.png`, `school.png`, `slaughterhouse.png`, `water.png` (Dashboard Type Icons)
+- Real-time data synchronization
+- No manual imports required
+- Automatically loads the latest spreadsheet data
+- Google Apps Script backend
 
-## 👨‍💻 Author
+---
 
-*   **Noel Rie N. Deliña** - *Property Management Division*
+## 📊 Interactive Dashboard
 
-## 📜 License
+Displays live statistics including:
 
-This project is created for internal organizational use. Ensure compliance with your organization's data privacy guidelines when handling real estate data and personal operator details.
+- Total Properties
+- Existing Assets
+- Not Found Assets
+- For Verification
+- Properties with Photos
+- Tax Declarations Available
+
+---
+
+## 🏗 Property Type Dashboard
+
+Automatically counts:
+
+- Buildings
+- Building Modifications
+- School Buildings
+- Hospitals
+- Markets
+- Roads
+- Flood Control Structures
+- Water Supply Systems
+- Parks & Plazas
+- Land
+- Other Land Improvements
+- Other Structures
+- Other Infrastructure
+- Slaughterhouses
+
+---
+
+## 🔍 Advanced Search
+
+Search across the entire inventory instantly.
+
+Supports:
+
+- Keyword Search
+- Property Type Filter
+- Remarks Filter
+- Media Filter
+
+---
+
+## 🖼 Image Gallery
+
+Each property may contain:
+
+- Photo 1
+- Photo 2
+- Map Coordinates
+- Tax Declaration
+- Transfer Certificate Page 1
+- Transfer Certificate Page 2
+
+Features include:
+
+- Hover Preview
+- Full Screen Viewer
+- Multiple Photo Navigation
+- Image Carousel
+
+---
+
+## 📄 Property Details Window
+
+Clicking a property opens a detailed information panel.
+
+Includes:
+
+- Description
+- Acquisition Date
+- Unit Value
+- Remarks
+- Type
+- Attached Documents
+- Image Gallery
+
+---
+
+## ✏ Edit & Update Records
+
+Authorized users can:
+
+- Update Remarks
+- Log Operator Name
+- Save changes
+- Automatically publish updates through Google Apps Script
+
+Every update records:
+
+- Updated By
+- Last Update Timestamp
+
+---
+
+## 📤 Export Options
+
+Export entire inventory as:
+
+- CSV
+
+Export filtered search results as:
+
+- Printable HTML
+- PDF (using browser Print)
+
+---
+
+## 📑 Pagination
+
+Large inventories are automatically divided into pages for better performance.
+
+- Previous / Next Navigation
+- Page Counter
+
+---
+
+## 📱 Responsive Design
+
+Optimized for:
+
+- Desktop
+- Tablets
+- Mobile Phones
+
+---
+
+## ⬆ Back To Top Button
+
+Floating quick navigation button for large datasets.
+
+---
+
+# 🖥 Built With
+
+### Frontend
+
+- HTML5
+- CSS3
+- JavaScript (Vanilla)
+
+### Libraries
+
+- PapaParse
+
+### Backend
+
+- Google Apps Script
+
+### Database
+
+- Google Sheets
+
+### Storage
+
+- Google Drive
+
+---
+
+# 📂 Project Structure
+
+```
+RealEstateInventory/
+│
+├── index.html
+├── script.js
+├── README.md
+│
+├── assets/
+│   ├── dgs_logo.png
+│   ├── Ph_seal_cebucity.png
+│   ├── building.png
+│   ├── road.png
+│   ├── land.png
+│   └── ...
+```
+
+---
+
+# 🚀 How It Works
+
+```
+Google Sheets
+       │
+       ▼
+Google Apps Script
+       │
+       ▼
+Real Estate Inventory Web App
+       │
+       ▼
+Search • Dashboard • Reports • Updates
+```
+
+---
+
+# 🔄 Workflow
+
+1. User logs in
+2. Application connects to Google Sheets
+3. Inventory is downloaded
+4. Dashboard statistics are calculated
+5. User searches or filters properties
+6. User opens a property
+7. User edits remarks
+8. Changes are submitted through Google Apps Script
+9. Google Sheet updates automatically
+
+---
+
+# 📈 Dashboard Metrics
+
+The dashboard automatically calculates:
+
+- Total Inventory
+- Existing
+- Not Found
+- For Verification
+- With Photos
+- Tax Declarations
+- Property Type Counts
+
+No manual computation required.
+
+---
+
+# 📸 Media Support
+
+Supports multiple media attachments per property:
+
+- Property Images
+- Maps
+- Tax Declaration
+- Transfer Certificate Pages
+
+Images include:
+
+- Hover Preview
+- Enlarged Viewer
+- Previous/Next Navigation
+
+---
+
+# 🔍 Search Capabilities
+
+Searches all property information including:
+
+- Article Number
+- Description
+- Remarks
+- Property Type
+- Dates
+- Values
+
+Additional filters:
+
+- Remarks
+- Property Type
+- Media Availability
+
+---
+
+# 📦 Export Features
+
+### Export All
+
+Downloads the complete inventory in CSV format.
+
+### Export Search Results
+
+Generates a printable HTML report suitable for:
+
+- Printing
+- PDF Export
+- Sharing
+
+---
+
+# ⚡ Performance Features
+
+- Dynamic Loading Screen
+- Live Connection Status
+- Client-side Filtering
+- Pagination
+- Lightweight Vanilla JavaScript
+- Responsive Layout
+- Optimized Image Loading
+
+---
+
+# 🔒 Security
+
+- Login Screen
+- Controlled Editing
+- Change Logging
+- User Identification
+- Timestamp Tracking
+
+> **Note:** The current login credentials are stored in the frontend for development purposes. For production deployments, authentication should be moved to a secure backend service.
+
+---
+
+# 📌 Future Improvements
+
+- User Roles
+- Administrator Dashboard
+- Audit Logs
+- QR Code Property Labels
+- GIS Mapping
+- GPS Integration
+- Multiple User Accounts
+- Dark Mode
+- Offline Mode
+- Analytics Dashboard
+- Email Notifications
+- Asset History Tracking
+
+---
+
+# 👨‍💻 Author
+
+**Noel Rie N. Deliña**
+
+Property Management Division
+
+---
+
+# 📄 License
+
+This project is intended for educational and government inventory management purposes.
+
+Feel free to modify and improve it according to your organization's needs.
+
+---
+
+## ⭐ If you find this project useful
+
+Please consider giving the repository a ⭐ on GitHub.
+
+It helps others discover the project and supports future development.
