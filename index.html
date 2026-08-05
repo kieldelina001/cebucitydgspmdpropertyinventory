@@ -144,26 +144,26 @@
         
         .site-footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 14px; color: #64748b; }
         
-        /* --- Modals & Split Layout --- */
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); z-index: 100000; justify-content: center; align-items: center; }
-        .modal-box { background-color: white; padding: 25px; border-radius: 8px; width: 900px; max-width: 95%; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border: 2px solid #57a1e0; box-sizing: border-box; max-height: 90vh; overflow-y: auto; }
-        .modal-header { font-size: 22px; font-weight: bold; margin-bottom: 15px; color: #333; border-bottom: 1px solid #eee; padding-bottom: 5px; text-align: center; }
+        /* --- Modals & Split Layout (EXPANDED PHOTO VIEWER) --- */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); z-index: 100000; justify-content: center; align-items: center; }
+        .modal-box { background-color: white; padding: 25px; border-radius: 8px; width: 1200px; max-width: 95%; box-shadow: 0 10px 30px rgba(0,0,0,0.4); border: 2px solid #57a1e0; box-sizing: border-box; max-height: 92vh; overflow-y: auto; }
+        .modal-header { font-size: 24px; font-weight: bold; margin-bottom: 20px; color: #333; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; text-align: center; }
         
-        .modal-flex-layout { display: flex; gap: 20px; align-items: stretch; }
-        .modal-fields-side { flex: 1.1; max-height: 65vh; overflow-y: auto; padding-right: 5px; }
+        .modal-flex-layout { display: flex; gap: 25px; align-items: stretch; }
+        .modal-fields-side { flex: 1; max-height: 75vh; overflow-y: auto; padding-right: 10px; }
         
-        /* --- Photo Side & Navigation Arrows --- */
+        /* --- Photo Side & Navigation Arrows (MUCH LARGER PHOTO AREA) --- */
         .modal-photo-side { 
-            flex: 1; 
+            flex: 1.6; 
             display: flex; 
             flex-direction: column; 
             justify-content: center; 
             align-items: center; 
-            background: #f8fafc; 
-            border: 1px solid #cbd5e1; 
-            border-radius: 6px; 
-            padding: 12px; 
-            min-height: 380px; 
+            background: #0f172a; 
+            border: 1px solid #334155; 
+            border-radius: 8px; 
+            padding: 15px; 
+            min-height: 520px; 
             box-sizing: border-box; 
             position: relative; 
         }
@@ -178,22 +178,26 @@
         }
         .modal-photo-side img { 
             max-width: 100%; 
-            max-height: 310px; 
-            width: 100%; 
-            height: 100%; 
+            max-height: 500px; 
+            width: auto; 
+            height: auto; 
             object-fit: contain; 
-            border-radius: 4px; 
-            border: 1px solid #ccc; 
+            border-radius: 6px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
             cursor: pointer; 
+            transition: transform 0.2s ease;
+        }
+        .modal-photo-side img:hover {
+            transform: scale(1.01);
         }
         .photo-nav-btn {
             position: absolute;
             top: 50%;
             transform: translateY(-50%);
-            background-color: rgba(0, 0, 0, 0.5);
+            background-color: rgba(0, 0, 0, 0.7);
             color: white;
             border: none;
-            font-size: 18px;
+            font-size: 22px;
             cursor: pointer;
             border-radius: 50%;
             z-index: 10;
@@ -201,30 +205,33 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 38px;
-            height: 38px;
+            width: 46px;
+            height: 46px;
             user-select: none;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
         }
         .photo-nav-btn:hover {
-            background-color: rgba(0, 0, 0, 0.8);
-            transform: translateY(-50%) scale(1.1);
+            background-color: #28a745;
+            transform: translateY(-50%) scale(1.15);
         }
-        .photo-prev-btn { left: 8px; }
-        .photo-next-btn { right: 8px; }
+        .photo-prev-btn { left: 12px; }
+        .photo-next-btn { right: 12px; }
         .photo-caption {
-            margin-top: 10px;
-            font-size: 13px;
+            margin-top: 12px;
+            font-size: 14px;
             font-weight: bold;
-            color: #475569;
+            color: #f8fafc;
             text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 6px 16px;
+            border-radius: 20px;
         }
 
-        .modal-field { margin-bottom: 12px; display: flex; flex-direction: column; }
-        .modal-field label { font-weight: bold; font-size: 14px; margin-bottom: 4px; color: #555; }
-        .modal-field input, .modal-field textarea, .modal-field select { padding: 8px; font-size: 15px; border: 1px solid #ccc; border-radius: 4px; background-color: white; }
-        .modal-actions { margin-top: 20px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
-        .modal-btn { padding: 8px 16px; font-size: 14px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .modal-field { margin-bottom: 14px; display: flex; flex-direction: column; }
+        .modal-field label { font-weight: bold; font-size: 14px; margin-bottom: 4px; color: #334155; }
+        .modal-field input, .modal-field textarea, .modal-field select { padding: 10px; font-size: 15px; border: 1px solid #cbd5e1; border-radius: 4px; background-color: white; }
+        .modal-actions { margin-top: 25px; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+        .modal-btn { padding: 10px 20px; font-size: 15px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
         .btn-upload { background-color: #17a2b8; color: white; display: none; }
         .btn-edit { background-color: #ffc107; color: black; }
         .btn-save { background-color: #28a745; color: white; display: none; } 
@@ -252,7 +259,7 @@
             border-radius: 4px;
         }
 
-        /* --- Floating Controls (Side by Side & Space Reserved) --- */
+        /* --- Floating Controls --- */
         .floating-controls {
             position: fixed;
             bottom: 30px;
@@ -336,7 +343,8 @@
             #imagePreviewTooltip { display: none !important; }
             
             .modal-flex-layout { flex-direction: column; }
-            .modal-photo-side { min-height: 250px; }
+            .modal-photo-side { min-height: 320px; }
+            .modal-photo-side img { max-height: 280px; }
             
             .floating-controls {
                 bottom: 20px;
@@ -518,7 +526,7 @@
         <img id="imagePreviewTooltipImg" src="" alt="Enlarged Preview">
     </div>
 
-    <!-- FLOATING CONTROLS (Pagination & Go To Top Side by Side) -->
+    <!-- FLOATING CONTROLS -->
     <div class="floating-controls">
         <div id="paginationContainer">
             <button id="prevPageBtn" class="page-btn" title="Previous Page">◀</button>
