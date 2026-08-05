@@ -14,6 +14,7 @@ let headerMapping = {};
 let activeEditIndex = null; 
 let parsedUniqueRemarks = []; 
 let isAppInitialized = false; 
+let modalModified = false; // Flag to track if modal actions were triggered
 
 // Pagination Variables
 let currentPage = 1;
@@ -518,15 +519,14 @@ function calculateStaticDashboardTotals(items) {
 
 function openPopUp(rowId) {
     activeEditIndex = rowId;
+    modalModified = false; // Reset modifier flag on open
     const itemData = inventoryData.find(r => r._rowId === rowId);
     if(!modalFormContainer) return; 
     modalFormContainer.innerHTML = '';
     
-    // --- MODAL SPLIT LAYOUT CONTAINER ---
     const flexLayout = document.createElement('div');
     flexLayout.className = 'modal-flex-layout';
     
-    // Left Side: Form Fields Container
     const fieldsSide = document.createElement('div');
     fieldsSide.className = 'modal-fields-side';
     
@@ -571,7 +571,6 @@ function openPopUp(rowId) {
         fieldsSide.appendChild(wrapper);
     });
 
-    // Right Side: Photo Container (Matches Popup Height/Size)
     const photoSide = document.createElement('div');
     photoSide.className = 'modal-photo-side';
     
@@ -619,6 +618,7 @@ function openPopUp(rowId) {
 function setupSystemEventHandlers() {
     if(uploadPhotoBtn) {
         uploadPhotoBtn.addEventListener('click', () => {
+            modalModified = true; // Mark as modified when action is clicked
             const activeRecord = inventoryData.find(r => r._rowId === activeEditIndex);
             const aKey = headerMapping['article/item'];
             const itemCode = encodeURIComponent(activeRecord[aKey] || 'unknown');
@@ -628,6 +628,7 @@ function setupSystemEventHandlers() {
 
     if(modalEditBtn) {
         modalEditBtn.addEventListener('click', () => {
+            modalModified = true; // Mark as modified when edit mode is toggled
             const remInput = document.getElementById('modal-input-remarks');
             if(remInput) remInput.disabled = false;
             modalEditBtn.style.display = 'none';
@@ -637,6 +638,7 @@ function setupSystemEventHandlers() {
 
     if(modalSaveBtn) {
         modalSaveBtn.addEventListener('click', () => {
+            modalModified = true;
             const selection = document.getElementById('modal-input-remarks').value;
             if(editModal) editModal.style.display = 'none';
             if(customNameModal) customNameModal.style.display = 'flex';
@@ -658,7 +660,10 @@ function setupSystemEventHandlers() {
     if(modalCloseBtn) {
         modalCloseBtn.addEventListener('click', () => {
             if(editModal) editModal.style.display = 'none';
-            loadInventoryFromGoogleSheets();
+            // Refresh table only if modal features were modified/interacted with
+            if (modalModified) {
+                loadInventoryFromGoogleSheets();
+            }
         });
     }
 
