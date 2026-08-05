@@ -2,11 +2,6 @@
 
 A modern, web-based Real Estate Inventory Management System designed for the **Property Management Division (PMD)**. This application streams data directly from **Google Sheets**, allowing real-time monitoring, searching, reporting, and updating of government property records.
 
-![Status](https://img.shields.io/badge/Status-Active-success)
-![Platform](https://img.shields.io/badge/Platform-Web-blue)
-![Google%20Sheets-Live-green)
-![License](https://img.shields.io/badge/License-MIT-orange)
-
 ---
 
 # 📖 Overview
