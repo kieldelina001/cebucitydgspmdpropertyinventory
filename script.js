@@ -132,14 +132,16 @@ if (!customNameModal) {
     document.body.appendChild(customNameModal);
 }
 
-// --- BACK TO TOP SCROLL LISTENER ---
+// --- BACK TO TOP SCROLL LISTENER (Using visibility/opacity to reserve space and prevent shifting) ---
 window.addEventListener('scroll', () => {
     const backToTopBtn = document.getElementById('backToTopBtn');
     if (backToTopBtn) {
         if (document.body.scrollTop > 300 || document.documentElement.scrollTop > 300) {
-            backToTopBtn.style.display = "block";
+            backToTopBtn.style.visibility = "visible";
+            backToTopBtn.style.opacity = "1";
         } else {
-            backToTopBtn.style.display = "none";
+            backToTopBtn.style.visibility = "hidden";
+            backToTopBtn.style.opacity = "0";
         }
     }
 });
