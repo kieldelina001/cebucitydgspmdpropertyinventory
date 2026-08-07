@@ -1,4 +1,4 @@
-// 🔑 Google Sheets Cloud Gateway Architecture[cite: 1]
+// 🔑 Google Sheets Cloud Gateway Architecture
 const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrqoIQ1yjd5XiGIPb9FLnxLI2LTgNJFV1ug-klApiKfNScxd_CX07o2nYYk_4lnvTBPw/exec";
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
 const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
@@ -465,12 +465,22 @@ function calculateStaticDashboardTotals(items) {
         if((row[pKey4] && row[pKey4].trim()!=='') || (row[pKey5] && row[pKey5].trim()!=='') || (row[pKey6] && row[pKey6].trim()!=='')) taxdec++;
         
         const typeStr = String(row[tKey] || '').toUpperCase().trim();
-        for (const statType in stats) {
-             if(typeStr === statType.toUpperCase()) {
-                 stats[statType]++;
-                 break; 
-             }
-        }
+        
+        // FLEXIBLE MATCHING IMPLEMENTED HERE: Allows the system to capture variations, plurals, and missing punctuation
+        if (typeStr.includes('BUILDING MOD') || typeStr.includes('ASSET MOD')) stats['Building Modifications']++;
+        else if (typeStr.includes('SCHOOL')) stats['School Building']++;
+        else if (typeStr.includes('HOSPITAL')) stats['Hospital']++;
+        else if (typeStr.includes('MARKET')) stats['Markets']++;
+        else if (typeStr.includes('OTHER INFRA')) stats['Other Infrastructures']++;
+        else if (typeStr.includes('OTHER STRUCT')) stats['Other Structures']++;
+        else if (typeStr.includes('PARK') || typeStr.includes('PLAZA') || typeStr.includes('MONUMENT')) stats['PARKS PLAZAS AND MONUMENTS']++;
+        else if (typeStr.includes('OTHER LAND')) stats['Other Land Improvements']++;
+        else if (typeStr.includes('LAND') || typeStr === 'LOT') stats['Land']++;
+        else if (typeStr.includes('FLOOD')) stats['Flood Control']++;
+        else if (typeStr.includes('WATER')) stats['Water Supplies']++;
+        else if (typeStr.includes('ROAD')) stats['Roads']++;
+        else if (typeStr.includes('SLAUGHTERHOUSE')) stats['Slaughterhouse']++;
+        else if (typeStr.includes('BUILDING')) stats['Building']++;
     });
 
     if(countExisting) countExisting.textContent = existing;
