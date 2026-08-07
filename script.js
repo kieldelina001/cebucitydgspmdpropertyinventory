@@ -637,11 +637,22 @@ function renderModalPhotoViewer(container) {
     const viewUrl = getDirectImageUrl(currentPhoto.url, 'view') || currentPhoto.url;
     const thumbUrl = getDirectImageUrl(currentPhoto.url, 'thumbnail') || currentPhoto.url;
 
+    // View Photo Button Overlay (New Addition)
+    const viewLinkBtn = document.createElement('button');
+    viewLinkBtn.className = 'view-photo-link-btn';
+    viewLinkBtn.innerHTML = '🔗 View Photo';
+    viewLinkBtn.title = 'Open full photo in new tab';
+    viewLinkBtn.onclick = (e) => {
+        e.stopPropagation();
+        window.open(currentPhoto.url, '_blank');
+    };
+    photoContainer.appendChild(viewLinkBtn);
+
     const imgEl = document.createElement('img');
     imgEl.src = viewUrl;
     imgEl.onerror = function() { this.onerror=null; this.src = thumbUrl; };
     imgEl.alt = currentPhoto.label;
-    imgEl.onclick = () => window.open(currentPhoto.url, '_blank');
+    // imgEl.onclick event removed to disable clicking on the image directly
     photoContainer.appendChild(imgEl);
 
     if (modalPhotos.length > 1) {
