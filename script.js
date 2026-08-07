@@ -862,7 +862,7 @@ function downloadDatasetCSV(data, filenamePrefix) {
     document.body.removeChild(link);
 }
 
-// 🌐 Restored HTML Export Function with Photos Included
+// 🌐 Restored & Optimized HTML Export Function with Larger Photos & High-Contrast Print-Ready Text
 function downloadSearchedHTML(data) {
     if(!data || data.length === 0) {
         alert("Export Nullified: No dataset active for export.");
@@ -880,9 +880,9 @@ function downloadSearchedHTML(data) {
                 if (val.trim() !== '') {
                     const viewUrl = getDirectImageUrl(val, 'view') || val;
                     const thumbUrl = getDirectImageUrl(val, 'thumbnail') || val;
-                    tableRowsHTML += `<td><img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" style="height:60px; max-width:80px; object-fit:cover; border:1px solid #ccc; border-radius:4px;" /></td>`;
+                    tableRowsHTML += `<td style="text-align: center;"><img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" style="height: 140px; max-width: 180px; width: auto; object-fit: contain; border: 1px solid #94a3b8; border-radius: 4px; display: block; margin: 0 auto;" /></td>`;
                 } else {
-                    tableRowsHTML += `<td>No Photo</td>`;
+                    tableRowsHTML += `<td style="text-align: center; color: #64748b; font-style: italic;">No Photo</td>`;
                 }
             } else {
                 tableRowsHTML += `<td>${escapeHtml(val)}</td>`;
@@ -900,20 +900,70 @@ function downloadSearchedHTML(data) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Searched Inventory Export</title>
+    <title>Searched Inventory Report</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; color: #1e293b; background: #f8fafc; }
-        h1 { text-align: center; color: #1e293b; text-transform: uppercase; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
-        th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; font-size: 13px; word-break: break-word; }
-        th { background-color: #f1f5f9; position: sticky; top: 0; }
-        img { border-radius: 4px; }
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            color: #0f172a; 
+            background: #ffffff; 
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        h1 { 
+            text-align: center; 
+            color: #0f172a; 
+            text-transform: uppercase; 
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        .report-meta {
+            text-align: center;
+            font-size: 14px;
+            color: #334155;
+            margin-bottom: 25px;
+            font-weight: bold;
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 10px; 
+            background: white; 
+        }
+        th, td { 
+            border: 1px solid #64748b; 
+            padding: 10px 12px; 
+            text-align: left; 
+            font-size: 13px; 
+            line-height: 1.4;
+            word-break: break-word; 
+            color: #0f172a;
+            vertical-align: middle;
+        }
+        th { 
+            background-color: #cbd5e1 !important; 
+            color: #0f172a;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 0.5px;
+        }
+        tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+        @media print {
+            body { margin: 10px; }
+            table { page-break-inside: auto; }
+            tr { page-break-inside: avoid; page-break-after: auto; }
+            th { background-color: #cbd5e1 !important; }
+        }
     </style>
 </head>
 <body>
-    <h1>Real Estate Inventory - Searched Export</h1>
-    <p><strong>Export Date:</strong> ${new Date().toLocaleString()}</p>
-    <p><strong>Total Records:</strong> ${data.length}</p>
+    <h1>Real Estate Inventory Report</h1>
+    <div class="report-meta">
+        Exported On: ${new Date().toLocaleString()} &bull; Total Records: ${data.length}
+    </div>
     <table>
         <thead>
             <tr>${headersHTML}</tr>
@@ -929,7 +979,7 @@ function downloadSearchedHTML(data) {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `Searched_Inventory_${new Date().toISOString().slice(0,10)}.html`);
+    link.setAttribute("download", `Searched_Inventory_Report_${new Date().toISOString().slice(0,10)}.html`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
