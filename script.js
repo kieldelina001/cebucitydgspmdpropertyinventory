@@ -679,7 +679,7 @@ function renderModalPhotoViewer() {
     // Download button replacing the old View Image button
     const downloadBtn = document.createElement('button');
     downloadBtn.className = 'photo-action-btn';
-    downloadBtn.innerHTML = `📥 Download`;
+    downloadBtn.innerHTML = `View Photo`;
     downloadBtn.onclick = () => {
         const a = document.createElement('a');
         a.href = viewUrl;
