@@ -71,7 +71,7 @@ const modalFormContainer = document.getElementById('modalFormContainer');
 const modalEditBtn = document.getElementById('modalEditBtn');
 const modalSaveBtn = document.getElementById('modalSaveBtn');
 const modalCloseBtn = document.getElementById('modalCloseBtn');
-const modalCloseX = document.getElementById('modalCloseX'); // New X Button variable
+const modalCloseX = document.getElementById('modalCloseX'); 
 const uploadPhotoBtn = document.getElementById('uploadPhotoBtn'); 
 
 // Tooltip Elements
@@ -560,7 +560,7 @@ function openPopUp(rowId) {
             }
         } else if(tKey === 'description') {
             fieldEl = document.createElement('textarea');
-            fieldEl.rows = 7; // Adjusted strictly to 7 rows
+            fieldEl.rows = 7;
             fieldEl.style.minHeight = '120px';
             fieldEl.style.resize = 'vertical';
             fieldEl.value = currentVal;
@@ -637,22 +637,64 @@ function renderModalPhotoViewer(container) {
     const viewUrl = getDirectImageUrl(currentPhoto.url, 'view') || currentPhoto.url;
     const thumbUrl = getDirectImageUrl(currentPhoto.url, 'thumbnail') || currentPhoto.url;
 
-    // View Photo Button Overlay (New Addition)
-    const viewLinkBtn = document.createElement('button');
-    viewLinkBtn.className = 'view-photo-link-btn';
-    viewLinkBtn.innerHTML = '🔗 View Photo';
-    viewLinkBtn.title = 'Open full photo in new tab';
-    viewLinkBtn.onclick = (e) => {
+    // --- Photo Actions Container (View & Download Buttons) ---
+    const actionsContainer = document.createElement('div');
+    actionsContainer.className = 'photo-actions-container';
+
+    const viewBtn = document.createElement('button');
+    viewBtn.className = 'photo-action-btn';
+    viewBtn.innerHTML = '🔗 View';
+    viewBtn.title = 'Open full photo in new tab';
+    viewBtn.onclick = (e) => {
         e.stopPropagation();
         window.open(currentPhoto.url, '_blank');
     };
-    photoContainer.appendChild(viewLinkBtn);
+
+    const downloadBtn = document.createElement('button');
+    downloadBtn.className = 'photo-action-btn';
+    downloadBtn.innerHTML = '⬇️ Download';
+    downloadBtn.title = 'Download this photo';
+    downloadBtn.onclick = async (e) => {
+        e.stopPropagation();
+        const driveMatch = currentPhoto.url.match(/[-\w]{25,}/);
+        
+        // Use Google Drive specific download endpoint if applicable
+        if (currentPhoto.url.includes('drive.google.com') && driveMatch) {
+            const directDownloadUrl = `https://drive.google.com/uc?export=download&id=${driveMatch[0]}`;
+            const a = document.createElement('a');
+            a.href = directDownloadUrl;
+            a.target = '_blank'; // Failsafe, though Drive handles uc?export as direct download prompt
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        } else {
+            // Attempt standard Blob download for other generic images
+            try {
+                const response = await fetch(currentPhoto.url);
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = blobUrl;
+                a.download = `inventory_photo_${Date.now()}`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(blobUrl);
+            } catch (err) {
+                // Fallback to opening in new tab if CORS blocks fetch attempt
+                window.open(currentPhoto.url, '_blank');
+            }
+        }
+    };
+
+    actionsContainer.appendChild(viewBtn);
+    actionsContainer.appendChild(downloadBtn);
+    photoContainer.appendChild(actionsContainer);
 
     const imgEl = document.createElement('img');
     imgEl.src = viewUrl;
     imgEl.onerror = function() { this.onerror=null; this.src = thumbUrl; };
     imgEl.alt = currentPhoto.label;
-    // imgEl.onclick event removed to disable clicking on the image directly
     photoContainer.appendChild(imgEl);
 
     if (modalPhotos.length > 1) {
