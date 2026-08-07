@@ -890,7 +890,8 @@ function downloadSearchedHTML(data) {
                 if (val.trim() !== '') {
                     const viewUrl = getDirectImageUrl(val, 'view') || val;
                     const thumbUrl = getDirectImageUrl(val, 'thumbnail') || val;
-                    tableRowsHTML += `<td style="text-align: center;"><img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" style="height: 140px; max-width: 180px; width: auto; object-fit: contain; border: 1px solid #94a3b8; border-radius: 4px; display: block; margin: 0 auto;" /></td>`;
+                    // UPDATED: Increased image dimensions strictly for the HTML export
+                    tableRowsHTML += `<td style="text-align: center;"><img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" style="height: 300px; max-width: 400px; width: auto; object-fit: contain; border: 2px solid #64748b; border-radius: 6px; display: block; margin: 0 auto; padding: 5px; background: #f8fafc;" /></td>`;
                 } else {
                     tableRowsHTML += `<td style="text-align: center; color: #64748b; font-style: italic;">No Photo</td>`;
                 }
@@ -906,6 +907,7 @@ function downloadSearchedHTML(data) {
         headersHTML += `<th>${h}</th>`;
     });
 
+    // UPDATED: High contrast font colors (#000000), increased font sizes, bolder headings, and darker borders for readability.
     const htmlContent = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -913,57 +915,60 @@ function downloadSearchedHTML(data) {
     <title>Searched Inventory Report</title>
     <style>
         body { 
-            font-family: Arial, sans-serif; 
+            font-family: 'Segoe UI', Arial, sans-serif; 
             margin: 20px; 
-            color: #0f172a; 
+            color: #000000; 
             background: #ffffff; 
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
         h1 { 
             text-align: center; 
-            color: #0f172a; 
+            color: #000000; 
             text-transform: uppercase; 
-            font-size: 24px;
-            margin-bottom: 5px;
+            font-size: 28px;
+            margin-bottom: 8px;
+            font-weight: 900;
         }
         .report-meta {
             text-align: center;
-            font-size: 14px;
-            color: #334155;
-            margin-bottom: 25px;
+            font-size: 16px;
+            color: #1f2937;
+            margin-bottom: 30px;
             font-weight: bold;
         }
         table { 
             width: 100%; 
             border-collapse: collapse; 
-            margin-top: 10px; 
+            margin-top: 15px; 
             background: white; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         th, td { 
-            border: 1px solid #64748b; 
-            padding: 10px 12px; 
+            border: 2px solid #334155; 
+            padding: 14px 16px; 
             text-align: left; 
-            font-size: 13px; 
-            line-height: 1.4;
+            font-size: 15px; 
+            line-height: 1.6;
             word-break: break-word; 
-            color: #0f172a;
+            color: #000000;
             vertical-align: middle;
         }
         th { 
             background-color: #cbd5e1 !important; 
-            color: #0f172a;
-            font-weight: bold;
+            color: #000000;
+            font-weight: 800;
             text-transform: uppercase;
-            font-size: 12px;
+            font-size: 14px;
             letter-spacing: 0.5px;
+            text-align: center;
         }
         tr:nth-child(even) {
-            background-color: #f8fafc;
+            background-color: #f1f5f9;
         }
         @media print {
             body { margin: 10px; }
-            table { page-break-inside: auto; }
+            table { page-break-inside: auto; box-shadow: none; }
             tr { page-break-inside: avoid; page-break-after: auto; }
             th { background-color: #cbd5e1 !important; }
         }
