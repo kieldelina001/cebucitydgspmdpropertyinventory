@@ -261,8 +261,13 @@ async function loadInventoryFromGoogleSheets() {
                         const actualKey = rawHeaders.find(h => {
                             const normH = h.toLowerCase().trim();
                             const normT = target.toLowerCase().trim();
-                            return normH.includes(normT) || normT.includes(normH) || 
-                                   (normT === 'article/item' && normH === 'article');
+                            
+                            // Robust header matching for TCT pages and articles
+                            if (normT === 'transfer_cert1' && (normH.includes('transfer') && normH.includes('1'))) return true;
+                            if (normT === 'transfer_cert2' && (normH.includes('transfer') && normH.includes('2'))) return true;
+                            if (normT === 'article/item' && (normH.includes('article') || normH.includes('tct') || normH.includes('item'))) return true;
+                            
+                            return normH.includes(normT) || normT.includes(normH);
                         });
                         headerMapping[target] = actualKey || target; 
                     });
@@ -411,7 +416,6 @@ function renderTable(data, page = 1) {
                     const viewUrl = getDirectImageUrl(url, 'view') || url;
                     const thumbUrl = getDirectImageUrl(url, 'thumbnail') || url;
                     
-                    // Modified to bypass direct url and open modal with specific index
                     td.innerHTML = `<img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" class="hover-preview-img" alt="Preview" style="height:50px; max-width:80px; object-fit:cover; border:1px solid #ccc; border-radius:4px; cursor:zoom-in;" onclick="event.stopPropagation(); openPopUp(${row._rowId}, '${tKey}');">`;
                 } else {
                     td.textContent = 'No Photo';
@@ -545,7 +549,7 @@ function executeSearch(resetPage = true) {
     renderTable(currentFilteredData, currentPage);
 }
 
-// 🖼️ MODAL HANDLING & EDIT (Added clickedPhotoKey parameter)
+// 🖼️ MODAL HANDLING & EDIT
 function openPopUp(rowId, clickedPhotoKey = null) {
     activeEditIndex = rowId;
     const itemData = inventoryData.find(r => r._rowId === rowId);
@@ -626,13 +630,12 @@ function openPopUp(rowId, clickedPhotoKey = null) {
         const mappedKey = headerMapping[p.key];
         if (mappedKey && itemData[mappedKey] && itemData[mappedKey].trim() !== '') {
             const val = itemData[mappedKey].trim();
-            if (val.startsWith('http')) {
+            if (val.startsWith('http') || val.length > 0) {
                 modalPhotos.push({ label: p.label, url: val, key: p.key });
             }
         }
     });
 
-    // Reset or jump to requested photo index
     currentPhotoIndex = 0;
     if (clickedPhotoKey) {
         const foundIndex = modalPhotos.findIndex(mp => mp.key === clickedPhotoKey);
