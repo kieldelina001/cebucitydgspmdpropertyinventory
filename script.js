@@ -506,501 +506,247 @@ function calculateStaticDashboardTotals(items) {
 }
 
 function executeSearch(resetPage = true) {
-    const term = searchInput ? searchInput.value.toLowerCase().trim() : '';
-    const remF = remarksFilter ? remarksFilter.value : 'ALL';
-    const typF = typeFilter ? typeFilter.value : 'ALL';
-    const phoF = photoFilter ? photoFilter.value : 'ALL';
-    
-    const rKey = headerMapping['remarks'];
-    const tKey = headerMapping['type'];
-    const pKey1 = headerMapping['photo 1'];
-    const pKey2 = headerMapping['photo 2'];
-    const pKey3 = headerMapping['map coordinates'];
-    const pKey4 = headerMapping['tax declaration'];
-    const pKey5 = headerMapping['transfer_cert1'];
-    const pKey6 = headerMapping['transfer_cert2'];
-    
-    const pKeys = [pKey1, pKey2, pKey3];
-    const taxKeys = [pKey4, pKey5, pKey6];
+    if(!isAppInitialized) return;
+    const term = searchInput.value.toLowerCase().trim();
+    const remFilt = remarksFilter.value;
+    const typeFilt = typeFilter.value;
+    const pFilt = photoFilter.value;
 
-    currentFilteredData = inventoryData.filter(row => {
-        let matchText = true, matchRem = true, matchType = true, matchPhoto = true;
-        
-        if (term) {
-            matchText = targetHeadersLowercase.some(k => {
-                const mk = headerMapping[k];
-                return mk && String(row[mk] || '').toLowerCase().includes(term);
-            });
-        }
-        
-        if (remF !== 'ALL') {
-            matchRem = (String(row[rKey] || '') === remF);
-        }
-        
-        if (typF !== 'ALL') {
-            matchType = (String(row[tKey] || '') === typF);
-        }
-        
-        if (phoF !== 'ALL') {
-            const hasAnyMedia = pKeys.some(k => row[k] && row[k].trim() !== '');
-            const hasTaxDec = taxKeys.some(k => row[k] && row[k].trim() !== '');
-            if (phoF === 'WITH_PHOTO') matchPhoto = hasAnyMedia;
-            if (phoF === 'NO_PHOTO') matchPhoto = !hasAnyMedia;
-            if (phoF === 'WITH_TAX_DEC') matchPhoto = hasTaxDec;
-        }
-        
-        return matchText && matchRem && matchType && matchPhoto;
-    });
+    let searchKeys = [];
+    if(headerMapping['article/item']) searchKeys.push(headerMapping['article/item']);
+    if(headerMapping['description']) searchKeys.push(headerMapping['description']);
 
-    if (foundCountDisplay) foundCountDisplay.textContent = `(${currentFilteredData.length} records active)`;
+    let filtered = inventoryData;
+
+    if(term) {
+        filtered = filtered.filter(row => {
+            return searchKeys.some(key => String(row[key] || '').toLowerCase().includes(term));
+        });
+    }
+    
+    if(remFilt && remFilt !== 'ALL') {
+        const k = headerMapping['remarks'];
+        filtered = filtered.filter(row => String(row[k] || '') === remFilt);
+    }
+    if(typeFilt && typeFilt !== 'ALL') {
+        const k = headerMapping['type'];
+        filtered = filtered.filter(row => String(row[k] || '') === typeFilt);
+    }
+    
+    if (pFilt && pFilt !== 'ALL') {
+        const p1 = headerMapping['photo 1'];
+        const p2 = headerMapping['photo 2'];
+        const p3 = headerMapping['map coordinates'];
+        const p4 = headerMapping['tax declaration'];
+        const p5 = headerMapping['transfer_cert1'];
+        const p6 = headerMapping['transfer_cert2'];
+        
+        filtered = filtered.filter(row => {
+            const hasAnyMedia = (row[p1] && row[p1].trim()!=='') || (row[p2] && row[p2].trim()!=='') || (row[p3] && row[p3].trim()!=='') || (row[p4] && row[p4].trim()!=='') || (row[p5] && row[p5].trim()!=='') || (row[p6] && row[p6].trim()!=='');
+            if (pFilt === 'WITH') return hasAnyMedia;
+            if (pFilt === 'WITHOUT') return !hasAnyMedia;
+            return true;
+        });
+    }
+
+    currentFilteredData = filtered;
+    if(foundCountDisplay) foundCountDisplay.textContent = `(${filtered.length} items found)`;
     
     if (resetPage) currentPage = 1;
-    renderTable(currentFilteredData, currentPage);
+    renderTable(filtered, currentPage);
 }
 
-// 🖼️ MODAL HANDLING & EDIT
-function openPopUp(rowId, clickedPhotoKey = null) {
+function openPopUp(rowId, specificImageKey = null) {
     activeEditIndex = rowId;
-    const itemData = inventoryData.find(r => r._rowId === rowId);
-    if (!itemData) return;
+    const row = inventoryData.find(r => r._rowId === rowId);
+    if (!row) return;
 
-    modalFormContainer.innerHTML = '';
-    
-    const flexWrapper = document.createElement('div');
-    flexWrapper.className = 'modal-flex-layout';
-    
-    const fieldsSide = document.createElement('div');
-    fieldsSide.className = 'modal-fields-side';
-    
-    const photoSide = document.createElement('div');
-    photoSide.className = 'modal-photo-side';
-    photoSide.id = 'modalPhotoSide'; 
+    if(modalFormContainer) modalFormContainer.innerHTML = '';
+    modalModified = false;
+    modalPhotos = [];
 
-    // --- POPULATE FIELDS ---
+    // Construct Text Detail Container
+    const detailContainer = document.createElement('div');
+    detailContainer.style.marginBottom = '20px';
+
     popupOrderLowercase.forEach(tKey => {
-        const mappedKey = headerMapping[tKey];
-        const val = mappedKey ? (itemData[mappedKey] || '') : '';
+        const dKey = displayHeaders[targetHeadersLowercase.indexOf(tKey)];
+        const rKey = headerMapping[tKey];
+        const val = rKey ? (row[rKey] || '') : '';
         
-        const fDiv = document.createElement('div');
-        fDiv.className = 'modal-field';
-        
+        const wrap = document.createElement('div');
+        wrap.className = 'detail-row';
+        wrap.style.marginBottom = '10px';
+        wrap.style.display = 'flex';
+        wrap.style.flexDirection = 'column';
+
         const lbl = document.createElement('label');
-        lbl.textContent = mappedKey || tKey;
+        lbl.textContent = dKey + ":";
+        lbl.style.fontWeight = 'bold';
+        lbl.style.marginBottom = '5px';
+        wrap.appendChild(lbl);
         
-        let inp;
-        if(tKey === 'remarks') {
-            inp = document.createElement('select');
-            inp.id = 'modal_' + tKey;
-            inp.disabled = true;
-            let found = false;
-            parsedUniqueRemarks.forEach(r => {
+        if (tKey === 'remarks') {
+            const sel = document.createElement('select');
+            sel.dataset.key = rKey;
+            sel.disabled = true;
+            sel.style.padding = '8px';
+            sel.style.border = '1px solid #ccc';
+            sel.style.borderRadius = '4px';
+            sel.style.background = '#f9f9f9';
+            sel.style.width = '100%';
+            
+            sel.innerHTML = `<option value="">-- No Remarks --</option>`;
+            parsedUniqueRemarks.forEach(rmk => {
                 const opt = document.createElement('option');
-                opt.value = r; opt.textContent = r;
-                if(r === val) { opt.selected = true; found = true; }
-                inp.appendChild(opt);
+                opt.value = rmk; opt.textContent = rmk;
+                sel.appendChild(opt);
             });
-            if(val && !found) {
-                const opt = document.createElement('option');
-                opt.value = val; opt.textContent = val;
-                opt.selected = true;
-                inp.appendChild(opt);
-            }
-        } else if(tKey === 'description') {
-            inp = document.createElement('textarea');
-            inp.id = 'modal_' + tKey;
-            inp.value = val;
-            inp.rows = 4;
-            inp.disabled = true;
+            if (val) sel.value = val;
+            wrap.appendChild(sel);
         } else {
-            inp = document.createElement('input');
-            inp.type = 'text';
-            inp.id = 'modal_' + tKey;
+            const inp = document.createElement('textarea');
             inp.value = val;
+            inp.dataset.key = rKey;
             inp.disabled = true;
+            inp.style.padding = '8px';
+            inp.style.border = '1px solid #ccc';
+            inp.style.borderRadius = '4px';
+            inp.style.background = '#f9f9f9';
+            inp.style.width = '100%';
+            inp.style.boxSizing = 'border-box';
+            inp.style.resize = 'vertical';
+            inp.style.minHeight = '35px';
+            if(tKey === 'description' || tKey === 'remarks') inp.style.minHeight = '60px';
+            wrap.appendChild(inp);
         }
         
-        fDiv.appendChild(lbl);
-        fDiv.appendChild(inp);
-        fieldsSide.appendChild(fDiv);
+        detailContainer.appendChild(wrap);
     });
 
-    // --- POPULATE MULTIPLE PHOTOS FOR VIEWER ---
-    modalPhotos = [];
-    const photoKeysDef = [
-        { key: 'photo 1', label: 'Photo 1' },
-        { key: 'photo 2', label: 'Photo 2' },
-        { key: 'map coordinates', label: 'Map Coordinates' },
-        { key: 'tax declaration', label: 'Tax Declaration' },
-        { key: 'transfer_cert1', label: 'Transfer Certificate of Title Page 1' },
-        { key: 'transfer_cert2', label: 'Transfer Certificate of Title Page 2' }
+    const docKeys = [
+        { label: 'Photo 1', tKey: 'photo 1' },
+        { label: 'Photo 2', tKey: 'photo 2' },
+        { label: 'Map Coordinates', tKey: 'map coordinates' },
+        { label: 'Tax Declaration', tKey: 'tax declaration' },
+        { label: 'TCT Page 1', tKey: 'transfer_cert1' },
+        { label: 'TCT Page 2', tKey: 'transfer_cert2' }
     ];
 
-    photoKeysDef.forEach(p => {
-        const mappedKey = headerMapping[p.key];
-        if (mappedKey && itemData[mappedKey] && itemData[mappedKey].trim() !== '') {
-            const val = itemData[mappedKey].trim();
-            if (val.startsWith('http') || val.length > 0) {
-                modalPhotos.push({ label: p.label, url: val, key: p.key });
-            }
+    docKeys.forEach(doc => {
+        const rKey = headerMapping[doc.tKey];
+        const val = rKey ? (row[rKey] || '') : '';
+        if (val.trim() !== '') {
+            modalPhotos.push({
+                label: doc.label,
+                url: val,
+                tKey: doc.tKey
+            });
         }
     });
 
-    currentPhotoIndex = 0;
-    if (clickedPhotoKey) {
-        const foundIndex = modalPhotos.findIndex(mp => mp.key === clickedPhotoKey);
-        if (foundIndex !== -1) {
-            currentPhotoIndex = foundIndex;
+    modalFormContainer.appendChild(detailContainer);
+
+    const galleryContainer = document.createElement('div');
+    galleryContainer.id = 'modalGalleryContainer';
+    galleryContainer.style.marginTop = '20px';
+    galleryContainer.style.textAlign = 'center';
+    galleryContainer.style.paddingTop = '20px';
+    galleryContainer.style.borderTop = '1px solid #eee';
+    galleryContainer.style.position = 'relative';
+
+    if (modalPhotos.length > 0) {
+        currentPhotoIndex = 0;
+        if (specificImageKey) {
+            const foundIdx = modalPhotos.findIndex(p => p.tKey === specificImageKey);
+            if (foundIdx !== -1) currentPhotoIndex = foundIdx;
         }
-    }
-    
-    flexWrapper.appendChild(fieldsSide);
-    flexWrapper.appendChild(photoSide);
-    modalFormContainer.appendChild(flexWrapper);
-    
-    renderModalPhotoViewer();
 
-    modalModified = false;
-    modalEditBtn.style.display = 'inline-block';
-    modalSaveBtn.style.display = 'none';
-    uploadPhotoBtn.style.display = 'none'; 
-    editModal.style.display = 'flex';
-}
+        const labelEl = document.createElement('h4');
+        labelEl.id = 'modalGalleryLabel';
+        labelEl.style.marginBottom = '15px';
+        labelEl.style.color = '#333';
+        galleryContainer.appendChild(labelEl);
 
-function renderModalPhotoViewer() {
-    const photoSide = document.getElementById('modalPhotoSide');
-    if (!photoSide) return;
-    photoSide.innerHTML = ''; 
-
-    if (modalPhotos.length === 0) {
-        photoSide.innerHTML = `<div style="color: #64748b; font-style: italic; display: flex; height: 100%; align-items: center; justify-content: center;">No visual media documented for this asset.</div>`;
-        return;
-    }
-
-    const currentImg = modalPhotos[currentPhotoIndex];
-    const viewUrl = getDirectImageUrl(currentImg.url, 'view') || currentImg.url;
-    const thumbUrl = getDirectImageUrl(currentImg.url, 'thumbnail') || currentImg.url;
-    
-    const photoContainer = document.createElement('div');
-    photoContainer.className = 'modal-photo-container';
-
-    const actionsContainer = document.createElement('div');
-    actionsContainer.className = 'photo-actions-container';
-
-    const downloadBtn = document.createElement('button');
-    downloadBtn.className = 'photo-action-btn';
-    downloadBtn.innerHTML = `View Photo`;
-    downloadBtn.onclick = () => {
-        const a = document.createElement('a');
-        a.href = viewUrl;
-        a.download = `property_photo_${currentPhotoIndex + 1}.jpg`;
-        a.target = '_blank';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-    };
-    actionsContainer.appendChild(downloadBtn);
-
-    photoContainer.appendChild(actionsContainer);
-
-    if (modalPhotos.length > 1) {
-        const prevBtn = document.createElement('button');
-        prevBtn.className = 'photo-nav-btn photo-prev-btn';
-        prevBtn.innerHTML = '&#10094;'; 
-        prevBtn.onclick = (e) => { e.stopPropagation(); navigatePhoto(-1); };
-        
-        const nextBtn = document.createElement('button');
-        nextBtn.className = 'photo-nav-btn photo-next-btn';
-        nextBtn.innerHTML = '&#10095;'; 
-        nextBtn.onclick = (e) => { e.stopPropagation(); navigatePhoto(1); };
-        
-        photoContainer.appendChild(prevBtn);
-        photoContainer.appendChild(nextBtn);
-    }
-
-    const imgEl = document.createElement('img');
-    imgEl.src = viewUrl;
-    imgEl.alt = currentImg.label;
-    imgEl.onerror = function() {
-        this.onerror = function() {
-            this.src = currentImg.url;
+        const imgEl = document.createElement('img');
+        imgEl.id = 'modalGalleryImage';
+        imgEl.style.maxWidth = '100%';
+        imgEl.style.maxHeight = '400px';
+        imgEl.style.objectFit = 'contain';
+        imgEl.style.border = '1px solid #ccc';
+        imgEl.style.borderRadius = '4px';
+        imgEl.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+        imgEl.onerror = function() {
+            if(this.src !== getDirectImageUrl(modalPhotos[currentPhotoIndex].url, 'thumbnail')) {
+                this.src = getDirectImageUrl(modalPhotos[currentPhotoIndex].url, 'thumbnail');
+            } else {
+                this.src = modalPhotos[currentPhotoIndex].url;
+            }
         };
-        this.src = thumbUrl;
-    };
+        galleryContainer.appendChild(imgEl);
 
-    photoContainer.appendChild(imgEl);
-    photoSide.appendChild(photoContainer);
+        if (modalPhotos.length > 1) {
+            const navWrap = document.createElement('div');
+            navWrap.style.marginTop = '15px';
+            navWrap.style.display = 'flex';
+            navWrap.style.justifyContent = 'center';
+            navWrap.style.gap = '20px';
+            navWrap.style.alignItems = 'center';
 
-    const caption = document.createElement('div');
-    caption.className = 'photo-caption';
-    caption.textContent = `${currentImg.label} (${currentPhotoIndex + 1} of ${modalPhotos.length})`;
-    photoSide.appendChild(caption);
-}
+            const prevBtn = document.createElement('button');
+            prevBtn.textContent = '◀ Previous Media';
+            prevBtn.className = 'gallery-nav-btn';
+            prevBtn.onclick = () => {
+                currentPhotoIndex = (currentPhotoIndex - 1 + modalPhotos.length) % modalPhotos.length;
+                updateModalGallery();
+            };
 
-function navigatePhoto(dir) {
-    if (modalPhotos.length <= 1) return;
-    currentPhotoIndex += dir;
-    if (currentPhotoIndex < 0) currentPhotoIndex = modalPhotos.length - 1;
-    if (currentPhotoIndex >= modalPhotos.length) currentPhotoIndex = 0;
-    renderModalPhotoViewer();
-}
+            const nextBtn = document.createElement('button');
+            nextBtn.textContent = 'Next Media ▶';
+            nextBtn.className = 'gallery-nav-btn';
+            nextBtn.onclick = () => {
+                currentPhotoIndex = (currentPhotoIndex + 1) % modalPhotos.length;
+                updateModalGallery();
+            };
 
-function enableEditMode() {
-    popupOrderLowercase.forEach(tKey => {
-        const el = document.getElementById('modal_' + tKey);
-        if (el && tKey !== 'article/item') el.disabled = false;
-    });
-    modalModified = true;
-    modalEditBtn.style.display = 'none';
-    modalSaveBtn.style.display = 'inline-block';
-}
+            const counterEl = document.createElement('span');
+            counterEl.id = 'modalGalleryCounter';
+            counterEl.style.fontWeight = 'bold';
+            counterEl.style.color = '#666';
 
-function triggerSaveProcess() {
-    document.getElementById('custom-operator-input').value = 'Noel Rie N. Deliña';
-    customNameModal.style.display = 'flex';
-}
-
-function finalizeSaveData(operatorName) {
-    if (activeEditIndex === null) return;
-    const itemData = inventoryData.find(r => r._rowId === activeEditIndex);
-    if (!itemData) return;
-    
-    let payload = {
-        rowId: activeEditIndex + 2, 
-        updates: {},
-        updatedBy: operatorName
-    };
-    
-    let hasChanges = false;
-    popupOrderLowercase.forEach(tKey => {
-        if(tKey === 'article/item') return;
-        const el = document.getElementById('modal_' + tKey);
-        const mappedKey = headerMapping[tKey];
-        if (el && mappedKey) {
-            const newVal = el.value.trim();
-            if (newVal !== (itemData[mappedKey] || '').trim()) {
-                payload.updates[mappedKey] = newVal;
-                itemData[mappedKey] = newVal; 
-                hasChanges = true;
-            }
-        }
-    });
-
-    if (hasChanges) {
-        showLoading("Transmitting modified datasets to Google Cloud...");
-        const updateMappedKey = headerMapping['updated by'];
-        const dateMappedKey = headerMapping['last update'];
-        if(updateMappedKey) itemData[updateMappedKey] = operatorName;
-        if(dateMappedKey) itemData[dateMappedKey] = new Date().toLocaleString();
-
-        fetch(GOOGLE_APPS_SCRIPT_URL, {
-            method: 'POST',
-            body: JSON.stringify(payload),
-            headers: { 'Content-Type': 'application/json' }
-        })
-        .then(res => res.json())
-        .then(res => {
-            hideLoading();
-            if(res.success) {
-                alert("Cloud Sync Successful: Data modifications permanently applied.");
-                executeSearch(false);
-                closeModal();
-            } else {
-                alert("Sync Failure: " + (res.error || "Unknown Network Exception"));
-            }
-        })
-        .catch(err => {
-            hideLoading();
-            alert("Fatal Error: Cloud Server unreachable.");
-            console.error(err);
-        });
-    } else {
-        alert("Integrity Check: No changes detected in the matrix.");
-        closeModal();
-    }
-}
-
-function closeModal() {
-    editModal.style.display = 'none';
-    activeEditIndex = null;
-    modalModified = false;
-}
-
-function setupSystemEventHandlers() {
-    if(searchButton) searchButton.addEventListener('click', () => executeSearch(true));
-    if(searchInput) searchInput.addEventListener('keypress', e => { if(e.key === 'Enter') executeSearch(true); });
-    
-    if(remarksFilter) remarksFilter.addEventListener('change', () => executeSearch(true));
-    if(typeFilter) typeFilter.addEventListener('change', () => executeSearch(true));
-    if(photoFilter) photoFilter.addEventListener('change', () => executeSearch(true));
-    
-    if(exportButton) exportButton.addEventListener('click', () => downloadDatasetCSV(inventoryData, 'Full_Inventory'));
-    if(exportFilteredButton) exportFilteredButton.addEventListener('click', () => downloadSearchedHTML(currentFilteredData));
-    
-    if(modalEditBtn) modalEditBtn.addEventListener('click', enableEditMode);
-    if(modalSaveBtn) modalSaveBtn.addEventListener('click', triggerSaveProcess);
-    if(modalCloseBtn) modalCloseBtn.addEventListener('click', closeModal);
-    if(modalCloseX) modalCloseX.addEventListener('click', closeModal); 
-    
-    document.getElementById('customCancelNameBtn').addEventListener('click', () => {
-        customNameModal.style.display = 'none';
-    });
-    
-    document.getElementById('customConfirmNameBtn').addEventListener('click', () => {
-        const nameVal = document.getElementById('custom-operator-input').value.trim();
-        if(!nameVal) { alert("Authorization Denied: Operator name required."); return; }
-        customNameModal.style.display = 'none';
-        finalizeSaveData(nameVal);
-    });
-}
-
-function downloadDatasetCSV(data, filenamePrefix) {
-    if(!data || data.length === 0) {
-        alert("Export Nullified: No dataset active for export.");
-        return;
-    }
-    const headerRow = rawHeaders.join(",");
-    const rows = data.map(r => rawHeaders.map(h => `"${(r[h] || '').replace(/"/g, '""')}"`).join(","));
-    const csvContent = [headerRow, ...rows].join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `${filenamePrefix}_${new Date().toISOString().slice(0,10)}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-
-// 🌐 Restored & Optimized HTML Export Function with Larger Photos & High-Contrast Print-Ready Text
-function downloadSearchedHTML(data) {
-    if(!data || data.length === 0) {
-        alert("Export Nullified: No dataset active for export.");
-        return;
-    }
-
-    let tableRowsHTML = '';
-    data.forEach(row => {
-        tableRowsHTML += '<tr>';
-        targetHeadersLowercase.forEach(tKey => {
-            const resolvedKey = headerMapping[tKey];
-            const val = resolvedKey ? (row[resolvedKey] || '') : '';
+            navWrap.appendChild(prevBtn);
+            navWrap.appendChild(counterEl);
+            navWrap.appendChild(nextBtn);
+            galleryContainer.appendChild(navWrap);
             
-            if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration') || tKey.includes('transfer_cert')) {
-                if (val.trim() !== '') {
-                    const viewUrl = getDirectImageUrl(val, 'view') || val;
-                    const thumbUrl = getDirectImageUrl(val, 'thumbnail') || val;
-                    tableRowsHTML += `<td style="text-align: center;"><img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" style="height: 140px; max-width: 180px; width: auto; object-fit: contain; border: 1px solid #94a3b8; border-radius: 4px; display: block; margin: 0 auto;" /></td>`;
-                } else {
-                    tableRowsHTML += `<td style="text-align: center; color: #64748b; font-style: italic;">No Photo</td>`;
-                }
-            } else {
-                tableRowsHTML += `<td>${escapeHtml(val)}</td>`;
-            }
-        });
-        tableRowsHTML += '</tr>';
-    });
+            const btnStyles = document.createElement('style');
+            btnStyles.innerHTML = `.gallery-nav-btn { padding: 8px 15px; border: none; background: #007bff; color: white; border-radius: 4px; cursor: pointer; transition: 0.2s; } .gallery-nav-btn:hover { background: #0056b3; }`;
+            galleryContainer.appendChild(btnStyles);
+        }
 
-    let headersHTML = '';
-    displayHeaders.forEach(h => {
-        headersHTML += `<th>${h}</th>`;
-    });
+        modalFormContainer.appendChild(galleryContainer);
+        updateModalGallery(); 
+    } else {
+        const noMedia = document.createElement('p');
+        noMedia.textContent = "No attachments or photos available for this record.";
+        noMedia.style.color = '#777';
+        noMedia.style.fontStyle = 'italic';
+        galleryContainer.appendChild(noMedia);
+        modalFormContainer.appendChild(galleryContainer);
+    }
 
-    const htmlContent = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Searched Inventory Report</title>
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            margin: 20px; 
-            color: #0f172a; 
-            background: #ffffff; 
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
-        h1 { 
-            text-align: center; 
-            color: #0f172a; 
-            text-transform: uppercase; 
-            font-size: 24px;
-            margin-bottom: 5px;
-        }
-        .report-meta {
-            text-align: center;
-            font-size: 14px;
-            color: #334155;
-            margin-bottom: 25px;
-            font-weight: bold;
-        }
-        table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            margin-top: 10px; 
-            background: white; 
-        }
-        th, td { 
-            border: 1px solid #64748b; 
-            padding: 10px 12px; 
-            text-align: left; 
-            font-size: 13px; 
-            line-height: 1.4;
-            word-break: break-word; 
-            color: #0f172a;
-            vertical-align: middle;
-        }
-        th { 
-            background-color: #cbd5e1 !important; 
-            color: #0f172a;
-            font-weight: bold;
-            text-transform: uppercase;
-            font-size: 12px;
-            letter-spacing: 0.5px;
-        }
-        tr:nth-child(even) {
-            background-color: #f8fafc;
-        }
-        @media print {
-            body { margin: 10px; }
-            table { page-break-inside: auto; }
-            tr { page-break-inside: avoid; page-break-after: auto; }
-            th { background-color: #cbd5e1 !important; }
-        }
-    </style>
-</head>
-<body>
-    <h1>Real Estate Inventory Report</h1>
-    <div class="report-meta">
-        Exported On: ${new Date().toLocaleString()} &bull; Total Records: ${data.length}
-    </div>
-    <table>
-        <thead>
-            <tr>${headersHTML}</tr>
-        </thead>
-        <tbody>
-            ${tableRowsHTML}
-        </tbody>
-    </table>
-</body>
-</html>`;
+    if(modalEditBtn) modalEditBtn.style.display = 'inline-block';
+    if(modalSaveBtn) modalSaveBtn.style.display = 'none';
+    if(uploadPhotoBtn) uploadPhotoBtn.style.It looks like you forgot to include the original code! To generate the full copy-paste version with your retained functions, larger photos, and adjusted text, I will need to see the script or markup you are currently working with. 
 
-    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Searched_Inventory_Report_${new Date().toISOString().slice(0,10)}.html`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
+In the meantime, if your export is HTML/CSS-based, here is the standard approach to enhancing visuals for a report:
 
-function escapeHtml(str) {
-    return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+### 1. Adjusting Text for Easier Visuals
+To make text easier to read in a reporting format, it helps to increase the font size, add line spacing, and use a dark gray rather than a harsh black:
+```css
+.report-text {
+    font-size: 14pt;      /* Larger, print-friendly text */
+    line-height: 1.6;     /* Adds breathing room between lines */
+    color: #333333;       /* Softer on the eyes */
+    font-family: "Helvetica Neue", Arial, sans-serif;
 }
