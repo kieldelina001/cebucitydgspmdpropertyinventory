@@ -262,7 +262,6 @@ async function loadInventoryFromGoogleSheets() {
                             const normH = h.toLowerCase().trim();
                             const normT = target.toLowerCase().trim();
                             
-                            // Robust header matching for TCT pages and articles
                             if (normT === 'transfer_cert1' && (normH.includes('transfer') && normH.includes('1'))) return true;
                             if (normT === 'transfer_cert2' && (normH.includes('transfer') && normH.includes('2'))) return true;
                             if (normT === 'article/item' && (normH.includes('article') || normH.includes('tct') || normH.includes('item'))) return true;
@@ -369,7 +368,8 @@ function getDirectImageUrl(driveLink, requestType = 'view') {
         if (requestType === 'thumbnail') {
             return `https://drive.google.com/thumbnail?id=${match[0]}&sz=w1600`;
         }
-        return `https://drive.google.com/uc?export=view&id=${match[0]}`;
+        // Use Googleusercontent direct embed link to bypass hotlink blocking and CORS restrictions
+        return `https://lh3.googleusercontent.com/d/${match[0]}`;
     }
     return null;
 }
@@ -669,6 +669,7 @@ function renderModalPhotoViewer() {
 
     const currentImg = modalPhotos[currentPhotoIndex];
     const viewUrl = getDirectImageUrl(currentImg.url, 'view') || currentImg.url;
+    const thumbUrl = getDirectImageUrl(currentImg.url, 'thumbnail') || currentImg.url;
     
     const photoContainer = document.createElement('div');
     photoContainer.className = 'modal-photo-container';
@@ -703,8 +704,10 @@ function renderModalPhotoViewer() {
     imgEl.src = viewUrl;
     imgEl.alt = currentImg.label;
     imgEl.onerror = function() {
-        this.onerror = null;
-        this.src = currentImg.url; 
+        this.onerror = function() {
+            this.src = currentImg.url;
+        };
+        this.src = thumbUrl;
     };
 
     photoContainer.appendChild(imgEl);
