@@ -368,7 +368,6 @@ function getDirectImageUrl(driveLink, requestType = 'view') {
         if (requestType === 'thumbnail') {
             return `https://drive.google.com/thumbnail?id=${match[0]}&sz=w1600`;
         }
-        // Use Googleusercontent direct embed link to bypass hotlink blocking and CORS restrictions
         return `https://lh3.googleusercontent.com/d/${match[0]}`;
     }
     return null;
@@ -681,8 +680,22 @@ function renderModalPhotoViewer() {
     rawBtn.className = 'photo-action-btn';
     rawBtn.innerHTML = `👁️ View Image`;
     rawBtn.onclick = () => window.open(currentImg.url, '_blank');
-
     actionsContainer.appendChild(rawBtn);
+
+    const downloadBtn = document.createElement('button');
+    downloadBtn.className = 'photo-action-btn';
+    downloadBtn.innerHTML = `📥 Download`;
+    downloadBtn.onclick = () => {
+        const a = document.createElement('a');
+        a.href = viewUrl;
+        a.download = `property_photo_${currentPhotoIndex + 1}.jpg`;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    };
+    actionsContainer.appendChild(downloadBtn);
+
     photoContainer.appendChild(actionsContainer);
 
     if (modalPhotos.length > 1) {
