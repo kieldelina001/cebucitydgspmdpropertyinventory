@@ -411,9 +411,8 @@ function renderTable(data, page = 1) {
                     const viewUrl = getDirectImageUrl(url, 'view') || url;
                     const thumbUrl = getDirectImageUrl(url, 'thumbnail') || url;
                     
-                    td.innerHTML = `<a href="${url}" target="_blank" onclick="event.stopPropagation();">
-                                        <img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" class="hover-preview-img" alt="Preview" style="height:50px; max-width:80px; object-fit:cover; border:1px solid #ccc; border-radius:4px; cursor:zoom-in;">
-                                    </a>`;
+                    // Modified to bypass direct url and open modal with specific index
+                    td.innerHTML = `<img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" class="hover-preview-img" alt="Preview" style="height:50px; max-width:80px; object-fit:cover; border:1px solid #ccc; border-radius:4px; cursor:zoom-in;" onclick="event.stopPropagation(); openPopUp(${row._rowId}, '${tKey}');">`;
                 } else {
                     td.textContent = 'No Photo';
                 }
@@ -440,143 +439,176 @@ function calculateStaticDashboardTotals(items) {
     const pKey2 = headerMapping['photo 2'];
     const pKey3 = headerMapping['map coordinates'];
     const pKey4 = headerMapping['tax declaration']; 
-    const pKey5 = headerMapping['transfer_cert1']; 
-    const pKey6 = headerMapping['transfer_cert2']; 
+    const pKey5 = headerMapping['transfer_cert1'];
+    const pKey6 = headerMapping['transfer_cert2'];
     
-    let activeCount = 0, missingCount = 0, pendingCount = 0, photoCount = 0, taxDecCount = 0;
+    let existing = 0, notfound = 0, verify = 0, photos = 0, taxdec = 0;
     
-    let typeCounts = { 
-        building: 0, assetMod: 0, flood: 0, hospital: 0, land: 0, market: 0, 
-        otherInfra: 0, otherLand: 0, otherStruct: 0, park: 0, 
-        road: 0, school: 0, slaughterhouse: 0, water: 0 
+    let stats = {
+        'Building': 0, 'Building Modifications': 0, 'Flood Control': 0, 
+        'Hospital': 0, 'Land': 0, 'Markets': 0, 'Other Infrastructures': 0, 
+        'Other Land Improvements': 0, 'Other Structures': 0, 
+        'PARKS PLAZAS AND MONUMENTS': 0, 'Roads': 0, 'School Building': 0, 
+        'Slaughterhouse': 0, 'Water Supplies': 0
     };
-    
+
     items.forEach(row => {
-        const remVal = rKey ? String(row[rKey]).toLowerCase() : '';
-        const typeVal = tKey ? String(row[tKey]).toLowerCase().trim() : '';
+        const rem = String(row[rKey] || '').toUpperCase();
+        if(rem.includes('EXISTING')) existing++;
+        if(rem.includes('NOT FOUND')) notfound++;
+        if(rem.includes('FOR VERIFICATION')) verify++;
         
-        const photoVal1 = pKey1 ? String(row[pKey1] || '').trim() : '';
-        const photoVal2 = pKey2 ? String(row[pKey2] || '').trim() : '';
-        const photoVal3 = pKey3 ? String(row[pKey3] || '').trim() : '';
-        const photoVal4 = pKey4 ? String(row[pKey4] || '').trim() : ''; 
-        const photoVal5 = pKey5 ? String(row[pKey5] || '').trim() : ''; 
-        const photoVal6 = pKey6 ? String(row[pKey6] || '').trim() : ''; 
+        if((row[pKey1] && row[pKey1].trim()!=='') || (row[pKey2] && row[pKey2].trim()!=='')) photos++;
+        if((row[pKey4] && row[pKey4].trim()!=='') || (row[pKey5] && row[pKey5].trim()!=='') || (row[pKey6] && row[pKey6].trim()!=='')) taxdec++;
         
-        if(remVal.includes('existing') || typeVal.includes('existing')) activeCount++;
-        if(remVal.includes('not found')) missingCount++;
-        if(remVal.includes('for verification') || remVal.includes('verification')) pendingCount++;
-        
-        if(photoVal4 !== '') taxDecCount++; 
-        if(photoVal1 !== '' || photoVal2 !== '' || photoVal3 !== '' || photoVal4 !== '' || photoVal5 !== '' || photoVal6 !== '') photoCount++;
-        
-        if (typeVal.includes('school') || typeVal.includes('school buildings')) {
-            typeCounts.school++;
-        } else if (typeVal.includes('building modifications') || typeVal.includes('asset modifications') || typeVal.includes('asset mod')) {
-            typeCounts.assetMod++;
-        } else if (typeVal.includes('other infrastructure') || typeVal.includes('other infra')) {
-            typeCounts.otherInfra++;
-        } else if (typeVal.includes('other land improvements') || typeVal.includes('other land imp')) {
-            typeCounts.otherLand++;
-        } else if (typeVal.includes('other structures') || typeVal.includes('other struct')) {
-            typeCounts.otherStruct++;
-        } else if (typeVal.includes('road') || typeVal.includes('road networks')) {
-            typeCounts.road++;
-        } else if (typeVal.includes('slaughterhouse') || typeVal.includes('slaughterhoues')) { 
-            typeCounts.slaughterhouse++;
-        } else if (typeVal.includes('water supply systems') || typeVal.includes('water systems') || typeVal.includes('water supply')) {
-            typeCounts.water++;
-        } else if (typeVal.includes('building')) {
-            typeCounts.building++;
-        } else if (typeVal.includes('flood')) {
-            typeCounts.flood++;
-        } else if (typeVal.includes('hospital') || typeVal.includes('health')) {
-            typeCounts.hospital++;
-        } else if (typeVal.includes('market')) {
-            typeCounts.market++;
-        } else if (typeVal.includes('park') || typeVal.includes('plaza')) {
-            typeCounts.park++;
-        } else if (typeVal.includes('land')) {
-            typeCounts.land++;
+        const typeStr = String(row[tKey] || '').toUpperCase().trim();
+        for (const statType in stats) {
+             if(typeStr === statType.toUpperCase()) {
+                 stats[statType]++;
+                 break; 
+             }
         }
     });
+
+    if(countExisting) countExisting.textContent = existing;
+    if(countNotFound) countNotFound.textContent = notfound;
+    if(countVerification) countVerification.textContent = verify;
+    if(countWithPhotos) countWithPhotos.textContent = photos;
+    if(countTaxDec) countTaxDec.textContent = taxdec;
     
-    if(countExisting) countExisting.textContent = activeCount;
-    if(countNotFound) countNotFound.textContent = missingCount;
-    if(countVerification) countVerification.textContent = pendingCount;
-    if(countWithPhotos) countWithPhotos.textContent = photoCount;
-    if(countTaxDec) countTaxDec.textContent = taxDecCount; 
-    
-    if(countBuilding) countBuilding.textContent = typeCounts.building;
-    if(countAssetMod) countAssetMod.textContent = typeCounts.assetMod; 
-    if(countFlood) countFlood.textContent = typeCounts.flood;
-    if(countHospital) countHospital.textContent = typeCounts.hospital;
-    if(countLand) countLand.textContent = typeCounts.land;
-    if(countMarket) countMarket.textContent = typeCounts.market;
-    if(countOtherInfra) countOtherInfra.textContent = typeCounts.otherInfra;
-    if(countOtherLand) countOtherLand.textContent = typeCounts.otherLand;
-    if(countOtherStruct) countOtherStruct.textContent = typeCounts.otherStruct;
-    if(countPark) countPark.textContent = typeCounts.park;
-    if(countRoad) countRoad.textContent = typeCounts.road;
-    if(countSchool) countSchool.textContent = typeCounts.school;
-    if(countSlaughterhouse) countSlaughterhouse.textContent = typeCounts.slaughterhouse;
-    if(countWater) countWater.textContent = typeCounts.water;
+    if(countBuilding) countBuilding.textContent = stats['Building'];
+    if(countAssetMod) countAssetMod.textContent = stats['Building Modifications'];
+    if(countFlood) countFlood.textContent = stats['Flood Control'];
+    if(countHospital) countHospital.textContent = stats['Hospital'];
+    if(countLand) countLand.textContent = stats['Land'];
+    if(countMarket) countMarket.textContent = stats['Markets'];
+    if(countOtherInfra) countOtherInfra.textContent = stats['Other Infrastructures'];
+    if(countOtherLand) countOtherLand.textContent = stats['Other Land Improvements'];
+    if(countOtherStruct) countOtherStruct.textContent = stats['Other Structures'];
+    if(countPark) countPark.textContent = stats['PARKS PLAZAS AND MONUMENTS'];
+    if(countRoad) countRoad.textContent = stats['Roads'];
+    if(countSchool) countSchool.textContent = stats['School Building'];
+    if(countSlaughterhouse) countSlaughterhouse.textContent = stats['Slaughterhouse'];
+    if(countWater) countWater.textContent = stats['Water Supplies'];
 }
 
-function openPopUp(rowId) {
+function executeSearch(resetPage = true) {
+    const term = searchInput ? searchInput.value.toLowerCase().trim() : '';
+    const remF = remarksFilter ? remarksFilter.value : 'ALL';
+    const typF = typeFilter ? typeFilter.value : 'ALL';
+    const phoF = photoFilter ? photoFilter.value : 'ALL';
+    
+    const rKey = headerMapping['remarks'];
+    const tKey = headerMapping['type'];
+    const pKey1 = headerMapping['photo 1'];
+    const pKey2 = headerMapping['photo 2'];
+    const pKey3 = headerMapping['map coordinates'];
+    const pKey4 = headerMapping['tax declaration'];
+    const pKey5 = headerMapping['transfer_cert1'];
+    const pKey6 = headerMapping['transfer_cert2'];
+    
+    const pKeys = [pKey1, pKey2, pKey3];
+    const taxKeys = [pKey4, pKey5, pKey6];
+
+    currentFilteredData = inventoryData.filter(row => {
+        let matchText = true, matchRem = true, matchType = true, matchPhoto = true;
+        
+        if (term) {
+            matchText = targetHeadersLowercase.some(k => {
+                const mk = headerMapping[k];
+                return mk && String(row[mk] || '').toLowerCase().includes(term);
+            });
+        }
+        
+        if (remF !== 'ALL') {
+            matchRem = (String(row[rKey] || '') === remF);
+        }
+        
+        if (typF !== 'ALL') {
+            matchType = (String(row[tKey] || '') === typF);
+        }
+        
+        if (phoF !== 'ALL') {
+            const hasAnyMedia = pKeys.some(k => row[k] && row[k].trim() !== '');
+            const hasTaxDec = taxKeys.some(k => row[k] && row[k].trim() !== '');
+            if (phoF === 'WITH_PHOTO') matchPhoto = hasAnyMedia;
+            if (phoF === 'NO_PHOTO') matchPhoto = !hasAnyMedia;
+            if (phoF === 'WITH_TAX_DEC') matchPhoto = hasTaxDec;
+        }
+        
+        return matchText && matchRem && matchType && matchPhoto;
+    });
+
+    if (foundCountDisplay) foundCountDisplay.textContent = `(${currentFilteredData.length} records active)`;
+    
+    if (resetPage) currentPage = 1;
+    renderTable(currentFilteredData, currentPage);
+}
+
+// 🖼️ MODAL HANDLING & EDIT (Added clickedPhotoKey parameter)
+function openPopUp(rowId, clickedPhotoKey = null) {
     activeEditIndex = rowId;
-    modalModified = false; 
     const itemData = inventoryData.find(r => r._rowId === rowId);
-    if(!modalFormContainer) return; 
+    if (!itemData) return;
+
     modalFormContainer.innerHTML = '';
     
-    const flexLayout = document.createElement('div');
-    flexLayout.className = 'modal-flex-layout';
+    const flexWrapper = document.createElement('div');
+    flexWrapper.className = 'modal-flex-layout';
     
     const fieldsSide = document.createElement('div');
     fieldsSide.className = 'modal-fields-side';
     
+    const photoSide = document.createElement('div');
+    photoSide.className = 'modal-photo-side';
+    photoSide.id = 'modalPhotoSide'; 
+
+    // --- POPULATE FIELDS ---
     popupOrderLowercase.forEach(tKey => {
-        const realKey = headerMapping[tKey];
-        const currentVal = realKey ? (itemData[realKey] || '') : '';
-        const idx = targetHeadersLowercase.indexOf(tKey);
-        const labelText = displayHeaders[idx];
+        const mappedKey = headerMapping[tKey];
+        const val = mappedKey ? (itemData[mappedKey] || '') : '';
         
-        const wrapper = document.createElement('div');
-        wrapper.className = 'modal-field';
-        let fieldEl;
+        const fDiv = document.createElement('div');
+        fDiv.className = 'modal-field';
         
+        const lbl = document.createElement('label');
+        lbl.textContent = mappedKey || tKey;
+        
+        let inp;
         if(tKey === 'remarks') {
-            fieldEl = document.createElement('select');
-            parsedUniqueRemarks.forEach(rem => {
+            inp = document.createElement('select');
+            inp.id = 'modal_' + tKey;
+            inp.disabled = true;
+            let found = false;
+            parsedUniqueRemarks.forEach(r => {
                 const opt = document.createElement('option');
-                opt.value = rem; opt.textContent = rem;
-                if(rem === currentVal) opt.selected = true;
-                fieldEl.appendChild(opt);
+                opt.value = r; opt.textContent = r;
+                if(r === val) { opt.selected = true; found = true; }
+                inp.appendChild(opt);
             });
-            if(!currentVal) {
-                const fallbackOpt = document.createElement('option');
-                fallbackOpt.value = ''; fallbackOpt.textContent = '-- Choose Remark --'; fallbackOpt.selected = true;
-                fieldEl.insertBefore(fallbackOpt, fieldEl.firstChild);
+            if(val && !found) {
+                const opt = document.createElement('option');
+                opt.value = val; opt.textContent = val;
+                opt.selected = true;
+                inp.appendChild(opt);
             }
         } else if(tKey === 'description') {
-            fieldEl = document.createElement('textarea');
-            fieldEl.rows = 7;
-            fieldEl.style.minHeight = '120px';
-            fieldEl.style.resize = 'vertical';
-            fieldEl.value = currentVal;
+            inp = document.createElement('textarea');
+            inp.id = 'modal_' + tKey;
+            inp.value = val;
+            inp.rows = 4;
+            inp.disabled = true;
         } else {
-            fieldEl = document.createElement('input');
-            fieldEl.type = 'text'; fieldEl.value = currentVal;
+            inp = document.createElement('input');
+            inp.type = 'text';
+            inp.id = 'modal_' + tKey;
+            inp.value = val;
+            inp.disabled = true;
         }
         
-        fieldEl.id = 'modal-input-' + tKey.replace('/', '');
-        fieldEl.disabled = true;
-        
-        const label = document.createElement('label');
-        label.textContent = labelText;
-        wrapper.appendChild(label); 
-        wrapper.appendChild(fieldEl);
-        fieldsSide.appendChild(wrapper);
+        fDiv.appendChild(lbl);
+        fDiv.appendChild(inp);
+        fieldsSide.appendChild(fDiv);
     });
 
     // --- POPULATE MULTIPLE PHOTOS FOR VIEWER ---
@@ -595,417 +627,224 @@ function openPopUp(rowId) {
         if (mappedKey && itemData[mappedKey] && itemData[mappedKey].trim() !== '') {
             const val = itemData[mappedKey].trim();
             if (val.startsWith('http')) {
-                modalPhotos.push({ label: p.label, url: val });
+                modalPhotos.push({ label: p.label, url: val, key: p.key });
             }
         }
     });
 
+    // Reset or jump to requested photo index
     currentPhotoIndex = 0;
+    if (clickedPhotoKey) {
+        const foundIndex = modalPhotos.findIndex(mp => mp.key === clickedPhotoKey);
+        if (foundIndex !== -1) {
+            currentPhotoIndex = foundIndex;
+        }
+    }
+    
+    flexWrapper.appendChild(fieldsSide);
+    flexWrapper.appendChild(photoSide);
+    modalFormContainer.appendChild(flexWrapper);
+    
+    renderModalPhotoViewer();
 
-    const photoSide = document.createElement('div');
-    photoSide.className = 'modal-photo-side';
-    
-    renderModalPhotoViewer(photoSide);
-    
-    flexLayout.appendChild(fieldsSide);
-    flexLayout.appendChild(photoSide);
-    modalFormContainer.appendChild(flexLayout);
-    
-    if(uploadPhotoBtn) uploadPhotoBtn.style.display = 'inline-block';
-    if(modalEditBtn) modalEditBtn.style.display = 'inline-block';
-    if(modalSaveBtn) modalSaveBtn.style.display = 'none';
-    if(editModal) editModal.style.display = 'flex';
+    modalModified = false;
+    modalEditBtn.style.display = 'inline-block';
+    modalSaveBtn.style.display = 'none';
+    uploadPhotoBtn.style.display = 'none'; 
+    editModal.style.display = 'flex';
 }
 
-function renderModalPhotoViewer(container) {
-    container.innerHTML = '';
+function renderModalPhotoViewer() {
+    const photoSide = document.getElementById('modalPhotoSide');
+    if (!photoSide) return;
+    photoSide.innerHTML = ''; 
 
     if (modalPhotos.length === 0) {
-        const noPhotoText = document.createElement('div');
-        noPhotoText.textContent = 'No Photo Available';
-        noPhotoText.style.color = '#64748b';
-        noPhotoText.style.fontStyle = 'italic';
-        noPhotoText.style.textAlign = 'center';
-        container.appendChild(noPhotoText);
+        photoSide.innerHTML = `<div style="color: #64748b; font-style: italic; display: flex; height: 100%; align-items: center; justify-content: center;">No visual media documented for this asset.</div>`;
         return;
     }
 
+    const currentImg = modalPhotos[currentPhotoIndex];
+    const viewUrl = getDirectImageUrl(currentImg.url, 'view') || currentImg.url;
+    
     const photoContainer = document.createElement('div');
     photoContainer.className = 'modal-photo-container';
 
-    const currentPhoto = modalPhotos[currentPhotoIndex];
-    const viewUrl = getDirectImageUrl(currentPhoto.url, 'view') || currentPhoto.url;
-    const thumbUrl = getDirectImageUrl(currentPhoto.url, 'thumbnail') || currentPhoto.url;
-
-    // --- Photo Actions Container (View & Download Buttons) ---
     const actionsContainer = document.createElement('div');
     actionsContainer.className = 'photo-actions-container';
 
-    const viewBtn = document.createElement('button');
-    viewBtn.className = 'photo-action-btn';
-    viewBtn.innerHTML = '🔗 View';
-    viewBtn.title = 'Open full photo in new tab';
-    viewBtn.onclick = (e) => {
-        e.stopPropagation();
-        window.open(currentPhoto.url, '_blank');
-    };
+    const rawBtn = document.createElement('button');
+    rawBtn.className = 'photo-action-btn';
+    rawBtn.innerHTML = `👁️ View Image`;
+    rawBtn.onclick = () => window.open(currentImg.url, '_blank');
 
-    const downloadBtn = document.createElement('button');
-    downloadBtn.className = 'photo-action-btn';
-    downloadBtn.innerHTML = '⬇️ Download';
-    downloadBtn.title = 'Download this photo';
-    downloadBtn.onclick = async (e) => {
-        e.stopPropagation();
-        const driveMatch = currentPhoto.url.match(/[-\w]{25,}/);
-        
-        // Use Google Drive specific download endpoint if applicable
-        if (currentPhoto.url.includes('drive.google.com') && driveMatch) {
-            const directDownloadUrl = `https://drive.google.com/uc?export=download&id=${driveMatch[0]}`;
-            const a = document.createElement('a');
-            a.href = directDownloadUrl;
-            a.target = '_blank'; // Failsafe, though Drive handles uc?export as direct download prompt
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-        } else {
-            // Attempt standard Blob download for other generic images
-            try {
-                const response = await fetch(currentPhoto.url);
-                const blob = await response.blob();
-                const blobUrl = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = blobUrl;
-                a.download = `inventory_photo_${Date.now()}`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(blobUrl);
-            } catch (err) {
-                // Fallback to opening in new tab if CORS blocks fetch attempt
-                window.open(currentPhoto.url, '_blank');
-            }
-        }
-    };
-
-    actionsContainer.appendChild(viewBtn);
-    actionsContainer.appendChild(downloadBtn);
+    actionsContainer.appendChild(rawBtn);
     photoContainer.appendChild(actionsContainer);
-
-    const imgEl = document.createElement('img');
-    imgEl.src = viewUrl;
-    imgEl.onerror = function() { this.onerror=null; this.src = thumbUrl; };
-    imgEl.alt = currentPhoto.label;
-    photoContainer.appendChild(imgEl);
 
     if (modalPhotos.length > 1) {
         const prevBtn = document.createElement('button');
         prevBtn.className = 'photo-nav-btn photo-prev-btn';
         prevBtn.innerHTML = '&#10094;'; 
-        prevBtn.title = 'Previous Photo';
-        prevBtn.onclick = (e) => {
-            e.stopPropagation();
-            currentPhotoIndex = (currentPhotoIndex - 1 + modalPhotos.length) % modalPhotos.length;
-            renderModalPhotoViewer(container);
-        };
-
+        prevBtn.onclick = (e) => { e.stopPropagation(); navigatePhoto(-1); };
+        
         const nextBtn = document.createElement('button');
         nextBtn.className = 'photo-nav-btn photo-next-btn';
         nextBtn.innerHTML = '&#10095;'; 
-        nextBtn.title = 'Next Photo';
-        nextBtn.onclick = (e) => {
-            e.stopPropagation();
-            currentPhotoIndex = (currentPhotoIndex + 1) % modalPhotos.length;
-            renderModalPhotoViewer(container);
-        };
-
+        nextBtn.onclick = (e) => { e.stopPropagation(); navigatePhoto(1); };
+        
         photoContainer.appendChild(prevBtn);
         photoContainer.appendChild(nextBtn);
     }
 
-    container.appendChild(photoContainer);
+    const imgEl = document.createElement('img');
+    imgEl.src = viewUrl;
+    imgEl.alt = currentImg.label;
+    imgEl.onerror = function() {
+        this.onerror = null;
+        this.src = currentImg.url; 
+    };
 
-    const captionEl = document.createElement('div');
-    captionEl.className = 'photo-caption';
-    captionEl.textContent = `${currentPhoto.label} (${currentPhotoIndex + 1} of ${modalPhotos.length})`;
-    container.appendChild(captionEl);
+    photoContainer.appendChild(imgEl);
+    photoSide.appendChild(photoContainer);
+
+    const caption = document.createElement('div');
+    caption.className = 'photo-caption';
+    caption.textContent = `${currentImg.label} (${currentPhotoIndex + 1} of ${modalPhotos.length})`;
+    photoSide.appendChild(caption);
+}
+
+function navigatePhoto(dir) {
+    if (modalPhotos.length <= 1) return;
+    currentPhotoIndex += dir;
+    if (currentPhotoIndex < 0) currentPhotoIndex = modalPhotos.length - 1;
+    if (currentPhotoIndex >= modalPhotos.length) currentPhotoIndex = 0;
+    renderModalPhotoViewer();
+}
+
+function enableEditMode() {
+    popupOrderLowercase.forEach(tKey => {
+        const el = document.getElementById('modal_' + tKey);
+        if (el && tKey !== 'article/item') el.disabled = false;
+    });
+    modalModified = true;
+    modalEditBtn.style.display = 'none';
+    modalSaveBtn.style.display = 'inline-block';
+}
+
+function triggerSaveProcess() {
+    document.getElementById('custom-operator-input').value = 'Noel Rie N. Deliña';
+    customNameModal.style.display = 'flex';
+}
+
+function finalizeSaveData(operatorName) {
+    if (activeEditIndex === null) return;
+    const itemData = inventoryData.find(r => r._rowId === activeEditIndex);
+    if (!itemData) return;
+    
+    let payload = {
+        rowId: activeEditIndex + 2, 
+        updates: {},
+        updatedBy: operatorName
+    };
+    
+    let hasChanges = false;
+    popupOrderLowercase.forEach(tKey => {
+        if(tKey === 'article/item') return;
+        const el = document.getElementById('modal_' + tKey);
+        const mappedKey = headerMapping[tKey];
+        if (el && mappedKey) {
+            const newVal = el.value.trim();
+            if (newVal !== (itemData[mappedKey] || '').trim()) {
+                payload.updates[mappedKey] = newVal;
+                itemData[mappedKey] = newVal; 
+                hasChanges = true;
+            }
+        }
+    });
+
+    if (hasChanges) {
+        showLoading("Transmitting modified datasets to Google Cloud...");
+        const updateMappedKey = headerMapping['updated by'];
+        const dateMappedKey = headerMapping['last update'];
+        if(updateMappedKey) itemData[updateMappedKey] = operatorName;
+        if(dateMappedKey) itemData[dateMappedKey] = new Date().toLocaleString();
+
+        fetch(GOOGLE_APPS_SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(res => res.json())
+        .then(res => {
+            hideLoading();
+            if(res.success) {
+                alert("Cloud Sync Successful: Data modifications permanently applied.");
+                executeSearch(false);
+                closeModal();
+            } else {
+                alert("Sync Failure: " + (res.error || "Unknown Network Exception"));
+            }
+        })
+        .catch(err => {
+            hideLoading();
+            alert("Fatal Error: Cloud Server unreachable.");
+            console.error(err);
+        });
+    } else {
+        alert("Integrity Check: No changes detected in the matrix.");
+        closeModal();
+    }
+}
+
+function closeModal() {
+    editModal.style.display = 'none';
+    activeEditIndex = null;
+    modalModified = false;
 }
 
 function setupSystemEventHandlers() {
-    if(uploadPhotoBtn) {
-        uploadPhotoBtn.addEventListener('click', () => {
-            modalModified = true; 
-            const activeRecord = inventoryData.find(r => r._rowId === activeEditIndex);
-            const aKey = headerMapping['article/item'];
-            const itemCode = encodeURIComponent(activeRecord[aKey] || 'unknown');
-            window.open(`${GOOGLE_APPS_SCRIPT_URL}?itemCode=${itemCode}`, '_blank');
-        });
-    }
-
-    if(modalEditBtn) {
-        modalEditBtn.addEventListener('click', () => {
-            modalModified = true; 
-            const remInput = document.getElementById('modal-input-remarks');
-            if(remInput) remInput.disabled = false;
-            modalEditBtn.style.display = 'none';
-            if(modalSaveBtn) modalSaveBtn.style.display = 'inline-block';
-        });
-    }
-
-    if(modalSaveBtn) {
-        modalSaveBtn.addEventListener('click', () => {
-            modalModified = true;
-            const selection = document.getElementById('modal-input-remarks').value;
-            if(editModal) editModal.style.display = 'none';
-            if(customNameModal) customNameModal.style.display = 'flex';
-            
-            document.getElementById('customConfirmNameBtn').onclick = () => {
-                let name = document.getElementById('custom-operator-input').value;
-                if(!name || name.trim() === '') name = "Noel Rie N. Deliña";
-                customNameModal.style.display = 'none';
-                transmitUpdateToCloud(selection, name.trim());
-            };
-            
-            document.getElementById('customCancelNameBtn').onclick = () => {
-                customNameModal.style.display = 'none';
-                if(editModal) editModal.style.display = 'flex';
-            };
-        });
-    }
-
-    // Existing Bottom Close Button
-    if(modalCloseBtn) {
-        modalCloseBtn.addEventListener('click', () => {
-            if(editModal) editModal.style.display = 'none';
-            if (modalModified) {
-                loadInventoryFromGoogleSheets();
-            }
-        });
-    }
-
-    // New Top Right X Close Button logic
-    if(modalCloseX) {
-        modalCloseX.addEventListener('click', () => {
-            if(editModal) editModal.style.display = 'none';
-            if (modalModified) {
-                loadInventoryFromGoogleSheets();
-            }
-        });
-    }
-
-    if(exportButton) exportButton.addEventListener('click', () => exportToCSV(inventoryData, "Real_Estate_Inventory_Full"));
-    if(exportFilteredButton) exportFilteredButton.addEventListener('click', () => exportToHTML(currentFilteredData, "Real_Estate_Inventory_Filtered"));
-
-    if(searchButton) searchButton.addEventListener('click', () => executeSearch(false));
-    if(searchInput) searchInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') executeSearch(false); });
-    if(remarksFilter) remarksFilter.addEventListener('change', () => executeSearch(false));
-    if(typeFilter) typeFilter.addEventListener('change', () => executeSearch(false));
-    if(photoFilter) photoFilter.addEventListener('change', () => executeSearch(false));
+    if(searchButton) searchButton.addEventListener('click', () => executeSearch(true));
+    if(searchInput) searchInput.addEventListener('keypress', e => { if(e.key === 'Enter') executeSearch(true); });
+    
+    if(remarksFilter) remarksFilter.addEventListener('change', () => executeSearch(true));
+    if(typeFilter) typeFilter.addEventListener('change', () => executeSearch(true));
+    if(photoFilter) photoFilter.addEventListener('change', () => executeSearch(true));
+    
+    if(exportButton) exportButton.addEventListener('click', () => downloadDatasetCSV(inventoryData, 'Full_Inventory'));
+    if(exportFilteredButton) exportFilteredButton.addEventListener('click', () => downloadDatasetCSV(currentFilteredData, 'Searched_Inventory'));
+    
+    if(modalEditBtn) modalEditBtn.addEventListener('click', enableEditMode);
+    if(modalSaveBtn) modalSaveBtn.addEventListener('click', triggerSaveProcess);
+    if(modalCloseBtn) modalCloseBtn.addEventListener('click', closeModal);
+    if(modalCloseX) modalCloseX.addEventListener('click', closeModal); 
+    
+    document.getElementById('customCancelNameBtn').addEventListener('click', () => {
+        customNameModal.style.display = 'none';
+    });
+    
+    document.getElementById('customConfirmNameBtn').addEventListener('click', () => {
+        const nameVal = document.getElementById('custom-operator-input').value.trim();
+        if(!nameVal) { alert("Authorization Denied: Operator name required."); return; }
+        customNameModal.style.display = 'none';
+        finalizeSaveData(nameVal);
+    });
 }
 
-function exportToCSV(data, filename) {
-    if(data.length === 0) { alert("No data available to export."); return; }
-    
-    let csvContent = displayHeaders.join(",") + "\n";
-    
-    data.forEach(row => {
-        let rowData = targetHeadersLowercase.map(tKey => {
-            const resolvedKey = headerMapping[tKey];
-            let val = resolvedKey ? (row[resolvedKey] || '') : '';
-            val = String(val).replace(/"/g, '""');
-            return `"${val}"`;
-        });
-        csvContent += rowData.join(",") + "\n";
-    });
-
+function downloadDatasetCSV(data, filenamePrefix) {
+    if(!data || data.length === 0) {
+        alert("Export Nullified: No dataset active for export.");
+        return;
+    }
+    const headerRow = rawHeaders.join(",");
+    const rows = data.map(r => rawHeaders.map(h => `"${(r[h] || '').replace(/"/g, '""')}"`).join(","));
+    const csvContent = [headerRow, ...rows].join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `${filename}_${new Date().getTime()}.csv`;
-    document.body.appendChild(link); 
-    link.click(); 
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `${filenamePrefix}_${new Date().toISOString().slice(0,10)}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
     document.body.removeChild(link);
-}
-
-function exportToHTML(data, title) {
-    if(data.length === 0) { alert("No data available to export."); return; }
-    
-    let tableHTML = `<!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="utf-8">
-        <title>${title}</title>
-        <style>
-            body { font-family: Arial, sans-serif; margin: 20px; color: #333; background-color: #f8fafc; }
-            .header { text-align: center; margin-bottom: 20px; }
-            .header h1 { color: #1e293b; margin: 0; text-transform: uppercase; font-size: 24px; }
-            .print-btn { display: block; margin: 0 auto 20px; padding: 10px 20px; font-size: 14px; font-weight: bold; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
-            
-            table { width: 100%; border-collapse: collapse; background-color: white; table-layout: fixed; word-wrap: break-word; }
-            th, td { border: 1px solid #cbd5e1; padding: 5px; font-size: 20px; vertical-align: top; overflow-wrap: break-word; }
-            th { background-color: #e2e8f0; font-size: 20px; font-weight: bold; }
-            tr { page-break-inside: avoid; } 
-            
-            .photo-cell { text-align: center; vertical-align: middle; }
-            img { max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 4px; border: 1px solid #e2e8f0; page-break-inside: avoid; }
-            
-            th:nth-child(1), td:nth-child(1) { width: 5%; }  
-            th:nth-child(2), td:nth-child(2) { width: 12%; } 
-            th:nth-child(3), td:nth-child(3) { width: 4%; }  
-            th:nth-child(4), td:nth-child(4) { width: 4%; }  
-            th:nth-child(5), td:nth-child(5) { width: 6%; }  
-            th:nth-child(6), td:nth-child(6) { width: 7%; }  
-            th:nth-child(7), td:nth-child(7) { width: 9%; } 
-            th:nth-child(8), td:nth-child(8) { width: 9%; } 
-            th:nth-child(9), td:nth-child(9) { width: 9%; } 
-            th:nth-child(10), td:nth-child(10) { width: 9%; } 
-            th:nth-child(11), td:nth-child(11) { width: 9%; } 
-            th:nth-child(12), td:nth-child(12) { width: 9%; } 
-            th:nth-child(13), td:nth-child(13) { width: 4%; } 
-            th:nth-child(14), td:nth-child(14) { width: 4%; } 
-            
-            @media print { 
-                @page { size: landscape; margin: 5mm; }
-                .print-btn { display: none; } 
-                body { background-color: white; margin: 0; }
-            }
-        </style>
-    </head>
-    <body>
-        <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
-        <div class="header"><h1>${title}</h1><p>Generated on ${new Date().toLocaleDateString()}</p></div>
-        <table><thead><tr>`;
-    
-    displayHeaders.forEach(h => { tableHTML += `<th>${h}</th>`; });
-    tableHTML += `</tr></thead><tbody>`;
-    
-    data.forEach(row => {
-        tableHTML += `<tr>`;
-        targetHeadersLowercase.forEach(tKey => {
-            const resolvedKey = headerMapping[tKey];
-            const val = resolvedKey ? (row[resolvedKey] || '') : '';
-            
-            if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration') || tKey.includes('transfer_cert')) {
-                const viewUrl = getDirectImageUrl(val, 'view') || val;
-                const thumbUrl = getDirectImageUrl(val, 'thumbnail') || val;
-
-                if (val.trim() !== '' && val.startsWith('http')) {
-                    tableHTML += `<td class="photo-cell"><img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" /></td>`;
-                } else {
-                    tableHTML += `<td class="photo-cell">No Photo</td>`;
-                }
-            } else {
-                tableHTML += `<td>${val}</td>`;
-            }
-        });
-        tableHTML += `</tr>`;
-    });
-    tableHTML += `</tbody></table></body></html>`;
-
-    const blob = new Blob([tableHTML], { type: 'text/html;charset=utf-8' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `${title}_${new Date().getTime()}.html`;
-    document.body.appendChild(link); 
-    link.click(); 
-    document.body.removeChild(link);
-}
-
-async function transmitUpdateToCloud(remark, user) {
-    const activeRecord = inventoryData.find(r => r._rowId === activeEditIndex);
-    const aKey = headerMapping['article/item'];
-    const itemCode = String(activeRecord[aKey] || '').trim();
-
-    const timestamp = new Date().toLocaleString('en-US', { 
-        year: 'numeric', month: '2-digit', day: '2-digit',
-        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true 
-    });
-
-    const bodyParams = new URLSearchParams();
-    bodyParams.append("article", itemCode);
-    bodyParams.append("remarks", remark);
-    bodyParams.append("updatedby", user);
-    bodyParams.append("timestamp", timestamp);
-
-    statusBanner.style.backgroundColor = "#ffeb3b";
-    statusBanner.style.color = "#333";
-    statusBanner.textContent = "Transmitting modifications to Google Apps Script gateway...";
-    showLoading("Publishing updates...");
-    
-    try {
-        await fetch(GOOGLE_APPS_SCRIPT_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            body: bodyParams.toString()
-        });
-        setTimeout(() => { loadInventoryFromGoogleSheets(); }, 1200);
-    } catch(e) {
-        console.error(e);
-        setTimeout(() => { loadInventoryFromGoogleSheets(); }, 1000);
-    }
-}
-
-function executeSearch(keepCurrentPage = false) {
-    if(!searchInput || !remarksFilter || !typeFilter || !photoFilter) return;
-
-    const term = searchInput.value.toLowerCase().trim();
-    const remarkSel = remarksFilter.value;
-    const typeSel = typeFilter.value;
-    const photoSel = photoFilter.value;
-    
-    const rKey = headerMapping['remarks'];
-    const tKey = headerMapping['type'];
-    const pKey1 = headerMapping['photo 1'];
-    const pKey2 = headerMapping['photo 2'];
-    const pKey3 = headerMapping['map coordinates'];
-    const pKey4 = headerMapping['tax declaration']; 
-    const pKey5 = headerMapping['transfer_cert1']; 
-    const pKey6 = headerMapping['transfer_cert2']; 
-    
-    let filtered = inventoryData;
-
-    if(remarkSel !== "ALL" && rKey) filtered = filtered.filter(row => (row[rKey] || '').trim() === remarkSel);
-    if(typeSel !== "ALL" && tKey) filtered = filtered.filter(row => (row[tKey] || '').trim() === typeSel);
-    
-    if(photoSel !== "ALL") {
-        filtered = filtered.filter(row => {
-            const val1 = pKey1 ? String(row[pKey1] || '').trim() : '';
-            const val2 = pKey2 ? String(row[pKey2] || '').trim() : '';
-            const val3 = pKey3 ? String(row[pKey3] || '').trim() : '';
-            const val4 = pKey4 ? String(row[pKey4] || '').trim() : ''; 
-            const val5 = pKey5 ? String(row[pKey5] || '').trim() : ''; 
-            const val6 = pKey6 ? String(row[pKey6] || '').trim() : ''; 
-
-            if (photoSel === "WITH_TAX_DEC") {
-                return val4 !== '';
-            }
-
-            const hasPhoto = (val1 !== '') || (val2 !== '') || (val3 !== '') || (val4 !== '') || (val5 !== '') || (val6 !== '');
-            return photoSel === "WITH_PHOTO" ? hasPhoto : !hasPhoto;
-        });
-    }
-    
-    if(term) {
-        const searchWords = term.split(/\s+/).filter(word => word.length > 0);
-        const requiredMatches = Math.min(searchWords.length, 2);
-
-        filtered = filtered.filter(row => {
-            const rowText = rawHeaders.map(h => String(row[h] || '').toLowerCase()).join(' ');
-            let matchCount = 0;
-            searchWords.forEach(word => {
-                if (rowText.includes(word)) {
-                    matchCount++;
-                }
-            });
-            return matchCount >= requiredMatches;
-        });
-    }
-    
-    currentFilteredData = filtered; 
-    
-    const targetPage = keepCurrentPage ? currentPage : 1;
-    renderTable(filtered, targetPage);
-
-    if (foundCountDisplay) {
-        foundCountDisplay.textContent = `(${filtered.length} items found)`;
-    }
 }
