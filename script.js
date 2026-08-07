@@ -1,4 +1,4 @@
-// 🔑 Google Sheets Cloud Gateway Architecture
+// 🔑 Google Sheets Cloud Gateway Architecture[cite: 1]
 const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrqoIQ1yjd5XiGIPb9FLnxLI2LTgNJFV1ug-klApiKfNScxd_CX07o2nYYk_4lnvTBPw/exec";
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
 const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
@@ -676,7 +676,6 @@ function renderModalPhotoViewer() {
     const actionsContainer = document.createElement('div');
     actionsContainer.className = 'photo-actions-container';
 
-    // Download button replacing the old View Image button
     const downloadBtn = document.createElement('button');
     downloadBtn.className = 'photo-action-btn';
     downloadBtn.innerHTML = `View Photo`;
@@ -825,7 +824,7 @@ function setupSystemEventHandlers() {
     if(photoFilter) photoFilter.addEventListener('change', () => executeSearch(true));
     
     if(exportButton) exportButton.addEventListener('click', () => downloadDatasetCSV(inventoryData, 'Full_Inventory'));
-    if(exportFilteredButton) exportFilteredButton.addEventListener('click', () => downloadDatasetCSV(currentFilteredData, 'Searched_Inventory'));
+    if(exportFilteredButton) exportFilteredButton.addEventListener('click', () => downloadSearchedHTML(currentFilteredData));
     
     if(modalEditBtn) modalEditBtn.addEventListener('click', enableEditMode);
     if(modalSaveBtn) modalSaveBtn.addEventListener('click', triggerSaveProcess);
@@ -861,4 +860,87 @@ function downloadDatasetCSV(data, filenamePrefix) {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+}
+
+// 🌐 Restored HTML Export Function with Photos Included
+function downloadSearchedHTML(data) {
+    if(!data || data.length === 0) {
+        alert("Export Nullified: No dataset active for export.");
+        return;
+    }
+
+    let tableRowsHTML = '';
+    data.forEach(row => {
+        tableRowsHTML += '<tr>';
+        targetHeadersLowercase.forEach(tKey => {
+            const resolvedKey = headerMapping[tKey];
+            const val = resolvedKey ? (row[resolvedKey] || '') : '';
+            
+            if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration') || tKey.includes('transfer_cert')) {
+                if (val.trim() !== '') {
+                    const viewUrl = getDirectImageUrl(val, 'view') || val;
+                    const thumbUrl = getDirectImageUrl(val, 'thumbnail') || val;
+                    tableRowsHTML += `<td><img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" style="height:60px; max-width:80px; object-fit:cover; border:1px solid #ccc; border-radius:4px;" /></td>`;
+                } else {
+                    tableRowsHTML += `<td>No Photo</td>`;
+                }
+            } else {
+                tableRowsHTML += `<td>${escapeHtml(val)}</td>`;
+            }
+        });
+        tableRowsHTML += '</tr>';
+    });
+
+    let headersHTML = '';
+    displayHeaders.forEach(h => {
+        headersHTML += `<th>${h}</th>`;
+    });
+
+    const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Searched Inventory Export</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; color: #1e293b; background: #f8fafc; }
+        h1 { text-align: center; color: #1e293b; text-transform: uppercase; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+        th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; font-size: 13px; word-break: break-word; }
+        th { background-color: #f1f5f9; position: sticky; top: 0; }
+        img { border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>Real Estate Inventory - Searched Export</h1>
+    <p><strong>Export Date:</strong> ${new Date().toLocaleString()}</p>
+    <p><strong>Total Records:</strong> ${data.length}</p>
+    <table>
+        <thead>
+            <tr>${headersHTML}</tr>
+        </thead>
+        <tbody>
+            ${tableRowsHTML}
+        </tbody>
+    </table>
+</body>
+</html>`;
+
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Searched_Inventory_${new Date().toISOString().slice(0,10)}.html`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
