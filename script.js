@@ -944,37 +944,7 @@ function finalizeSaveData(operatorName) {
     }
 }
 
-    if (hasChanges) {
-        showLoading("Transmitting modified datasets to Google Cloud...");
-        const updateMappedKey = headerMapping['updated by'];
-        const dateMappedKey = headerMapping['last update'];
-        if(updateMappedKey) itemData[updateMappedKey] = operatorName;
-        if(dateMappedKey) itemData[dateMappedKey] = new Date().toLocaleString();
-
-        fetch(GOOGLE_APPS_SCRIPT_URL, {
-            method: 'POST',
-            body: JSON.stringify(payload),
-            headers: { 'Content-Type': 'application/json' }
-        })
-        .then(res => res.json())
-        .then(res => {
-            hideLoading();
-            if(res.success) {
-                alert("Cloud Sync Successful: Data modifications permanently applied.");
-                closeModal();
-            } else {
-                alert("Sync Failure: " + (res.error || "Unknown Network Exception"));
-            }
-        })
-        .catch(err => {
-            hideLoading();
-            alert("Fatal Error: Cloud Server unreachable.");
-            console.error(err);
-        });
-    } else {
-        alert("Integrity Check: No changes detected in the matrix.");
-        closeModal();
-    }
+   
 }
 
 function openUploadWindow() {
