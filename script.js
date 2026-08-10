@@ -466,7 +466,6 @@ function calculateStaticDashboardTotals(items) {
         
         const typeStr = String(row[tKey] || '').toUpperCase().trim();
         
-        // FLEXIBLE MATCHING IMPLEMENTED HERE: Allows the system to capture variations, plurals, and missing punctuation
         if (typeStr.includes('BUILDING MOD') || typeStr.includes('ASSET MOD')) stats['Building Modifications']++;
         else if (typeStr.includes('SCHOOL')) stats['School Building']++;
         else if (typeStr.includes('HOSPITAL')) stats['Hospital']++;
@@ -879,10 +878,14 @@ function downloadSearchedHTML(data) {
         return;
     }
 
+    // Filter out "updated by" and "last update" for this export specifically
+    const exportTargetHeaders = targetHeadersLowercase.filter(h => h !== "updated by" && h !== "last update");
+    const exportDisplayHeaders = displayHeaders.filter(h => h.toLowerCase() !== "updated by" && h.toLowerCase() !== "last update");
+
     let tableRowsHTML = '';
     data.forEach(row => {
         tableRowsHTML += '<tr>';
-        targetHeadersLowercase.forEach(tKey => {
+        exportTargetHeaders.forEach(tKey => {
             const resolvedKey = headerMapping[tKey];
             const val = resolvedKey ? (row[resolvedKey] || '') : '';
             
@@ -890,10 +893,14 @@ function downloadSearchedHTML(data) {
                 if (val.trim() !== '') {
                     const viewUrl = getDirectImageUrl(val, 'view') || val;
                     const thumbUrl = getDirectImageUrl(val, 'thumbnail') || val;
-                    tableRowsHTML += `<td style="text-align: center;"><img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" style="height: 140px; max-width: 180px; width: auto; object-fit: contain; border: 1px solid #94a3b8; border-radius: 4px; display: block; margin: 0 auto;" /></td>`;
+                    // Images scaled up significantly
+                    tableRowsHTML += `<td style="text-align: center;"><img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" style="height: 250px; max-width: 300px; width: auto; object-fit: contain; border: 1px solid #94a3b8; border-radius: 4px; display: block; margin: 0 auto;" /></td>`;
                 } else {
                     tableRowsHTML += `<td style="text-align: center; color: #64748b; font-style: italic;">No Photo</td>`;
                 }
+            } else if (tKey === 'description') {
+                // Wrap the description row to match header styles
+                tableRowsHTML += `<td class="desc-col">${escapeHtml(val)}</td>`;
             } else {
                 tableRowsHTML += `<td>${escapeHtml(val)}</td>`;
             }
@@ -902,8 +909,13 @@ function downloadSearchedHTML(data) {
     });
 
     let headersHTML = '';
-    displayHeaders.forEach(h => {
-        headersHTML += `<th>${h}</th>`;
+    exportDisplayHeaders.forEach(h => {
+        if (h.toLowerCase() === 'description') {
+            // Description header adjusted class
+            headersHTML += `<th class="desc-col">${h}</th>`;
+        } else {
+            headersHTML += `<th>${h}</th>`;
+        }
     });
 
     const htmlContent = `<!DOCTYPE html>
@@ -912,9 +924,16 @@ function downloadSearchedHTML(data) {
     <meta charset="UTF-8">
     <title>Searched Inventory Report</title>
     <style>
+        /* Forces A4 Portrait */
+        @page {
+            size: A4 portrait;
+            margin: 15mm;
+        }
         body { 
             font-family: Arial, sans-serif; 
-            margin: 20px; 
+            margin: 0 auto; 
+            width: 100%;
+            max-width: 210mm; /* Maximum size constrained to A4 width */
             color: #0f172a; 
             background: #ffffff; 
             -webkit-print-color-adjust: exact;
@@ -939,6 +958,7 @@ function downloadSearchedHTML(data) {
             border-collapse: collapse; 
             margin-top: 10px; 
             background: white; 
+            table-layout: auto;
         }
         th, td { 
             border: 1px solid #64748b; 
@@ -949,6 +969,11 @@ function downloadSearchedHTML(data) {
             word-break: break-word; 
             color: #0f172a;
             vertical-align: middle;
+        }
+        /* Compresses the description column */
+        .desc-col {
+            width: 12%; 
+            max-width: 12%; 
         }
         th { 
             background-color: #cbd5e1 !important; 
@@ -962,7 +987,7 @@ function downloadSearchedHTML(data) {
             background-color: #f8fafc;
         }
         @media print {
-            body { margin: 10px; }
+            body { width: 100%; margin: 0; }
             table { page-break-inside: auto; }
             tr { page-break-inside: avoid; page-break-after: auto; }
             th { background-color: #cbd5e1 !important; }
