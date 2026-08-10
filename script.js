@@ -609,7 +609,7 @@ function openPopUp(rowId, clickedPhotoKey = null) {
             inp = document.createElement('textarea');
             inp.id = 'modal_' + tKey;
             inp.value = val;
-            inp.rows = 4;
+            inp.rows = 8;
             inp.disabled = true;
         } else {
             inp = document.createElement('input');
