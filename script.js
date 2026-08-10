@@ -913,7 +913,7 @@ function downloadSearchedHTML(data) {
                 if (val.trim() !== '') {
                     const viewUrl = getDirectImageUrl(val, 'view') || val;
                     const thumbUrl = getDirectImageUrl(val, 'thumbnail') || val;
-                    tableRowsHTML += `<td style="text-align: center;"><img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" style="height: 200px; max-width: 200px; width: auto; object-fit: contain; border: 1px solid #94a3b8; border-radius: 4px; display: block; margin: 0 auto;" /></td>`;
+                    tableRowsHTML += `<td style="text-align: center;"><img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" style="height: 250px; max-width: 250px; width: auto; object-fit: contain; border: 1px solid #94a3b8; border-radius: 4px; display: block; margin: 0 auto;" /></td>`;
                 } else {
                     tableRowsHTML += `<td style="text-align: center; color: #64748b; font-style: italic;">No Photo</td>`;
                 }
@@ -921,7 +921,7 @@ function downloadSearchedHTML(data) {
             // 💡 Custom sizing specifically for the Description column
             let styleAttr = "";
             if (tKey === "description") {
-                styleAttr = ' style="width: 250px; min-width: 200px;"';
+                styleAttr = ' style="width: 200px; min-width: 190px;"';
             }
             tableRowsHTML += `<td${styleAttr}>${escapeHtml(val)}</td>`;
         }
