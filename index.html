@@ -571,6 +571,17 @@
             </div>
         </div>
     </div>
+
+    <!-- UPLOAD APP SCRIPT MODAL (Replaces window.open) -->
+    <div id="uploadModal" class="modal-overlay">
+        <div class="modal-box" style="width: 500px; max-width: 95%; height: 80vh; padding: 0; display: flex; flex-direction: column; overflow: hidden;">
+            <div style="background-color: white; padding: 15px; border-bottom: 2px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; z-index: 10;">
+                <span style="font-size: 18px; font-weight: bold; color: #333;">Google Apps Script Upload</span>
+                <button id="closeUploadModalBtn" class="close-x-btn" style="position: static; font-size: 24px; padding: 0; line-height: 1;">&times;</button>
+            </div>
+            <iframe id="uploadIframe" src="" style="flex: 1; width: 100%; border: none; background: #f8fafc;"></iframe>
+        </div>
+    </div>
     
     <!-- HOVER PREVIEW TOOLTIP -->
     <div id="imagePreviewTooltip">
