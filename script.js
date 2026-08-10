@@ -143,7 +143,7 @@ function initUIReferences() {
         Object.assign(customNameModal.style, {
             position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
             backgroundColor: 'rgba(0, 0, 0, 0.6)', display: 'none', justifyContent: 'center',
-            alignItems: 'center', zIndex: '200000'
+            alignItems: 'center', zIndex: '200000' // Set higher than editModal (100000) so it appears strictly on top
         });
         document.body.appendChild(customNameModal);
     }
@@ -183,25 +183,10 @@ function initApp() {
     const loginErr = document.getElementById('loginError');
     const backToTopBtn = document.getElementById('backToTopBtn');
 
-    // Diagnostic check: Display an error on screen if IDs don't match your HTML
-    if (!loginBtn || !userIn || !passIn) {
-        console.error("Critical Login Elements Missing:", { loginBtn, userIn, passIn });
-        if (loginErr) {
-            loginErr.textContent = "Error: Check HTML element IDs (loginBtn, usernameIn, passwordIn).";
-        }
-        return;
-    }
-
     const executeLogin = () => {
-        const enteredUser = userIn.value.trim();
-        const enteredPass = passIn.value.trim();
-
-        if (enteredUser === 'ADMIN' && enteredPass === '1234567890') {
-            const loginScreen = document.getElementById('loginScreen');
-            const mainApp = document.getElementById('mainApp');
-            
-            if (loginScreen) loginScreen.style.display = 'none';
-            if (mainApp) mainApp.style.display = 'block';
+        if (userIn && passIn && userIn.value.trim() === 'ADMIN' && passIn.value.trim() === '1234567890') {
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'block';
             
             setupSystemEventHandlers();
             loadInventoryFromGoogleSheets();
@@ -210,15 +195,19 @@ function initApp() {
         }
     };
 
-    loginBtn.addEventListener('click', executeLogin);
+    if (loginBtn) loginBtn.addEventListener('click', executeLogin);
     
-    passIn.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') executeLogin();
-    });
+    if (passIn) {
+        passIn.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') executeLogin();
+        });
+    }
 
-    userIn.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') executeLogin();
-    });
+    if (userIn) {
+        userIn.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') executeLogin();
+        });
+    }
 
     if (backToTopBtn) {
         backToTopBtn.addEventListener('click', () => {
@@ -245,45 +234,6 @@ function initApp() {
             }
         });
     }
-    
-    // --- HOVER PREVIEW EVENT LISTENERS ---
-    document.addEventListener('mouseover', function(e) {
-        if (e.target && e.target.classList.contains('hover-preview-img')) {
-            const srcToUse = e.target.src;
-            if (srcToUse && tooltip && tooltipImg) {
-                tooltipImg.src = srcToUse;
-                tooltip.style.display = 'block';
-            }
-        }
-    });
-
-    document.addEventListener('mousemove', function(e) {
-        if (e.target && e.target.classList.contains('hover-preview-img') && tooltip && tooltip.style.display === 'block') {
-            let x = e.clientX + 15;
-            let y = e.clientY + 15;
-            
-            const tooltipRect = tooltip.getBoundingClientRect();
-            if (x + tooltipRect.width > window.innerWidth) {
-                x = e.clientX - tooltipRect.width - 15;
-            }
-            if (y + tooltipRect.height > window.innerHeight) {
-                y = e.clientY - tooltipRect.height - 15;
-            }
-            
-            tooltip.style.left = x + 'px';
-            tooltip.style.top = y + 'px';
-        }
-    });
-
-    document.addEventListener('mouseout', function(e) {
-        if (e.target && e.target.classList.contains('hover-preview-img')) {
-            if (tooltip && tooltipImg) {
-                tooltip.style.display = 'none';
-                tooltipImg.src = '';
-            }
-        }
-    });
-}
     
     // --- HOVER PREVIEW EVENT LISTENERS ---
     document.addEventListener('mouseover', function(e) {
@@ -863,93 +813,47 @@ function finalizeSaveData(operatorName) {
     const itemData = inventoryData.find(r => r._rowId === activeEditIndex);
     if (!itemData) return;
     
-    const articleKey = headerMapping['article/item'];
-    const remarksKey = headerMapping['remarks'];
-    
-    const articleVal = itemData[articleKey] || '';
-    const modalRemarksEl = document.getElementById('modal_remarks');
-    const newRemarks = modalRemarksEl ? modalRemarksEl.value.trim() : (itemData[remarksKey] || '');
+    let payload = {
+        rowId: activeEditIndex + 2, 
+        updates: {},
+        updatedBy: operatorName
+    };
     
     let hasChanges = false;
     popupOrderLowercase.forEach(tKey => {
+        if(tKey === 'article/item') return;
         const el = document.getElementById('modal_' + tKey);
         const mappedKey = headerMapping[tKey];
         if (el && mappedKey) {
             const newVal = el.value.trim();
             if (newVal !== (itemData[mappedKey] || '').trim()) {
-                itemData[mappedKey] = newVal;
+                payload.updates[mappedKey] = newVal;
+                itemData[mappedKey] = newVal; 
                 hasChanges = true;
             }
         }
     });
 
-    if (hasChanges || newRemarks !== (itemData[remarksKey] || '')) {
+    if (hasChanges) {
         showLoading("Transmitting modified datasets to Google Cloud...");
-        
-        const timestamp = new Date().toLocaleString();
         const updateMappedKey = headerMapping['updated by'];
         const dateMappedKey = headerMapping['last update'];
         if(updateMappedKey) itemData[updateMappedKey] = operatorName;
-        if(dateMappedKey) itemData[dateMappedKey] = timestamp;
-
-        const params = new URLSearchParams();
-        params.append('article', articleVal);
-        params.append('remarks', newRemarks);
-        params.append('updatedby', operatorName);
-        params.append('timestamp', timestamp);
+        if(dateMappedKey) itemData[dateMappedKey] = new Date().toLocaleString();
 
         fetch(GOOGLE_APPS_SCRIPT_URL, {
             method: 'POST',
-            mode: 'no-cors', // Bypasses browser CORS redirect restrictions
-            body: params,
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+            body: JSON.stringify(payload),
+            headers: { 'Content-Type': 'application/json' }
         })
-        .then(() => {
+        .then(res => res.json())
+        .then(res => {
             hideLoading();
-            alert("Cloud Sync Successful: Data modifications permanently applied.");
-            closeModal();
-        })
-        .catch(err => {
-            hideLoading();
-            alert("Fatal Error: Cloud Server unreachable.");
-            console.error(err);
-        });
-    } else {
-        alert("Integrity Check: No changes detected in the matrix.");
-        closeModal();
-    }
-}
-    });
-
-    if (hasChanges || newRemarks !== (itemData[remarksKey] || '')) {
-        showLoading("Transmitting modified datasets to Google Cloud...");
-        
-        const timestamp = new Date().toLocaleString();
-        const updateMappedKey = headerMapping['updated by'];
-        const dateMappedKey = headerMapping['last update'];
-        if(updateMappedKey) itemData[updateMappedKey] = operatorName;
-        if(dateMappedKey) itemData[dateMappedKey] = timestamp;
-
-        // Form-urlencoded payload to match backend e.parameter requirements
-        const params = new URLSearchParams();
-        params.append('article', articleVal);
-        params.append('remarks', newRemarks);
-        params.append('updatedby', operatorName);
-        params.append('timestamp', timestamp);
-
-        fetch(GOOGLE_APPS_SCRIPT_URL, {
-            method: 'POST',
-            body: params,
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-        })
-        .then(res => res.text())
-        .then(responseText => {
-            hideLoading();
-            if (responseText.trim().includes("Success")) {
+            if(res.success) {
                 alert("Cloud Sync Successful: Data modifications permanently applied.");
                 closeModal();
             } else {
-                alert("Sync Failure: " + (responseText || "Unknown Network Exception"));
+                alert("Sync Failure: " + (res.error || "Unknown Network Exception"));
             }
         })
         .catch(err => {
