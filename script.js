@@ -772,31 +772,177 @@ function triggerSaveProcess() {
 }
 
 function finalizeSaveData(operatorName) {
-    if (activeEditIndex === null) return;
-    const itemData = inventoryData.find(r => r._rowId === activeEditIndex);
-    if (!itemData) return;
-    
-    let payload = {
-        rowId: activeEditIndex + 2, 
-        updates: {},
-        updatedBy: operatorName
-    };
-    
-    let hasChanges = false;
-    popupOrderLowercase.forEach(tKey => {
-        if(tKey === 'article/item') return;
-        const sanitizedId = 'modal_' + tKey.replace(/[^a-zA-Z0-9]/g, '_');
-        const el = document.getElementById(sanitizedId);
-        const mappedKey = headerMapping[tKey];
-        if (el && mappedKey) {
-            const newVal = el.value.trim();
-            if (newVal !== (itemData[mappedKey] || '').trim()) {
-                payload.updates[mappedKey] = newVal;
-                itemData[mappedKey] = newVal; 
-                hasChanges = true;
-            }
-        }
+    if (activeEditIndex === null || !inventoryData[activeEditIndex]) {
+        alert("No property record is currently selected.");
+        return;
+    }
+
+    const itemData = inventoryData[activeEditIndex];
+
+    // Get the Article/Item value from the current record
+    const articleKey = headerMapping["article/item"];
+    const remarksKey = headerMapping["remarks"];
+
+    if (!articleKey) {
+        alert("Error: Article/Item column could not be identified.");
+        return;
+    }
+
+    if (!remarksKey) {
+        alert("Error: Remarks column could not be identified.");
+        return;
+    }
+
+    const article = String(itemData[articleKey] || "").trim();
+
+    if (!article) {
+        alert("Error: Article/Item is empty. Cannot save this record.");
+        return;
+    }
+
+    // Find the Remarks input in the modal
+    const remarksElement = document.querySelector(
+        '#modalFormContainer select[data-key="remarks"], ' +
+        '#modalFormContainer input[data-key="remarks"], ' +
+        '#modalFormContainer textarea[data-key="remarks"]'
+    );
+
+    if (!remarksElement) {
+        alert("Error: Remarks field could not be found.");
+        return;
+    }
+
+    const remarks = String(remarksElement.value || "").trim();
+
+    // Check whether the Remarks value actually changed
+    const originalRemarks = String(itemData[remarksKey] || "").trim();
+
+    if (remarks === originalRemarks) {
+        alert("Integrity Check: No changes detected in the matrix.");
+        return;
+    }
+
+    // Current timestamp
+    const now = new Date();
+
+    // Format timestamp for Google Apps Script / Google Sheets
+    const timestamp = now.toLocaleString("en-US", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false
     });
+
+    // ---------------------------------------------------------
+    // IMPORTANT:
+    // Your existing code.gs expects e.parameter values.
+    // Therefore DO NOT send JSON here.
+    // Use URLSearchParams instead.
+    // ---------------------------------------------------------
+
+    const params = new URLSearchParams();
+
+    params.append("article", article);
+    params.append("remarks", remarks);
+    params.append("updatedby", operatorName || "Unknown User");
+    params.append("timestamp", timestamp);
+
+    const saveButton = document.getElementById("modalSaveBtn");
+
+    if (saveButton) {
+        saveButton.disabled = true;
+        saveButton.textContent = "Saving...";
+    }
+
+    updateStatus("Saving changes to Google Sheets...", "loading");
+
+    try {
+        const response = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+            method: "POST",
+            body: params
+        });
+
+        const resultText = await response.text();
+
+        console.log("Google Apps Script response:", resultText);
+
+        let result;
+
+        try {
+            result = JSON.parse(resultText);
+        } catch (parseError) {
+            throw new Error(
+                "Invalid response from Google Apps Script: " + resultText
+            );
+        }
+
+        if (result.status === "success") {
+
+            // Update the local record only AFTER Google Sheets confirms success
+            itemData[remarksKey] = remarks;
+
+            // Update Updated By
+            const updatedByKey = headerMapping["updated by"];
+
+            if (updatedByKey) {
+                itemData[updatedByKey] = operatorName || "Unknown User";
+            }
+
+            // Update Last Update
+            const lastUpdateKey = headerMapping["last update"];
+
+            if (lastUpdateKey) {
+                itemData[lastUpdateKey] = timestamp;
+            }
+
+            // Refresh the table/dashboard
+            initializeSystemUI();
+
+            // Close modal
+            const modal = document.getElementById("editModal");
+
+            if (modal) {
+                modal.style.display = "none";
+            }
+
+            updateStatus(
+                "✓ Changes saved successfully to Google Sheets.",
+                "success"
+            );
+
+            alert("Changes saved successfully.");
+
+        } else {
+            throw new Error(
+                result.message || "Google Apps Script rejected the update."
+            );
+        }
+
+    } catch (error) {
+
+        console.error("Save error:", error);
+
+        updateStatus(
+            "Save Error: " + error.message,
+            "error"
+        );
+
+        alert(
+            "Unable to save changes.\n\n" +
+            error.message
+        );
+
+    } finally {
+
+        if (saveButton) {
+            saveButton.disabled = false;
+            saveButton.textContent = "Save Changes";
+        }
+    }
+}
 
     if (hasChanges) {
         showLoading("Transmitting modified datasets to Google Cloud...");
