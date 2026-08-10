@@ -861,6 +861,12 @@ function setupSystemEventHandlers() {
     if(modalSaveBtn) modalSaveBtn.addEventListener('click', triggerSaveProcess);
     if(modalCloseBtn) modalCloseBtn.addEventListener('click', closeModal);
     if(modalCloseX) modalCloseX.addEventListener('click', closeModal); 
+
+    if(uploadPhotoBtn) {
+        uploadPhotoBtn.addEventListener('click', () => {
+            window.open(GOOGLE_APPS_SCRIPT_URL, '_blank');
+        });
+    }
     
     document.getElementById('customCancelNameBtn').addEventListener('click', () => {
         customNameModal.style.display = 'none';
