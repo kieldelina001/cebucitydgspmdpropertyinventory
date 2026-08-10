@@ -3,6 +3,27 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrqoIQ1
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
 const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
 
+// =========================================================================
+// 🛠️ MANUAL EXPORT TABLE ADJUSTMENT CONFIGURATION 🛠️
+// Adjust the items below to change which columns appear in the "Export Searched" HTML file.
+// 'display' is the column header text shown in the generated export table.
+// 'key' is the internal lowercase identifier matching your spreadsheet columns.
+// Simply delete or comment out a line to remove that column from the export.
+// =========================================================================
+const EXPORT_TABLE_CONFIG = [
+    { display: "Article no./ TCT no.", key: "article/item" },
+    { display: "Description", key: "description" },
+    { display: "Remarks", key: "remarks" },
+    { display: "Type", key: "type" },
+    { display: "Photo 1", key: "photo 1" },
+    { display: "Photo 2", key: "photo 2" },
+    { display: "Map Coordinates", key: "map coordinates" },
+    { display: "Tax Declaration", key: "tax declaration" },
+    { display: "Transfer Certificate of Title Page 1", key: "transfer_cert1" },
+    { display: "Transfer Certificate of Title Page 2", key: "transfer_cert2" },
+];
+// =========================================================================
+
 const displayHeaders = ["Article no./ TCT no.", "Description", "Acquisition Date", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Coordinates", "Tax Declaration", "Transfer Certificate of Title Page 1", "Transfer Certificate of Title Page 2", "UPDATED BY", "LAST UPDATE"];
 const targetHeadersLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "transfer_cert1", "transfer_cert2", "updated by", "last update"];
 const popupOrderLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type"]; 
@@ -466,7 +487,7 @@ function calculateStaticDashboardTotals(items) {
         
         const typeStr = String(row[tKey] || '').toUpperCase().trim();
         
-        // FLEXIBLE MATCHING IMPLEMENTED HERE
+        // FLEXIBLE MATCHING IMPLEMENTED HERE: Allows the system to capture variations, plurals, and missing punctuation
         if (typeStr.includes('BUILDING MOD') || typeStr.includes('ASSET MOD')) stats['Building Modifications']++;
         else if (typeStr.includes('SCHOOL')) stats['School Building']++;
         else if (typeStr.includes('HOSPITAL')) stats['Hospital']++;
@@ -872,21 +893,19 @@ function downloadDatasetCSV(data, filenamePrefix) {
     document.body.removeChild(link);
 }
 
-// 🌐 Restored & Optimized HTML Export Function Modified to Match the Excel File Provided
+// 🌐 Restored & Optimized HTML Export Function with Larger Photos & High-Contrast Print-Ready Text
 function downloadSearchedHTML(data) {
     if(!data || data.length === 0) {
         alert("Export Nullified: No dataset active for export.");
         return;
     }
 
-    // Aligned strictly to the 12 columns required
-    const exportHeaders = ['Article/Item', 'Description', 'Acquisition Date', 'Unit Value', 'Remarks', 'Type', 'Photo 1', 'Photo 2', 'Map Coordinates', 'Tax Declaration', 'Transfer_Cert1', 'Transfer_Cert2'];
-    const exportTargetLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "transfer_cert1", "transfer_cert2"];
-
     let tableRowsHTML = '';
     data.forEach(row => {
         tableRowsHTML += '<tr>';
-        exportTargetLowercase.forEach(tKey => {
+        // USE THE NEW CONFIGURATION ARRAY HERE
+        EXPORT_TABLE_CONFIG.forEach(col => {
+            const tKey = col.key;
             const resolvedKey = headerMapping[tKey];
             const val = resolvedKey ? (row[resolvedKey] || '') : '';
             
@@ -894,33 +913,21 @@ function downloadSearchedHTML(data) {
                 if (val.trim() !== '') {
                     const viewUrl = getDirectImageUrl(val, 'view') || val;
                     const thumbUrl = getDirectImageUrl(val, 'thumbnail') || val;
-                    // Adjusted cell dimensions and image width/height attribute to force Excel compatibility
-                    tableRowsHTML += `<td style="text-align: center; vertical-align: middle; height: 300px; width: 300px; padding: 5px;">
-                                        <img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" width="290" height="290" style="object-fit: contain; display: block; margin: 0 auto;" alt="Media" />
-                                      </td>`;
+                    tableRowsHTML += `<td style="text-align: center;"><img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" style="height: 200px; max-width: 200px; width: auto; object-fit: contain; border: 1px solid #94a3b8; border-radius: 4px; display: block; margin: 0 auto;" /></td>`;
                 } else {
-                    tableRowsHTML += `<td style="text-align: center; color: #64748b; font-style: italic; width: 300px;"></td>`;
+                    tableRowsHTML += `<td style="text-align: center; color: #64748b; font-style: italic;">No Photo</td>`;
                 }
-            } else if (tKey === 'description') {
-                // Constrains the description column size
-                tableRowsHTML += `<td style="vertical-align: middle; padding: 5px; width: 150px; min-width: 150px; word-wrap: break-word; white-space: normal;">${escapeHtml(val)}</td>`;
             } else {
-                tableRowsHTML += `<td style="vertical-align: middle; padding: 5px;">${escapeHtml(val)}</td>`;
+                tableRowsHTML += `<td>${escapeHtml(val)}</td>`;
             }
         });
         tableRowsHTML += '</tr>';
     });
 
     let headersHTML = '';
-    exportHeaders.forEach(h => {
-        let extraWidthStyle = "";
-        if (h === 'Description') {
-            extraWidthStyle = "width: 150px;";
-        } else if (['Photo 1', 'Photo 2', 'Map Coordinates', 'Tax Declaration', 'Transfer_Cert1', 'Transfer_Cert2'].includes(h)) {
-            extraWidthStyle = "width: 300px;";
-        }
-
-        headersHTML += `<th style="background-color: #D9D9D9; color: black; font-weight: bold; border: 1px solid black; padding: 8px; ${extraWidthStyle}">${h}</th>`;
+    // USE THE NEW CONFIGURATION ARRAY HERE
+    EXPORT_TABLE_CONFIG.forEach(col => {
+        headersHTML += `<th>${col.display}</th>`;
     });
 
     const htmlContent = `<!DOCTYPE html>
@@ -930,30 +937,67 @@ function downloadSearchedHTML(data) {
     <title>Searched Inventory Report</title>
     <style>
         body { 
-            font-family: Calibri, Arial, sans-serif; 
-            margin: 0; 
-            padding: 10px;
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            color: #0f172a; 
             background: #ffffff; 
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        h1 { 
+            text-align: center; 
+            color: #0f172a; 
+            text-transform: uppercase; 
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        .report-meta {
+            text-align: center;
+            font-size: 14px;
+            color: #334155;
+            margin-bottom: 25px;
+            font-weight: bold;
         }
         table { 
             width: 100%; 
             border-collapse: collapse; 
+            margin-top: 10px; 
             background: white; 
-            table-layout: fixed;
         }
         th, td { 
-            border: 1px solid #000000; 
-            padding: 8px; 
+            border: 1px solid #64748b; 
+            padding: 10px 12px; 
             text-align: left; 
-            font-size: 11pt; 
+            font-size: 13px; 
+            line-height: 1.4;
             word-break: break-word; 
+            color: #0f172a;
+            vertical-align: middle;
         }
         th { 
-            text-align: center;
+            background-color: #cbd5e1 !important; 
+            color: #0f172a;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 0.5px;
+        }
+        tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+        @media print {
+            body { margin: 10px; }
+            table { page-break-inside: auto; }
+            tr { page-break-inside: avoid; page-break-after: auto; }
+            th { background-color: #cbd5e1 !important; }
         }
     </style>
 </head>
 <body>
+    <h1>Real Estate Inventory Report</h1>
+    <div class="report-meta">
+        Exported On: ${new Date().toLocaleString()} &bull; Total Records: ${data.length}
+    </div>
     <table>
         <thead>
             <tr>${headersHTML}</tr>
@@ -965,7 +1009,6 @@ function downloadSearchedHTML(data) {
 </body>
 </html>`;
 
-    // Download forced as .html, perfectly scaled to be openable natively in Excel
     const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
