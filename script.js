@@ -209,6 +209,14 @@ function initApp() {
         });
     }
 
+    // Ensure initialization only runs after the entire HTML document is fully loaded
+if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', initApp);
+} else {
+    // If the document is already interactive or complete, wait a tick to ensure elements are parsed
+    window.setTimeout(initApp, 50);
+}
+
     if (backToTopBtn) {
         backToTopBtn.addEventListener('click', () => {
             window.scrollTo({ top: 0, behavior: 'smooth' });
