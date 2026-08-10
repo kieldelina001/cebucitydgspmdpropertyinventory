@@ -274,7 +274,6 @@ function initApp() {
     });
 }
 
-// Safely execute initialization regardless of script loading timing
 if (document.readyState === 'loading') {
     window.addEventListener('DOMContentLoaded', initApp);
 } else {
@@ -624,7 +623,6 @@ function openPopUp(rowId, clickedPhotoKey = null) {
     photoSide.className = 'modal-photo-side';
     photoSide.id = 'modalPhotoSide'; 
 
-    // --- POPULATE FIELDS ---
     popupOrderLowercase.forEach(tKey => {
         const mappedKey = headerMapping[tKey];
         const val = mappedKey ? (itemData[mappedKey] || '') : '';
@@ -672,7 +670,6 @@ function openPopUp(rowId, clickedPhotoKey = null) {
         fieldsSide.appendChild(fDiv);
     });
 
-    // --- POPULATE MULTIPLE PHOTOS FOR VIEWER ---
     modalPhotos = [];
     const photoKeysDef = [
         { key: 'photo 1', label: 'Photo 1' },
@@ -808,16 +805,20 @@ function triggerSaveProcess() {
     if (customNameModal) customNameModal.style.display = 'flex';
 }
 
+// 🌐 MODIFIED TO USE URL-ENCODED POST (NO JSON)
 function finalizeSaveData(operatorName) {
     if (activeEditIndex === null) return;
     const itemData = inventoryData.find(r => r._rowId === activeEditIndex);
     if (!itemData) return;
     
-    let payload = {
-        rowId: activeEditIndex + 2, 
-        updates: {},
-        updatedBy: operatorName
-    };
+    const articleKey = headerMapping['article/item'];
+    const articleNo = itemData[articleKey] || '';
+    const formattedTimestamp = new Date().toLocaleString();
+
+    const params = new URLSearchParams();
+    params.append('article', articleNo);
+    params.append('updatedby', operatorName);
+    params.append('timestamp', formattedTimestamp);
     
     let hasChanges = false;
     popupOrderLowercase.forEach(tKey => {
@@ -827,7 +828,7 @@ function finalizeSaveData(operatorName) {
         if (el && mappedKey) {
             const newVal = el.value.trim();
             if (newVal !== (itemData[mappedKey] || '').trim()) {
-                payload.updates[mappedKey] = newVal;
+                params.append(tKey, newVal);
                 itemData[mappedKey] = newVal; 
                 hasChanges = true;
             }
@@ -839,26 +840,21 @@ function finalizeSaveData(operatorName) {
         const updateMappedKey = headerMapping['updated by'];
         const dateMappedKey = headerMapping['last update'];
         if(updateMappedKey) itemData[updateMappedKey] = operatorName;
-        if(dateMappedKey) itemData[dateMappedKey] = new Date().toLocaleString();
-
-        const formBody = new URLSearchParams();
-        formBody.append('rowId', payload.rowId);
-        formBody.append('updatedBy', payload.updatedBy);
-        formBody.append('updates', JSON.stringify(payload.updates));
+        if(dateMappedKey) itemData[dateMappedKey] = formattedTimestamp;
 
         fetch(GOOGLE_APPS_SCRIPT_URL, {
             method: 'POST',
-            body: formBody,
+            body: params.toString(),
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
         })
-        .then(res => res.json())
-        .then(res => {
+        .then(res => res.text())
+        .then(resText => {
             hideLoading();
-            if(res.success) {
+            if(resText.includes("Success")) {
                 alert("Cloud Sync Successful: Data modifications permanently applied.");
                 closeModal();
             } else {
-                alert("Sync Failure: " + (res.error || "Unknown Network Exception"));
+                alert("Sync Failure: " + resText);
             }
         })
         .catch(err => {
@@ -872,7 +868,6 @@ function finalizeSaveData(operatorName) {
     }
 }
 
-// 🌐 OPENS UPLOAD WINDOW AND LINKS TO GAS
 function openUploadWindow() {
     if (activeEditIndex === null) return;
     const itemData = inventoryData.find(r => r._rowId === activeEditIndex);
