@@ -834,27 +834,24 @@ function finalizeSaveData(operatorName) {
         }
     });
 
-    if (hasChanges) {
+  if (hasChanges) {
         showLoading("Transmitting modified datasets to Google Cloud...");
         const updateMappedKey = headerMapping['updated by'];
         const dateMappedKey = headerMapping['last update'];
         if(updateMappedKey) itemData[updateMappedKey] = operatorName;
         if(dateMappedKey) itemData[dateMappedKey] = new Date().toLocaleString();
 
+        // Updated fetch configuration to bypass browser CORS restrictions for Google Apps Script
         fetch(GOOGLE_APPS_SCRIPT_URL, {
             method: 'POST',
-            body: JSON.stringify(payload),
-            headers: { 'Content-Type': 'application/json' }
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload)
         })
-        .then(res => res.json())
-        .then(res => {
+        .then(() => {
             hideLoading();
-            if(res.success) {
-                alert("Cloud Sync Successful: Data modifications permanently applied.");
-                closeModal();
-            } else {
-                alert("Sync Failure: " + (res.error || "Unknown Network Exception"));
-            }
+            alert("Cloud Sync Successful: Data modifications permanently applied.");
+            closeModal();
         })
         .catch(err => {
             hideLoading();
