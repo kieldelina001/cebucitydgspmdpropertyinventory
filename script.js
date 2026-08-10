@@ -918,8 +918,13 @@ function downloadSearchedHTML(data) {
                     tableRowsHTML += `<td style="text-align: center; color: #64748b; font-style: italic;">No Photo</td>`;
                 }
             } else {
-                tableRowsHTML += `<td>${escapeHtml(val)}</td>`;
+            // 💡 Custom sizing specifically for the Description column
+            let styleAttr = "";
+            if (tKey === "description") {
+                styleAttr = ' style="width: 350px; min-width: 250px;"';
             }
+            tableRowsHTML += `<td${styleAttr}>${escapeHtml(val)}</td>`;
+        }
         });
         tableRowsHTML += '</tr>';
     });
