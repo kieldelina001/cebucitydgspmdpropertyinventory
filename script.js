@@ -95,11 +95,6 @@ const modalCloseBtn = document.getElementById('modalCloseBtn');
 const modalCloseX = document.getElementById('modalCloseX'); 
 const uploadPhotoBtn = document.getElementById('uploadPhotoBtn'); 
 
-// Upload Modal Elements (Added)
-const uploadModal = document.getElementById('uploadModal');
-const uploadIframe = document.getElementById('uploadIframe');
-const closeUploadModalBtn = document.getElementById('closeUploadModalBtn');
-
 // Tooltip Elements
 const tooltip = document.getElementById('imagePreviewTooltip');
 const tooltipImg = document.getElementById('imagePreviewTooltipImg');
@@ -117,7 +112,7 @@ if (!loadingOverlay) {
 `;
     Object.assign(loadingOverlay.style, {
         position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
-        backgroundColor: 'rgba(0, 0, 0, 0.85)', display: 'none', justifyContent: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.85)', display: 'none', justify-content: 'center',
         alignItems: 'center', zIndex: '99999', transition: 'opacity 0.2s ease'
     });
     const styleSheet = document.createElement("style");
@@ -846,7 +841,7 @@ function finalizeSaveData(operatorName) {
     }
 }
 
-// 🌐 OPENS UPLOAD WINDOW IN IFRAME MODAL
+// 🌐 OPENS UPLOAD WINDOW AND LINKS TO GAS
 function openUploadWindow() {
     if (activeEditIndex === null) return;
     const itemData = inventoryData.find(r => r._rowId === activeEditIndex);
@@ -859,25 +854,15 @@ function openUploadWindow() {
     // Append ?itemCode= to deployment URL
     const uploadUrl = GOOGLE_APPS_SCRIPT_URL + "?itemCode=" + encodeURIComponent(itemCode);
     
-    // Launch within the iframe inside the modal wrapper
-    if (uploadIframe && uploadModal) {
-        uploadIframe.src = uploadUrl;
-        uploadModal.style.display = 'flex';
-        modalModified = true; // Mark as modified so the table syncs the new photos upon closing
-    }
+    // Launch upload window 
+    // MODIFICATION: Removed the width and height restrictions so the browser automatically handles it in a standard new tab.
+    window.open(uploadUrl, '_blank');
+
+    // Mark modal as modified so the table syncs the new photos upon closing
+    modalModified = true;
 }
 
-// 🌐 CLOSES UPLOAD IFRAME MODAL
-function closeUploadModal() {
-    if (uploadModal) {
-        uploadModal.style.display = 'none';
-    }
-    if (uploadIframe) {
-        uploadIframe.src = ''; // Clear source to stop media loads in the background
-    }
-}
-
-// 🌐 REFRESHES IN PLACE ON CLOSE (FOR PROPERTY DETAILS)
+// 🌐 REFRESHES IN PLACE ON CLOSE
 function closeModal() {
     editModal.style.display = 'none';
     
@@ -901,14 +886,13 @@ function setupSystemEventHandlers() {
     if(exportButton) exportButton.addEventListener('click', () => downloadDatasetCSV(inventoryData, 'Full_Inventory'));
     if(exportFilteredButton) exportFilteredButton.addEventListener('click', () => downloadSearchedHTML(currentFilteredData));
     
-    // Upload event binding modified here
+    // Upload event binding added here
     if(uploadPhotoBtn) uploadPhotoBtn.addEventListener('click', openUploadWindow); 
     
     if(modalEditBtn) modalEditBtn.addEventListener('click', enableEditMode);
     if(modalSaveBtn) modalSaveBtn.addEventListener('click', triggerSaveProcess);
     if(modalCloseBtn) modalCloseBtn.addEventListener('click', closeModal);
     if(modalCloseX) modalCloseX.addEventListener('click', closeModal); 
-    if(closeUploadModalBtn) closeUploadModalBtn.addEventListener('click', closeUploadModal);
     
     document.getElementById('customCancelNameBtn').addEventListener('click', () => {
         customNameModal.style.display = 'none';
