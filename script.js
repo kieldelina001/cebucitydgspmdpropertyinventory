@@ -1,10 +1,11 @@
+```javascript
 // 🔑 Google Sheets Cloud Gateway Architecture
 const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrqoIQ1yjd5XiGIPb9FLnxLI2LTgNJFV1ug-klApiKfNScxd_CX07o2nYYk_4lnvTBPw/exec";
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
 const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
 
 // =========================================================================
-// 🛠️ MANUAL EXPORT TABLE ADJUSTMENT CONFIGURATION 🛠️
+// 🛠️ MANUAL EXPORT TABLE CONFIGURATION
 // =========================================================================
 const EXPORT_TABLE_CONFIG = [
     { display: "Article no./ TCT no.", key: "article/item" },
@@ -18,8 +19,10 @@ const EXPORT_TABLE_CONFIG = [
     { display: "Transfer Certificate of Title Page 1", key: "transfer_cert1" },
     { display: "Transfer Certificate of Title Page 2", key: "transfer_cert2" },
 ];
-// =========================================================================
 
+// =========================================================================
+// DISPLAY HEADERS
+// =========================================================================
 const displayHeaders = [
     "Article no./ TCT no.",
     "Description",
@@ -63,6 +66,10 @@ const popupOrderLowercase = [
     "type"
 ];
 
+// =========================================================================
+// GLOBAL VARIABLES
+// =========================================================================
+
 let inventoryData = [];
 let currentFilteredData = [];
 let rawHeaders = [];
@@ -72,31 +79,22 @@ let parsedUniqueRemarks = [];
 let isAppInitialized = false;
 let modalModified = false;
 
-// ========================================================================
-// 🔄 REFRESH / POSITION STATE
-// ========================================================================
-
+// Refresh control
 let modalNeedsRefresh = false;
 let pendingRestoreScrollY = null;
 let pendingRestorePage = null;
 
-// ========================================================================
-// 📸 MODAL PHOTO GALLERY STATE
-// ========================================================================
-
+// Photo gallery
 let modalPhotos = [];
 let currentPhotoIndex = 0;
 
-// ========================================================================
-// 📄 PAGINATION
-// ========================================================================
-
+// Pagination
 let currentPage = 1;
 const itemsPerPage = 50;
 
-// ========================================================================
+// =========================================================================
 // DOM ELEMENTS
-// ========================================================================
+// =========================================================================
 
 const searchInput = document.getElementById('searchInput');
 const searchButton = document.getElementById('searchButton');
@@ -112,7 +110,6 @@ const tableBody = document.getElementById('tableBody');
 const statusBanner = document.getElementById('statusBanner');
 const foundCountDisplay = document.getElementById('foundCountDisplay');
 
-// Pagination
 const paginationContainer = document.getElementById('paginationContainer');
 const prevPageBtn = document.getElementById('prevPageBtn');
 const nextPageBtn = document.getElementById('nextPageBtn');
@@ -154,16 +151,20 @@ const uploadPhotoBtn = document.getElementById('uploadPhotoBtn');
 const tooltip = document.getElementById('imagePreviewTooltip');
 const tooltipImg = document.getElementById('imagePreviewTooltipImg');
 
-// ========================================================================
-// ⏳ LOADING OVERLAY
-// ========================================================================
+// =========================================================================
+// LOADING OVERLAY
+// =========================================================================
 
-let loadingOverlay = document.getElementById('dynamicLoadingOverlay');
+let loadingOverlay =
+    document.getElementById('dynamicLoadingOverlay');
 
 if (!loadingOverlay) {
 
-    loadingOverlay = document.createElement('div');
-    loadingOverlay.id = 'dynamicLoadingOverlay';
+    loadingOverlay =
+        document.createElement('div');
+
+    loadingOverlay.id =
+        'dynamicLoadingOverlay';
 
     loadingOverlay.innerHTML = `
         <div style="
@@ -196,21 +197,25 @@ if (!loadingOverlay) {
         </div>
     `;
 
-    Object.assign(loadingOverlay.style, {
-        position: 'fixed',
-        top: '0',
-        left: '0',
-        width: '100vw',
-        height: '100vh',
-        backgroundColor: 'rgba(0,0,0,0.85)',
-        display: 'none',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: '99999',
-        transition: 'opacity 0.2s ease'
-    });
+    Object.assign(
+        loadingOverlay.style,
+        {
+            position: 'fixed',
+            top: '0',
+            left: '0',
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(0,0,0,0.85)',
+            display: 'none',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: '99999',
+            transition: 'opacity 0.2s ease'
+        }
+    );
 
-    const styleSheet = document.createElement("style");
+    const styleSheet =
+        document.createElement("style");
 
     styleSheet.innerText = `
         @keyframes spin {
@@ -229,7 +234,10 @@ if (!loadingOverlay) {
 
 function showLoading(msg) {
 
-    const textEl = document.getElementById('loadingOverlayText');
+    const textEl =
+        document.getElementById(
+            'loadingOverlayText'
+        );
 
     if (textEl) {
         textEl.textContent = msg;
@@ -251,17 +259,22 @@ function hideLoading() {
     );
 }
 
-// ========================================================================
-// 🎯 OPERATOR NAME MODAL
-// ========================================================================
+// =========================================================================
+// OPERATOR NAME MODAL
+// =========================================================================
 
-let customNameModal = document.getElementById('customNameModal');
+let customNameModal =
+    document.getElementById(
+        'customNameModal'
+    );
 
 if (!customNameModal) {
 
-    customNameModal = document.createElement('div');
+    customNameModal =
+        document.createElement('div');
 
-    customNameModal.id = 'customNameModal';
+    customNameModal.id =
+        'customNameModal';
 
     customNameModal.innerHTML = `
         <div style="
@@ -345,305 +358,388 @@ if (!customNameModal) {
         </div>
     `;
 
-    Object.assign(customNameModal.style, {
-        position: 'fixed',
-        top: '0',
-        left: '0',
-        width: '100vw',
-        height: '100vh',
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        display: 'none',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: '99999'
-    });
+    Object.assign(
+        customNameModal.style,
+        {
+            position: 'fixed',
+            top: '0',
+            left: '0',
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            display: 'none',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: '99999'
+        }
+    );
 
-    document.body.appendChild(customNameModal);
+    document.body.appendChild(
+        customNameModal
+    );
 }
 
-// ========================================================================
-// ⬆️ BACK TO TOP
-// ========================================================================
+// =========================================================================
+// BACK TO TOP
+// =========================================================================
 
-window.addEventListener('scroll', () => {
+window.addEventListener(
+    'scroll',
+    () => {
 
-    const backToTopBtn =
-        document.getElementById('backToTopBtn');
+        const backToTopBtn =
+            document.getElementById(
+                'backToTopBtn'
+            );
 
-    if (backToTopBtn) {
-
-        if (
-            document.body.scrollTop > 300 ||
-            document.documentElement.scrollTop > 300
-        ) {
-
-            backToTopBtn.style.visibility = "visible";
-            backToTopBtn.style.opacity = "1";
-
-        } else {
-
-            backToTopBtn.style.visibility = "hidden";
-            backToTopBtn.style.opacity = "0";
-
-        }
-    }
-
-});
-
-// ========================================================================
-// 🔐 LOGIN & INITIALIZATION
-// ========================================================================
-
-window.addEventListener('DOMContentLoaded', () => {
-
-    const loginBtn = document.getElementById('loginBtn');
-    const userIn = document.getElementById('usernameIn');
-    const passIn = document.getElementById('passwordIn');
-    const loginErr = document.getElementById('loginError');
-    const backToTopBtn = document.getElementById('backToTopBtn');
-
-    const executeLogin = () => {
-
-        if (
-            userIn.value === 'ADMIN' &&
-            passIn.value === '1234567890'
-        ) {
-
-            document.getElementById('loginScreen').style.display = 'none';
-            document.getElementById('mainApp').style.display = 'block';
-
-            setupSystemEventHandlers();
-
-            loadInventoryFromGoogleSheets();
-
-        } else {
-
-            loginErr.textContent =
-                'Invalid Username or Password';
-
-        }
-
-    };
-
-    if (loginBtn) {
-        loginBtn.addEventListener(
-            'click',
-            executeLogin
-        );
-    }
-
-    if (passIn) {
-
-        passIn.addEventListener(
-            'keypress',
-            (e) => {
-
-                if (e.key === 'Enter') {
-                    executeLogin();
-                }
-
-            }
-        );
-
-    }
-
-    if (backToTopBtn) {
-
-        backToTopBtn.addEventListener(
-            'click',
-            () => {
-
-                window.scrollTo({
-                    top: 0,
-                    behavior: 'smooth'
-                });
-
-            }
-        );
-
-    }
-
-    // Pagination
-    if (prevPageBtn) {
-
-        prevPageBtn.addEventListener(
-            'click',
-            () => {
-
-                if (currentPage > 1) {
-
-                    renderTable(
-                        currentFilteredData,
-                        currentPage - 1
-                    );
-
-                    const tableSection =
-                        document.querySelector('.table-section');
-
-                    if (tableSection) {
-
-                        window.scrollTo({
-                            top: tableSection.offsetTop - 20,
-                            behavior: 'smooth'
-                        });
-
-                    }
-
-                }
-
-            }
-        );
-
-    }
-
-    if (nextPageBtn) {
-
-        nextPageBtn.addEventListener(
-            'click',
-            () => {
-
-                const totalPages =
-                    Math.ceil(
-                        currentFilteredData.length /
-                        itemsPerPage
-                    );
-
-                if (currentPage < totalPages) {
-
-                    renderTable(
-                        currentFilteredData,
-                        currentPage + 1
-                    );
-
-                    const tableSection =
-                        document.querySelector('.table-section');
-
-                    if (tableSection) {
-
-                        window.scrollTo({
-                            top: tableSection.offsetTop - 20,
-                            behavior: 'smooth'
-                        });
-
-                    }
-
-                }
-
-            }
-        );
-
-    }
-
-    // Hover preview
-    document.addEventListener(
-        'mouseover',
-        function(e) {
+        if (backToTopBtn) {
 
             if (
-                e.target &&
-                e.target.classList.contains('hover-preview-img')
+                document.body.scrollTop > 300 ||
+                document.documentElement.scrollTop > 300
             ) {
 
-                const srcToUse = e.target.src;
+                backToTopBtn.style.visibility =
+                    "visible";
 
-                if (srcToUse) {
+                backToTopBtn.style.opacity =
+                    "1";
 
-                    if (tooltipImg) {
-                        tooltipImg.src = srcToUse;
+            } else {
+
+                backToTopBtn.style.visibility =
+                    "hidden";
+
+                backToTopBtn.style.opacity =
+                    "0";
+
+            }
+
+        }
+
+    }
+);
+
+// =========================================================================
+// LOGIN & INITIALIZATION
+// =========================================================================
+
+window.addEventListener(
+    'DOMContentLoaded',
+    () => {
+
+        const loginBtn =
+            document.getElementById(
+                'loginBtn'
+            );
+
+        const userIn =
+            document.getElementById(
+                'usernameIn'
+            );
+
+        const passIn =
+            document.getElementById(
+                'passwordIn'
+            );
+
+        const loginErr =
+            document.getElementById(
+                'loginError'
+            );
+
+        const backToTopBtn =
+            document.getElementById(
+                'backToTopBtn'
+            );
+
+        const executeLogin = () => {
+
+            if (
+                userIn.value === 'ADMIN' &&
+                passIn.value === '1234567890'
+            ) {
+
+                document.getElementById(
+                    'loginScreen'
+                ).style.display = 'none';
+
+                document.getElementById(
+                    'mainApp'
+                ).style.display = 'block';
+
+                setupSystemEventHandlers();
+
+                loadInventoryFromGoogleSheets();
+
+            } else {
+
+                loginErr.textContent =
+                    'Invalid Username or Password';
+
+            }
+
+        };
+
+        if (loginBtn) {
+
+            loginBtn.addEventListener(
+                'click',
+                executeLogin
+            );
+
+        }
+
+        if (passIn) {
+
+            passIn.addEventListener(
+                'keypress',
+                (e) => {
+
+                    if (e.key === 'Enter') {
+                        executeLogin();
                     }
+
+                }
+            );
+
+        }
+
+        if (backToTopBtn) {
+
+            backToTopBtn.addEventListener(
+                'click',
+                () => {
+
+                    window.scrollTo({
+                        top: 0,
+                        behavior: 'smooth'
+                    });
+
+                }
+            );
+
+        }
+
+        // Pagination
+        if (prevPageBtn) {
+
+            prevPageBtn.addEventListener(
+                'click',
+                () => {
+
+                    if (currentPage > 1) {
+
+                        renderTable(
+                            currentFilteredData,
+                            currentPage - 1
+                        );
+
+                        const tableSection =
+                            document.querySelector(
+                                '.table-section'
+                            );
+
+                        if (tableSection) {
+
+                            window.scrollTo({
+                                top:
+                                    tableSection.offsetTop - 20,
+                                behavior:
+                                    'smooth'
+                            });
+
+                        }
+
+                    }
+
+                }
+            );
+
+        }
+
+        if (nextPageBtn) {
+
+            nextPageBtn.addEventListener(
+                'click',
+                () => {
+
+                    const totalPages =
+                        Math.ceil(
+                            currentFilteredData.length /
+                            itemsPerPage
+                        );
+
+                    if (
+                        currentPage <
+                        totalPages
+                    ) {
+
+                        renderTable(
+                            currentFilteredData,
+                            currentPage + 1
+                        );
+
+                        const tableSection =
+                            document.querySelector(
+                                '.table-section'
+                            );
+
+                        if (tableSection) {
+
+                            window.scrollTo({
+                                top:
+                                    tableSection.offsetTop - 20,
+                                behavior:
+                                    'smooth'
+                            });
+
+                        }
+
+                    }
+
+                }
+            );
+
+        }
+
+        // Hover image preview
+        document.addEventListener(
+            'mouseover',
+            function(e) {
+
+                if (
+                    e.target &&
+                    e.target.classList.contains(
+                        'hover-preview-img'
+                    )
+                ) {
+
+                    const srcToUse =
+                        e.target.src;
+
+                    if (srcToUse) {
+
+                        if (tooltipImg) {
+                            tooltipImg.src =
+                                srcToUse;
+                        }
+
+                        if (tooltip) {
+                            tooltip.style.display =
+                                'block';
+                        }
+
+                    }
+
+                }
+
+            }
+        );
+
+        document.addEventListener(
+            'mousemove',
+            function(e) {
+
+                if (
+                    e.target &&
+                    e.target.classList.contains(
+                        'hover-preview-img'
+                    ) &&
+                    tooltip &&
+                    tooltip.style.display ===
+                    'block'
+                ) {
+
+                    let x =
+                        e.clientX + 15;
+
+                    let y =
+                        e.clientY + 15;
+
+                    const tooltipRect =
+                        tooltip.getBoundingClientRect();
+
+                    if (
+                        x +
+                        tooltipRect.width >
+                        window.innerWidth
+                    ) {
+
+                        x =
+                            e.clientX -
+                            tooltipRect.width -
+                            15;
+
+                    }
+
+                    if (
+                        y +
+                        tooltipRect.height >
+                        window.innerHeight
+                    ) {
+
+                        y =
+                            e.clientY -
+                            tooltipRect.height -
+                            15;
+
+                    }
+
+                    tooltip.style.left =
+                        x + 'px';
+
+                    tooltip.style.top =
+                        y + 'px';
+
+                }
+
+            }
+        );
+
+        document.addEventListener(
+            'mouseout',
+            function(e) {
+
+                if (
+                    e.target &&
+                    e.target.classList.contains(
+                        'hover-preview-img'
+                    )
+                ) {
 
                     if (tooltip) {
-                        tooltip.style.display = 'block';
+                        tooltip.style.display =
+                            'none';
+                    }
+
+                    if (tooltipImg) {
+                        tooltipImg.src =
+                            '';
                     }
 
                 }
 
             }
+        );
 
-        }
-    );
+    }
+);
 
-    document.addEventListener(
-        'mousemove',
-        function(e) {
+// =========================================================================
+// LOAD GOOGLE SHEETS
+// =========================================================================
 
-            if (
-                e.target &&
-                e.target.classList.contains('hover-preview-img') &&
-                tooltip &&
-                tooltip.style.display === 'block'
-            ) {
+async function loadInventoryFromGoogleSheets(
+    options = {}
+) {
 
-                let x = e.clientX + 15;
-                let y = e.clientY + 15;
+    statusBanner.style.backgroundColor =
+        "#fff3cd";
 
-                const tooltipRect =
-                    tooltip.getBoundingClientRect();
+    statusBanner.style.color =
+        "#856404";
 
-                if (
-                    x + tooltipRect.width >
-                    window.innerWidth
-                ) {
-
-                    x =
-                        e.clientX -
-                        tooltipRect.width -
-                        15;
-
-                }
-
-                if (
-                    y + tooltipRect.height >
-                    window.innerHeight
-                ) {
-
-                    y =
-                        e.clientY -
-                        tooltipRect.height -
-                        15;
-
-                }
-
-                tooltip.style.left = x + 'px';
-                tooltip.style.top = y + 'px';
-
-            }
-
-        }
-    );
-
-    document.addEventListener(
-        'mouseout',
-        function(e) {
-
-            if (
-                e.target &&
-                e.target.classList.contains('hover-preview-img')
-            ) {
-
-                if (tooltip) {
-                    tooltip.style.display = 'none';
-                }
-
-                if (tooltipImg) {
-                    tooltipImg.src = '';
-                }
-
-            }
-
-        }
-    );
-
-});
-
-// ========================================================================
-// ☁️ LOAD GOOGLE SHEETS
-// ========================================================================
-
-async function loadInventoryFromGoogleSheets(options = {}) {
-
-    statusBanner.style.backgroundColor = "#fff3cd";
-    statusBanner.style.color = "#856404";
     statusBanner.textContent =
         "Connecting to Google Sheets Live Datastream...";
 
@@ -654,7 +750,9 @@ async function loadInventoryFromGoogleSheets(options = {}) {
     try {
 
         const response =
-            await fetch(GOOGLE_SHEET_CSV_URL);
+            await fetch(
+                GOOGLE_SHEET_CSV_URL
+            );
 
         if (!response.ok) {
 
@@ -670,7 +768,9 @@ async function loadInventoryFromGoogleSheets(options = {}) {
         Papa.parse(
             rawCsvText,
             {
+
                 header: true,
+
                 skipEmptyLines: true,
 
                 complete: function(results) {
@@ -695,48 +795,72 @@ async function loadInventoryFromGoogleSheets(options = {}) {
                                         h => {
 
                                             const normH =
-                                                h.toLowerCase().trim();
+                                                h.toLowerCase()
+                                                    .trim();
 
                                             const normT =
-                                                target.toLowerCase().trim();
+                                                target.toLowerCase()
+                                                    .trim();
 
                                             if (
-                                                normT === 'transfer_cert1' &&
-                                                normH.includes('transfer') &&
-                                                normH.includes('1')
+                                                normT ===
+                                                'transfer_cert1' &&
+                                                normH.includes(
+                                                    'transfer'
+                                                ) &&
+                                                normH.includes(
+                                                    '1'
+                                                )
                                             ) {
                                                 return true;
                                             }
 
                                             if (
-                                                normT === 'transfer_cert2' &&
-                                                normH.includes('transfer') &&
-                                                normH.includes('2')
+                                                normT ===
+                                                'transfer_cert2' &&
+                                                normH.includes(
+                                                    'transfer'
+                                                ) &&
+                                                normH.includes(
+                                                    '2'
+                                                )
                                             ) {
                                                 return true;
                                             }
 
                                             if (
-                                                normT === 'article/item' &&
+                                                normT ===
+                                                'article/item' &&
                                                 (
-                                                    normH.includes('article') ||
-                                                    normH.includes('tct') ||
-                                                    normH.includes('item')
+                                                    normH.includes(
+                                                        'article'
+                                                    ) ||
+                                                    normH.includes(
+                                                        'tct'
+                                                    ) ||
+                                                    normH.includes(
+                                                        'item'
+                                                    )
                                                 )
                                             ) {
                                                 return true;
                                             }
 
                                             return (
-                                                normH.includes(normT) ||
-                                                normT.includes(normH)
+                                                normH.includes(
+                                                    normT
+                                                ) ||
+                                                normT.includes(
+                                                    normH
+                                                )
                                             );
 
                                         }
                                     );
 
                                 headerMapping[target] =
-                                    actualKey || target;
+                                    actualKey ||
+                                    target;
 
                             }
                         );
@@ -745,25 +869,28 @@ async function loadInventoryFromGoogleSheets(options = {}) {
                             results.data.map(
                                 (row, idx) => {
 
-                                    row._rowId = idx;
+                                    row._rowId =
+                                        idx;
 
                                     return row;
 
                                 }
                             );
 
-                        // Save restoration position
                         if (
                             options &&
-                            options.restoreScrollY !== undefined &&
-                            options.restoreScrollY !== null
+                            options.restoreScrollY !==
+                            undefined &&
+                            options.restoreScrollY !==
+                            null
                         ) {
 
                             pendingRestoreScrollY =
                                 options.restoreScrollY;
 
                             pendingRestorePage =
-                                options.restorePage || 1;
+                                options.restorePage ||
+                                1;
 
                         }
 
@@ -803,9 +930,9 @@ async function loadInventoryFromGoogleSheets(options = {}) {
 
 }
 
-// ========================================================================
+// =========================================================================
 // INITIALIZE SYSTEM UI
-// ========================================================================
+// =========================================================================
 
 function initializeSystemUI() {
 
@@ -820,17 +947,32 @@ function initializeSystemUI() {
             ✅ Connected to Google Sheets: Live View Active.
         </span>`;
 
-    if (searchInput) searchInput.disabled = false;
-    if (searchButton) searchButton.disabled = false;
-    if (exportButton) exportButton.disabled = false;
-    if (exportFilteredButton) exportFilteredButton.disabled = false;
-    if (remarksFilter) remarksFilter.disabled = false;
-    if (typeFilter) typeFilter.disabled = false;
-    if (photoFilter) photoFilter.disabled = false;
+    if (searchInput)
+        searchInput.disabled = false;
+
+    if (searchButton)
+        searchButton.disabled = false;
+
+    if (exportButton)
+        exportButton.disabled = false;
+
+    if (exportFilteredButton)
+        exportFilteredButton.disabled = false;
+
+    if (remarksFilter)
+        remarksFilter.disabled = false;
+
+    if (typeFilter)
+        typeFilter.disabled = false;
+
+    if (photoFilter)
+        photoFilter.disabled = false;
 
     if (searchInput) {
+
         searchInput.placeholder =
             "Type keywords...";
+
     }
 
     populateDropdown(
@@ -845,7 +987,9 @@ function initializeSystemUI() {
         '-- All Types --'
     );
 
-    renderHeaders(displayHeaders);
+    renderHeaders(
+        displayHeaders
+    );
 
     calculateStaticDashboardTotals(
         inventoryData
@@ -880,7 +1024,8 @@ function initializeSystemUI() {
 
         updatePaginationUI(0);
 
-        isAppInitialized = true;
+        isAppInitialized =
+            true;
 
     } else {
 
@@ -890,8 +1035,6 @@ function initializeSystemUI() {
         const restoreScrollY =
             pendingRestoreScrollY;
 
-        // Keep the user's current search/filter
-        // and do not force page 1.
         executeSearch(false);
 
         if (
@@ -907,11 +1050,18 @@ function initializeSystemUI() {
 
             const safePage =
                 Math.min(
-                    Math.max(1, restorePage),
-                    Math.max(1, totalPages)
+                    Math.max(
+                        1,
+                        restorePage
+                    ),
+                    Math.max(
+                        1,
+                        totalPages
+                    )
                 );
 
-            currentPage = safePage;
+            currentPage =
+                safePage;
 
             renderTable(
                 currentFilteredData,
@@ -920,10 +1070,12 @@ function initializeSystemUI() {
 
         }
 
-        pendingRestorePage = null;
-        pendingRestoreScrollY = null;
+        pendingRestorePage =
+            null;
 
-        // Restore exact scroll position
+        pendingRestoreScrollY =
+            null;
+
         if (
             restoreScrollY !== null &&
             restoreScrollY !== undefined
@@ -936,8 +1088,10 @@ function initializeSystemUI() {
                         () => {
 
                             window.scrollTo({
-                                top: restoreScrollY,
-                                behavior: 'auto'
+                                top:
+                                    restoreScrollY,
+                                behavior:
+                                    'auto'
                             });
 
                         }
@@ -952,9 +1106,9 @@ function initializeSystemUI() {
 
 }
 
-// ========================================================================
+// =========================================================================
 // DROPDOWN
-// ========================================================================
+// =========================================================================
 
 function populateDropdown(
     type,
@@ -999,7 +1153,8 @@ function populateDropdown(
         Array.from(elements).sort();
 
     if (type === 'remarks') {
-        parsedUniqueRemarks = sorted;
+        parsedUniqueRemarks =
+            sorted;
     }
 
     sorted.forEach(
@@ -1010,10 +1165,15 @@ function populateDropdown(
                     'option'
                 );
 
-            opt.value = val;
-            opt.textContent = val;
+            opt.value =
+                val;
 
-            selectEl.appendChild(opt);
+            opt.textContent =
+                val;
+
+            selectEl.appendChild(
+                opt
+            );
 
         }
     );
@@ -1036,9 +1196,9 @@ function populateDropdown(
 
 }
 
-// ========================================================================
+// =========================================================================
 // TABLE HEADERS
-// ========================================================================
+// =========================================================================
 
 function renderHeaders(headers) {
 
@@ -1050,20 +1210,25 @@ function renderHeaders(headers) {
         h => {
 
             const th =
-                document.createElement('th');
+                document.createElement(
+                    'th'
+                );
 
-            th.textContent = h;
+            th.textContent =
+                h;
 
-            tableHeaderRow.appendChild(th);
+            tableHeaderRow.appendChild(
+                th
+            );
 
         }
     );
 
 }
 
-// ========================================================================
+// =========================================================================
 // GOOGLE DRIVE IMAGE URL
-// ========================================================================
+// =========================================================================
 
 function getDirectImageUrl(
     driveLink,
@@ -1072,7 +1237,8 @@ function getDirectImageUrl(
 
     if (
         !driveLink ||
-        typeof driveLink !== 'string'
+        typeof driveLink !==
+        'string'
     ) {
         return null;
     }
@@ -1105,24 +1271,30 @@ function getDirectImageUrl(
 
 }
 
-// ========================================================================
+// =========================================================================
 // PAGINATION UI
-// ========================================================================
+// =========================================================================
 
-function updatePaginationUI(totalPages) {
+function updatePaginationUI(
+    totalPages
+) {
 
     if (totalPages <= 1) {
 
         if (paginationContainer) {
+
             paginationContainer.style.display =
                 'none';
+
         }
 
     } else {
 
         if (paginationContainer) {
+
             paginationContainer.style.display =
                 'flex';
+
         }
 
         if (pageIndicator) {
@@ -1133,22 +1305,26 @@ function updatePaginationUI(totalPages) {
         }
 
         if (prevPageBtn) {
+
             prevPageBtn.disabled =
                 currentPage === 1;
+
         }
 
         if (nextPageBtn) {
+
             nextPageBtn.disabled =
                 currentPage === totalPages;
+
         }
 
     }
 
 }
 
-// ========================================================================
+// =========================================================================
 // RENDER TABLE
-// ========================================================================
+// =========================================================================
 
 function renderTable(
     data,
@@ -1173,7 +1349,8 @@ function renderTable(
         page = 1;
     }
 
-    currentPage = page;
+    currentPage =
+        page;
 
     if (data.length === 0) {
 
@@ -1191,6 +1368,7 @@ function renderTable(
         updatePaginationUI(0);
 
         return;
+
     }
 
     const startIndex =
@@ -1211,7 +1389,9 @@ function renderTable(
         row => {
 
             const tr =
-                document.createElement('tr');
+                document.createElement(
+                    'tr'
+                );
 
             tr.setAttribute(
                 'data-id',
@@ -1222,23 +1402,32 @@ function renderTable(
                 tKey => {
 
                     const td =
-                        document.createElement('td');
+                        document.createElement(
+                            'td'
+                        );
 
                     const resolvedKey =
                         headerMapping[tKey];
 
                     if (
                         tKey.includes('photo') ||
-                        tKey.includes('map coordinates') ||
-                        tKey.includes('tax declaration') ||
-                        tKey.includes('transfer_cert')
+                        tKey.includes(
+                            'map coordinates'
+                        ) ||
+                        tKey.includes(
+                            'tax declaration'
+                        ) ||
+                        tKey.includes(
+                            'transfer_cert'
+                        )
                     ) {
 
                         const url =
                             resolvedKey ?
                             (
-                                row[resolvedKey] ||
-                                ''
+                                row[
+                                    resolvedKey
+                                ] || ''
                             ) :
                             '';
 
@@ -1250,13 +1439,15 @@ function renderTable(
                                 getDirectImageUrl(
                                     url,
                                     'view'
-                                ) || url;
+                                ) ||
+                                url;
 
                             const thumbUrl =
                                 getDirectImageUrl(
                                     url,
                                     'thumbnail'
-                                ) || url;
+                                ) ||
+                                url;
 
                             td.innerHTML = `
                                 <img
@@ -1277,7 +1468,10 @@ function renderTable(
                                     "
                                     onclick="
                                         event.stopPropagation();
-                                        openPopUp(${row._rowId}, '${tKey}');
+                                        openPopUp(
+                                            ${row._rowId},
+                                            '${tKey}'
+                                        );
                                     "
                                 >
                             `;
@@ -1294,14 +1488,17 @@ function renderTable(
                         td.textContent =
                             resolvedKey ?
                             (
-                                row[resolvedKey] ||
-                                ''
+                                row[
+                                    resolvedKey
+                                ] || ''
                             ) :
                             '';
 
                     }
 
-                    tr.appendChild(td);
+                    tr.appendChild(
+                        td
+                    );
 
                 }
             );
@@ -1314,7 +1511,9 @@ function renderTable(
                     )
             );
 
-            tableBody.appendChild(tr);
+            tableBody.appendChild(
+                tr
+            );
 
         }
     );
@@ -1325,11 +1524,13 @@ function renderTable(
 
 }
 
-// ========================================================================
+// =========================================================================
 // DASHBOARD TOTALS
-// ========================================================================
+// =========================================================================
 
-function calculateStaticDashboardTotals(items) {
+function calculateStaticDashboardTotals(
+    items
+) {
 
     if (!countTotal) return;
 
@@ -1367,7 +1568,6 @@ function calculateStaticDashboardTotals(items) {
     let taxdec = 0;
 
     let stats = {
-
         'Building': 0,
         'Building Modifications': 0,
         'Flood Control': 0,
@@ -1382,7 +1582,6 @@ function calculateStaticDashboardTotals(items) {
         'School Building': 0,
         'Slaughterhouse': 0,
         'Water Supplies': 0
-
     };
 
     items.forEach(
@@ -1459,8 +1658,12 @@ function calculateStaticDashboardTotals(items) {
                 .trim();
 
             if (
-                typeStr.includes('BUILDING MOD') ||
-                typeStr.includes('ASSET MOD')
+                typeStr.includes(
+                    'BUILDING MOD'
+                ) ||
+                typeStr.includes(
+                    'ASSET MOD'
+                )
             ) {
 
                 stats[
@@ -1468,7 +1671,9 @@ function calculateStaticDashboardTotals(items) {
                 ]++;
 
             } else if (
-                typeStr.includes('SCHOOL')
+                typeStr.includes(
+                    'SCHOOL'
+                )
             ) {
 
                 stats[
@@ -1476,7 +1681,9 @@ function calculateStaticDashboardTotals(items) {
                 ]++;
 
             } else if (
-                typeStr.includes('HOSPITAL')
+                typeStr.includes(
+                    'HOSPITAL'
+                )
             ) {
 
                 stats[
@@ -1484,7 +1691,9 @@ function calculateStaticDashboardTotals(items) {
                 ]++;
 
             } else if (
-                typeStr.includes('MARKET')
+                typeStr.includes(
+                    'MARKET'
+                )
             ) {
 
                 stats[
@@ -1492,7 +1701,9 @@ function calculateStaticDashboardTotals(items) {
                 ]++;
 
             } else if (
-                typeStr.includes('OTHER INFRA')
+                typeStr.includes(
+                    'OTHER INFRA'
+                )
             ) {
 
                 stats[
@@ -1500,7 +1711,9 @@ function calculateStaticDashboardTotals(items) {
                 ]++;
 
             } else if (
-                typeStr.includes('OTHER STRUCT')
+                typeStr.includes(
+                    'OTHER STRUCT'
+                )
             ) {
 
                 stats[
@@ -1508,9 +1721,15 @@ function calculateStaticDashboardTotals(items) {
                 ]++;
 
             } else if (
-                typeStr.includes('PARK') ||
-                typeStr.includes('PLAZA') ||
-                typeStr.includes('MONUMENT')
+                typeStr.includes(
+                    'PARK'
+                ) ||
+                typeStr.includes(
+                    'PLAZA'
+                ) ||
+                typeStr.includes(
+                    'MONUMENT'
+                )
             ) {
 
                 stats[
@@ -1518,7 +1737,9 @@ function calculateStaticDashboardTotals(items) {
                 ]++;
 
             } else if (
-                typeStr.includes('OTHER LAND')
+                typeStr.includes(
+                    'OTHER LAND'
+                )
             ) {
 
                 stats[
@@ -1526,7 +1747,9 @@ function calculateStaticDashboardTotals(items) {
                 ]++;
 
             } else if (
-                typeStr.includes('LAND') ||
+                typeStr.includes(
+                    'LAND'
+                ) ||
                 typeStr === 'LOT'
             ) {
 
@@ -1535,7 +1758,9 @@ function calculateStaticDashboardTotals(items) {
                 ]++;
 
             } else if (
-                typeStr.includes('FLOOD')
+                typeStr.includes(
+                    'FLOOD'
+                )
             ) {
 
                 stats[
@@ -1543,7 +1768,9 @@ function calculateStaticDashboardTotals(items) {
                 ]++;
 
             } else if (
-                typeStr.includes('WATER')
+                typeStr.includes(
+                    'WATER'
+                )
             ) {
 
                 stats[
@@ -1551,7 +1778,9 @@ function calculateStaticDashboardTotals(items) {
                 ]++;
 
             } else if (
-                typeStr.includes('ROAD')
+                typeStr.includes(
+                    'ROAD'
+                )
             ) {
 
                 stats[
@@ -1559,7 +1788,9 @@ function calculateStaticDashboardTotals(items) {
                 ]++;
 
             } else if (
-                typeStr.includes('SLAUGHTERHOUSE')
+                typeStr.includes(
+                    'SLAUGHTERHOUSE'
+                )
             ) {
 
                 stats[
@@ -1567,7 +1798,9 @@ function calculateStaticDashboardTotals(items) {
                 ]++;
 
             } else if (
-                typeStr.includes('BUILDING')
+                typeStr.includes(
+                    'BUILDING'
+                )
             ) {
 
                 stats[
@@ -1579,108 +1812,89 @@ function calculateStaticDashboardTotals(items) {
         }
     );
 
-    if (countExisting) {
+    if (countExisting)
         countExisting.textContent =
             existing;
-    }
 
-    if (countNotFound) {
+    if (countNotFound)
         countNotFound.textContent =
             notfound;
-    }
 
-    if (countVerification) {
+    if (countVerification)
         countVerification.textContent =
             verify;
-    }
 
-    if (countWithPhotos) {
+    if (countWithPhotos)
         countWithPhotos.textContent =
             photos;
-    }
 
-    if (countTaxDec) {
+    if (countTaxDec)
         countTaxDec.textContent =
             taxdec;
-    }
 
-    if (countBuilding) {
+    if (countBuilding)
         countBuilding.textContent =
             stats['Building'];
-    }
 
-    if (countAssetMod) {
+    if (countAssetMod)
         countAssetMod.textContent =
             stats['Building Modifications'];
-    }
 
-    if (countFlood) {
+    if (countFlood)
         countFlood.textContent =
             stats['Flood Control'];
-    }
 
-    if (countHospital) {
+    if (countHospital)
         countHospital.textContent =
             stats['Hospital'];
-    }
 
-    if (countLand) {
+    if (countLand)
         countLand.textContent =
             stats['Land'];
-    }
 
-    if (countMarket) {
+    if (countMarket)
         countMarket.textContent =
             stats['Markets'];
-    }
 
-    if (countOtherInfra) {
+    if (countOtherInfra)
         countOtherInfra.textContent =
             stats['Other Infrastructures'];
-    }
 
-    if (countOtherLand) {
+    if (countOtherLand)
         countOtherLand.textContent =
             stats['Other Land Improvements'];
-    }
 
-    if (countOtherStruct) {
+    if (countOtherStruct)
         countOtherStruct.textContent =
             stats['Other Structures'];
-    }
 
-    if (countPark) {
+    if (countPark)
         countPark.textContent =
             stats[
                 'PARKS PLAZAS AND MONUMENTS'
             ];
-    }
 
-    if (countRoad) {
+    if (countRoad)
         countRoad.textContent =
             stats['Roads'];
-    }
 
-    if (countSchool) {
+    if (countSchool)
         countSchool.textContent =
             stats['School Building'];
-    }
 
-    if (countSlaughterhouse) {
+    if (countSlaughterhouse)
         countSlaughterhouse.textContent =
             stats['Slaughterhouse'];
-    }
 
-    if (countWater) {
+    if (countWater)
         countWater.textContent =
             stats['Water Supplies'];
-    }
 
 }
 
-// ========================================================================
+// =========================================================================
 // SEARCH
-// ========================================================================
+// =========================================================================
 
 function executeSearch(
     resetPage = true
@@ -1768,7 +1982,9 @@ function executeSearch(
                                         row[mk] || ''
                                     )
                                     .toLowerCase()
-                                    .includes(term)
+                                    .includes(
+                                        term
+                                    )
                                 );
 
                             }
@@ -1860,7 +2076,9 @@ function executeSearch(
     }
 
     if (resetPage) {
+
         currentPage = 1;
+
     }
 
     renderTable(
@@ -1870,9 +2088,9 @@ function executeSearch(
 
 }
 
-// ========================================================================
-// 🖼️ OPEN PROPERTY DETAILS
-// ========================================================================
+// =========================================================================
+// PROPERTY DETAILS POPUP
+// =========================================================================
 
 function openPopUp(
     rowId,
@@ -1890,22 +2108,29 @@ function openPopUp(
 
     if (!itemData) return;
 
-    modalFormContainer.innerHTML = '';
+    modalFormContainer.innerHTML =
+        '';
 
     const flexWrapper =
-        document.createElement('div');
+        document.createElement(
+            'div'
+        );
 
     flexWrapper.className =
         'modal-flex-layout';
 
     const fieldsSide =
-        document.createElement('div');
+        document.createElement(
+            'div'
+        );
 
     fieldsSide.className =
         'modal-fields-side';
 
     const photoSide =
-        document.createElement('div');
+        document.createElement(
+            'div'
+        );
 
     photoSide.className =
         'modal-photo-side';
@@ -1913,7 +2138,6 @@ function openPopUp(
     photoSide.id =
         'modalPhotoSide';
 
-    // Populate fields
     popupOrderLowercase.forEach(
         tKey => {
 
@@ -1923,26 +2147,35 @@ function openPopUp(
             const val =
                 mappedKey ?
                 (
-                    itemData[mappedKey] ||
-                    ''
+                    itemData[
+                        mappedKey
+                    ] || ''
                 ) :
                 '';
 
             const fDiv =
-                document.createElement('div');
+                document.createElement(
+                    'div'
+                );
 
             fDiv.className =
                 'modal-field';
 
             const lbl =
-                document.createElement('label');
+                document.createElement(
+                    'label'
+                );
 
             lbl.textContent =
-                mappedKey || tKey;
+                mappedKey ||
+                tKey;
 
             let inp;
 
-            if (tKey === 'remarks') {
+            if (
+                tKey ===
+                'remarks'
+            ) {
 
                 inp =
                     document.createElement(
@@ -1950,9 +2183,11 @@ function openPopUp(
                     );
 
                 inp.id =
-                    'modal_' + tKey;
+                    'modal_' +
+                    tKey;
 
-                inp.disabled = true;
+                inp.disabled =
+                    true;
 
                 let found = false;
 
@@ -1964,8 +2199,11 @@ function openPopUp(
                                 'option'
                             );
 
-                        opt.value = r;
-                        opt.textContent = r;
+                        opt.value =
+                            r;
+
+                        opt.textContent =
+                            r;
 
                         if (r === val) {
 
@@ -1983,16 +2221,24 @@ function openPopUp(
                     }
                 );
 
-                if (val && !found) {
+                if (
+                    val &&
+                    !found
+                ) {
 
                     const opt =
                         document.createElement(
                             'option'
                         );
 
-                    opt.value = val;
-                    opt.textContent = val;
-                    opt.selected = true;
+                    opt.value =
+                        val;
+
+                    opt.textContent =
+                        val;
+
+                    opt.selected =
+                        true;
 
                     inp.appendChild(
                         opt
@@ -2001,7 +2247,8 @@ function openPopUp(
                 }
 
             } else if (
-                tKey === 'description'
+                tKey ===
+                'description'
             ) {
 
                 inp =
@@ -2010,14 +2257,17 @@ function openPopUp(
                     );
 
                 inp.id =
-                    'modal_' + tKey;
+                    'modal_' +
+                    tKey;
 
                 inp.value =
                     val;
 
-                inp.rows = 8;
+                inp.rows =
+                    8;
 
-                inp.disabled = true;
+                inp.disabled =
+                    true;
 
             } else {
 
@@ -2030,17 +2280,24 @@ function openPopUp(
                     'text';
 
                 inp.id =
-                    'modal_' + tKey;
+                    'modal_' +
+                    tKey;
 
                 inp.value =
                     val;
 
-                inp.disabled = true;
+                inp.disabled =
+                    true;
 
             }
 
-            fDiv.appendChild(lbl);
-            fDiv.appendChild(inp);
+            fDiv.appendChild(
+                lbl
+            );
+
+            fDiv.appendChild(
+                inp
+            );
 
             fieldsSide.appendChild(
                 fDiv
@@ -2049,7 +2306,10 @@ function openPopUp(
         }
     );
 
-    // Photo gallery
+    // =====================================================================
+    // PHOTO GALLERY
+    // =====================================================================
+
     modalPhotos = [];
 
     const photoKeysDef = [
@@ -2076,12 +2336,14 @@ function openPopUp(
 
         {
             key: 'transfer_cert1',
-            label: 'Transfer Certificate of Title Page 1'
+            label:
+                'Transfer Certificate of Title Page 1'
         },
 
         {
             key: 'transfer_cert2',
-            label: 'Transfer Certificate of Title Page 2'
+            label:
+                'Transfer Certificate of Title Page 2'
         }
 
     ];
@@ -2099,17 +2361,26 @@ function openPopUp(
             ) {
 
                 const val =
-                    itemData[mappedKey].trim();
+                    itemData[
+                        mappedKey
+                    ].trim();
 
                 if (
-                    val.startsWith('http') ||
+                    val.startsWith(
+                        'http'
+                    ) ||
                     val.length > 0
                 ) {
 
                     modalPhotos.push({
-                        label: p.label,
-                        url: val,
-                        key: p.key
+                        label:
+                            p.label,
+
+                        url:
+                            val,
+
+                        key:
+                            p.key
                     });
 
                 }
@@ -2119,7 +2390,8 @@ function openPopUp(
         }
     );
 
-    currentPhotoIndex = 0;
+    currentPhotoIndex =
+        0;
 
     if (clickedPhotoKey) {
 
@@ -2130,7 +2402,10 @@ function openPopUp(
                     clickedPhotoKey
             );
 
-        if (foundIndex !== -1) {
+        if (
+            foundIndex !==
+            -1
+        ) {
 
             currentPhotoIndex =
                 foundIndex;
@@ -2153,11 +2428,11 @@ function openPopUp(
 
     renderModalPhotoViewer();
 
-    modalModified = false;
+    modalModified =
+        false;
 
-    // Opening a different property starts
-    // a fresh modal session.
-    modalNeedsRefresh = false;
+    modalNeedsRefresh =
+        false;
 
     modalEditBtn.style.display =
         'inline-block';
@@ -2173,9 +2448,9 @@ function openPopUp(
 
 }
 
-// ========================================================================
-// 📸 MODAL PHOTO VIEWER
-// ========================================================================
+// =========================================================================
+// PHOTO VIEWER
+// =========================================================================
 
 function renderModalPhotoViewer() {
 
@@ -2186,10 +2461,12 @@ function renderModalPhotoViewer() {
 
     if (!photoSide) return;
 
-    photoSide.innerHTML = '';
+    photoSide.innerHTML =
+        '';
 
     if (
-        modalPhotos.length === 0
+        modalPhotos.length ===
+        0
     ) {
 
         photoSide.innerHTML = `
@@ -2206,6 +2483,7 @@ function renderModalPhotoViewer() {
         `;
 
         return;
+
     }
 
     const currentImg =
@@ -2397,9 +2675,9 @@ function renderModalPhotoViewer() {
 
 }
 
-// ========================================================================
+// =========================================================================
 // PHOTO NAVIGATION
-// ========================================================================
+// =========================================================================
 
 function navigatePhoto(dir) {
 
@@ -2409,7 +2687,8 @@ function navigatePhoto(dir) {
         return;
     }
 
-    currentPhotoIndex += dir;
+    currentPhotoIndex +=
+        dir;
 
     if (
         currentPhotoIndex < 0
@@ -2425,7 +2704,8 @@ function navigatePhoto(dir) {
         modalPhotos.length
     ) {
 
-        currentPhotoIndex = 0;
+        currentPhotoIndex =
+            0;
 
     }
 
@@ -2433,28 +2713,28 @@ function navigatePhoto(dir) {
 
 }
 
-// ========================================================================
-// ✏️ EDIT MODE
-// ========================================================================
+// =========================================================================
+// EDIT MODE
+// =========================================================================
 
 function enableEditMode() {
 
-    // Important:
-    // Once Edit Data is clicked, Close will refresh
-    // the Google Sheets data.
-    modalNeedsRefresh = true;
+    modalNeedsRefresh =
+        true;
 
     popupOrderLowercase.forEach(
         tKey => {
 
             const el =
                 document.getElementById(
-                    'modal_' + tKey
+                    'modal_' +
+                    tKey
                 );
 
             if (
                 el &&
-                tKey !== 'article/item'
+                tKey !==
+                'article/item'
             ) {
 
                 el.disabled =
@@ -2476,9 +2756,9 @@ function enableEditMode() {
 
 }
 
-// ========================================================================
+// =========================================================================
 // SAVE PROCESS
-// ========================================================================
+// =========================================================================
 
 function triggerSaveProcess() {
 
@@ -2499,16 +2779,17 @@ function triggerSaveProcess() {
 
 }
 
-// ========================================================================
-// SAVE DATA TO GOOGLE APPS SCRIPT
-// ========================================================================
+// =========================================================================
+// SAVE DATA
+// =========================================================================
 
 function finalizeSaveData(
     operatorName
 ) {
 
     if (
-        activeEditIndex === null
+        activeEditIndex ===
+        null
     ) {
         return;
     }
@@ -2524,15 +2805,41 @@ function finalizeSaveData(
         return;
     }
 
+    // IMPORTANT:
+    // Your Google Apps Script doPost()
+    // identifies the record using "article".
+    const articleKey =
+        headerMapping[
+            'article/item'
+        ];
+
+    const articleValue =
+        articleKey ?
+        String(
+            itemData[
+                articleKey
+            ] || ''
+        ).trim() :
+        '';
+
     let payload = {
+
+        article:
+            articleValue,
+
+        remarks:
+            '',
+
+        updatedby:
+            operatorName,
+
+        timestamp:
+            new Date().toLocaleString(),
 
         rowId:
             activeEditIndex + 2,
 
-        updates: {},
-
-        updatedBy:
-            operatorName
+        updates: {}
 
     };
 
@@ -2551,7 +2858,8 @@ function finalizeSaveData(
 
             const el =
                 document.getElementById(
-                    'modal_' + tKey
+                    'modal_' +
+                    tKey
                 );
 
             const mappedKey =
@@ -2576,14 +2884,26 @@ function finalizeSaveData(
 
                     payload.updates[
                         mappedKey
-                    ] = newVal;
+                    ] =
+                        newVal;
 
                     itemData[
                         mappedKey
-                    ] = newVal;
+                    ] =
+                        newVal;
 
                     hasChanges =
                         true;
+
+                }
+
+                if (
+                    tKey ===
+                    'remarks'
+                ) {
+
+                    payload.remarks =
+                        newVal;
 
                 }
 
@@ -2612,7 +2932,8 @@ function finalizeSaveData(
 
             itemData[
                 updateMappedKey
-            ] = operatorName;
+            ] =
+                operatorName;
 
         }
 
@@ -2628,29 +2949,54 @@ function finalizeSaveData(
         fetch(
             GOOGLE_APPS_SCRIPT_URL,
             {
-                method: 'POST',
+
+                method:
+                    'POST',
 
                 body:
-                    JSON.stringify(
-                        payload
-                    ),
+                    new URLSearchParams({
+                        article:
+                            payload.article,
 
-                headers: {
-                    'Content-Type':
-                        'application/json'
-                }
+                        remarks:
+                            payload.remarks,
+
+                        updatedby:
+                            payload.updatedby,
+
+                        timestamp:
+                            payload.timestamp,
+
+                        rowId:
+                            String(
+                                payload.rowId
+                            ),
+
+                        updates:
+                            JSON.stringify(
+                                payload.updates
+                            )
+
+                    })
 
             }
         )
         .then(
-            res => res.json()
+            res =>
+                res.text()
         )
         .then(
-            res => {
+            responseText => {
 
                 hideLoading();
 
-                if (res.success) {
+                if (
+                    responseText
+                        .toLowerCase()
+                        .includes(
+                            'success'
+                        )
+                ) {
 
                     alert(
                         "Cloud Sync Successful: Data modifications permanently applied."
@@ -2666,10 +3012,7 @@ function finalizeSaveData(
 
                     alert(
                         "Sync Failure: " +
-                        (
-                            res.error ||
-                            "Unknown Network Exception"
-                        )
+                        responseText
                     );
 
                 }
@@ -2685,7 +3028,9 @@ function finalizeSaveData(
                     "Fatal Error: Cloud Server unreachable."
                 );
 
-                console.error(err);
+                console.error(
+                    err
+                );
 
             }
         );
@@ -2702,29 +3047,25 @@ function finalizeSaveData(
 
 }
 
-// ========================================================================
-// ❎ CLOSE MODAL + REFRESH
-// ========================================================================
+// =========================================================================
+// CLOSE MODAL
+// =========================================================================
 
 function closeModal() {
 
-    // Save exact browser scroll position
-    // before the modal closes.
     const restoreScrollY =
         window.scrollY ||
         window.pageYOffset ||
         document.documentElement.scrollTop ||
         0;
 
-    // Save current table page.
     const restorePage =
-        currentPage || 1;
+        currentPage ||
+        1;
 
-    // Determine whether a refresh is needed.
     const shouldRefresh =
         modalNeedsRefresh;
 
-    // Close modal first.
     editModal.style.display =
         'none';
 
@@ -2737,8 +3078,6 @@ function closeModal() {
     modalNeedsRefresh =
         false;
 
-    // Refresh only when Upload Photos
-    // or Edit Data was clicked.
     if (shouldRefresh) {
 
         loadInventoryFromGoogleSheets({
@@ -2755,9 +3094,9 @@ function closeModal() {
 
 }
 
-// ========================================================================
-// ⚙️ SYSTEM EVENT HANDLERS
-// ========================================================================
+// =========================================================================
+// SYSTEM EVENT HANDLERS
+// =========================================================================
 
 function setupSystemEventHandlers() {
 
@@ -2779,7 +3118,9 @@ function setupSystemEventHandlers() {
 
                 if (e.key === 'Enter') {
 
-                    executeSearch(true);
+                    executeSearch(
+                        true
+                    );
 
                 }
 
@@ -2843,9 +3184,9 @@ function setupSystemEventHandlers() {
 
     }
 
-    // ====================================================================
-    // 📸 UPLOAD PHOTOS BUTTON
-    // ====================================================================
+    // =====================================================================
+    // 📸 UPLOAD PHOTOS
+    // =====================================================================
 
     if (uploadPhotoBtn) {
 
@@ -2883,13 +3224,15 @@ function setupSystemEventHandlers() {
 
                 }
 
-                // Get Article/TCT number
+                // =========================================================
+                // GET ARTICLE / TCT / ITEM
+                // =========================================================
+
                 const articleKey =
                     headerMapping[
                         'article/item'
                     ];
 
-                // Get Description
                 const descriptionKey =
                     headerMapping[
                         'description'
@@ -2923,44 +3266,49 @@ function setupSystemEventHandlers() {
 
                 }
 
-                // ========================================================
-                // IMPORTANT:
-                // Tell Close button to refresh when user returns.
-                // ========================================================
+                // =========================================================
+                // VERY IMPORTANT
+                //
+                // Your Google Apps Script doGet() expects:
+                //
+                // e.parameter.itemCode
+                //
+                // NOT:
+                // item
+                // article
+                // rowId
+                //
+                // Therefore itemCode is the primary parameter.
+                // =========================================================
 
                 modalNeedsRefresh =
                     true;
-
-                // ========================================================
-                // BUILD GOOGLE APPS SCRIPT URL
-                // ========================================================
 
                 const uploadUrl =
                     new URL(
                         GOOGLE_APPS_SCRIPT_URL
                     );
 
-                // Action
+                // THIS IS THE IMPORTANT FIX
                 uploadUrl.searchParams.set(
-                    'action',
-                    'upload'
+                    'itemCode',
+                    itemValue
                 );
 
-                // Main item identifier
+                // Additional parameters
+                // These do not hurt the existing Apps Script
+                // and can be used later if needed.
+
                 uploadUrl.searchParams.set(
                     'item',
                     itemValue
                 );
 
-                // Alternative parameter
                 uploadUrl.searchParams.set(
                     'article',
                     itemValue
                 );
 
-                // Actual spreadsheet row
-                // Header = row 1
-                // First data record = row 2
                 uploadUrl.searchParams.set(
                     'rowId',
                     String(
@@ -2968,10 +3316,7 @@ function setupSystemEventHandlers() {
                     )
                 );
 
-                // Additional identifier
-                if (
-                    descriptionValue
-                ) {
+                if (descriptionValue) {
 
                     uploadUrl.searchParams.set(
                         'description',
@@ -2980,14 +3325,13 @@ function setupSystemEventHandlers() {
 
                 }
 
-                // ========================================================
-                // OPEN UPLOAD PAGE IN NEW TAB
-                // ========================================================
+                // =========================================================
+                // OPEN GOOGLE APPS SCRIPT UPLOAD FORM
+                // =========================================================
 
                 window.open(
                     uploadUrl.toString(),
-                    '_blank',
-                    'noopener,noreferrer'
+                    '_blank'
                 );
 
             }
@@ -2995,9 +3339,9 @@ function setupSystemEventHandlers() {
 
     }
 
-    // ====================================================================
+    // =====================================================================
     // EDIT
-    // ====================================================================
+    // =====================================================================
 
     if (modalEditBtn) {
 
@@ -3008,9 +3352,9 @@ function setupSystemEventHandlers() {
 
     }
 
-    // ====================================================================
+    // =====================================================================
     // SAVE
-    // ====================================================================
+    // =====================================================================
 
     if (modalSaveBtn) {
 
@@ -3021,9 +3365,9 @@ function setupSystemEventHandlers() {
 
     }
 
-    // ====================================================================
+    // =====================================================================
     // CLOSE
-    // ====================================================================
+    // =====================================================================
 
     if (modalCloseBtn) {
 
@@ -3043,9 +3387,9 @@ function setupSystemEventHandlers() {
 
     }
 
-    // ====================================================================
-    // OPERATOR NAME CANCEL
-    // ====================================================================
+    // =====================================================================
+    // CANCEL NAME
+    // =====================================================================
 
     const cancelNameBtn =
         document.getElementById(
@@ -3066,9 +3410,9 @@ function setupSystemEventHandlers() {
 
     }
 
-    // ====================================================================
-    // OPERATOR NAME CONFIRM
-    // ====================================================================
+    // =====================================================================
+    // CONFIRM NAME
+    // =====================================================================
 
     const confirmNameBtn =
         document.getElementById(
@@ -3115,9 +3459,9 @@ function setupSystemEventHandlers() {
 
 }
 
-// ========================================================================
-// 📥 EXPORT CSV
-// ========================================================================
+// =========================================================================
+// EXPORT CSV
+// =========================================================================
 
 function downloadDatasetCSV(
     data,
@@ -3210,9 +3554,9 @@ function downloadDatasetCSV(
 
 }
 
-// ========================================================================
-// 🌐 EXPORT SEARCHED HTML
-// ========================================================================
+// =========================================================================
+// EXPORT SEARCHED HTML
+// =========================================================================
 
 function downloadSearchedHTML(
     data
@@ -3231,7 +3575,8 @@ function downloadSearchedHTML(
 
     }
 
-    let tableRowsHTML = '';
+    let tableRowsHTML =
+        '';
 
     data.forEach(
         row => {
@@ -3258,10 +3603,18 @@ function downloadSearchedHTML(
                         '';
 
                     if (
-                        tKey.includes('photo') ||
-                        tKey.includes('map coordinates') ||
-                        tKey.includes('tax declaration') ||
-                        tKey.includes('transfer_cert')
+                        tKey.includes(
+                            'photo'
+                        ) ||
+                        tKey.includes(
+                            'map coordinates'
+                        ) ||
+                        tKey.includes(
+                            'tax declaration'
+                        ) ||
+                        tKey.includes(
+                            'transfer_cert'
+                        )
                     ) {
 
                         if (
@@ -3349,7 +3702,8 @@ function downloadSearchedHTML(
         }
     );
 
-    let headersHTML = '';
+    let headersHTML =
+        '';
 
     EXPORT_TABLE_CONFIG.forEach(
         col => {
@@ -3608,9 +3962,9 @@ function downloadSearchedHTML(
 
 }
 
-// ========================================================================
-// 🔒 HTML ESCAPE
-// ========================================================================
+// =========================================================================
+// HTML ESCAPE
+// =========================================================================
 
 function escapeHtml(str) {
 
@@ -3642,3 +3996,4 @@ function escapeHtml(str) {
         );
 
 }
+```
