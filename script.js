@@ -143,7 +143,7 @@ function initUIReferences() {
         Object.assign(customNameModal.style, {
             position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
             backgroundColor: 'rgba(0, 0, 0, 0.6)', display: 'none', justifyContent: 'center',
-            alignItems: 'center', zIndex: '99999'
+            alignItems: 'center', zIndex: '200000' // Set higher than editModal (100000) so it appears strictly on top
         });
         document.body.appendChild(customNameModal);
     }
