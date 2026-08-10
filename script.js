@@ -183,10 +183,25 @@ function initApp() {
     const loginErr = document.getElementById('loginError');
     const backToTopBtn = document.getElementById('backToTopBtn');
 
+    // Diagnostic check: Display an error on screen if IDs don't match your HTML
+    if (!loginBtn || !userIn || !passIn) {
+        console.error("Critical Login Elements Missing:", { loginBtn, userIn, passIn });
+        if (loginErr) {
+            loginErr.textContent = "Error: Check HTML element IDs (loginBtn, usernameIn, passwordIn).";
+        }
+        return;
+    }
+
     const executeLogin = () => {
-        if (userIn && passIn && userIn.value.trim() === 'ADMIN' && passIn.value.trim() === '1234567890') {
-            document.getElementById('loginScreen').style.display = 'none';
-            document.getElementById('mainApp').style.display = 'block';
+        const enteredUser = userIn.value.trim();
+        const enteredPass = passIn.value.trim();
+
+        if (enteredUser === 'ADMIN' && enteredPass === '1234567890') {
+            const loginScreen = document.getElementById('loginScreen');
+            const mainApp = document.getElementById('mainApp');
+            
+            if (loginScreen) loginScreen.style.display = 'none';
+            if (mainApp) mainApp.style.display = 'block';
             
             setupSystemEventHandlers();
             loadInventoryFromGoogleSheets();
@@ -195,27 +210,15 @@ function initApp() {
         }
     };
 
-    if (loginBtn) loginBtn.addEventListener('click', executeLogin);
+    loginBtn.addEventListener('click', executeLogin);
     
-    if (passIn) {
-        passIn.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') executeLogin();
-        });
-    }
+    passIn.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') executeLogin();
+    });
 
-    if (userIn) {
-        userIn.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') executeLogin();
-        });
-    }
-
-    // Ensure initialization only runs after the entire HTML document is fully loaded
-if (document.readyState === 'loading') {
-    window.addEventListener('DOMContentLoaded', initApp);
-} else {
-    // If the document is already interactive or complete, wait a tick to ensure elements are parsed
-    window.setTimeout(initApp, 50);
-}
+    userIn.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') executeLogin();
+    });
 
     if (backToTopBtn) {
         backToTopBtn.addEventListener('click', () => {
@@ -242,6 +245,45 @@ if (document.readyState === 'loading') {
             }
         });
     }
+    
+    // --- HOVER PREVIEW EVENT LISTENERS ---
+    document.addEventListener('mouseover', function(e) {
+        if (e.target && e.target.classList.contains('hover-preview-img')) {
+            const srcToUse = e.target.src;
+            if (srcToUse && tooltip && tooltipImg) {
+                tooltipImg.src = srcToUse;
+                tooltip.style.display = 'block';
+            }
+        }
+    });
+
+    document.addEventListener('mousemove', function(e) {
+        if (e.target && e.target.classList.contains('hover-preview-img') && tooltip && tooltip.style.display === 'block') {
+            let x = e.clientX + 15;
+            let y = e.clientY + 15;
+            
+            const tooltipRect = tooltip.getBoundingClientRect();
+            if (x + tooltipRect.width > window.innerWidth) {
+                x = e.clientX - tooltipRect.width - 15;
+            }
+            if (y + tooltipRect.height > window.innerHeight) {
+                y = e.clientY - tooltipRect.height - 15;
+            }
+            
+            tooltip.style.left = x + 'px';
+            tooltip.style.top = y + 'px';
+        }
+    });
+
+    document.addEventListener('mouseout', function(e) {
+        if (e.target && e.target.classList.contains('hover-preview-img')) {
+            if (tooltip && tooltipImg) {
+                tooltip.style.display = 'none';
+                tooltipImg.src = '';
+            }
+        }
+    });
+}
     
     // --- HOVER PREVIEW EVENT LISTENERS ---
     document.addEventListener('mouseover', function(e) {
