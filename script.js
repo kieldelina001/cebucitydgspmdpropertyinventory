@@ -45,113 +45,118 @@ let currentPhotoIndex = 0;
 let currentPage = 1;
 const itemsPerPage = 50;
 
-const searchInput = document.getElementById('searchInput');
-const searchButton = document.getElementById('searchButton');
-const exportButton = document.getElementById('exportButton');
-const exportFilteredButton = document.getElementById('exportFilteredButton');
-const remarksFilter = document.getElementById('remarksFilter');
-const typeFilter = document.getElementById('typeFilter');
-const photoFilter = document.getElementById('photoFilter');
-const tableHeaderRow = document.getElementById('tableHeaderRow');
-const tableBody = document.getElementById('tableBody');
-const statusBanner = document.getElementById('statusBanner');
-const foundCountDisplay = document.getElementById('foundCountDisplay'); 
-
-// Pagination Elements
-const paginationContainer = document.getElementById('paginationContainer');
-const prevPageBtn = document.getElementById('prevPageBtn');
-const nextPageBtn = document.getElementById('nextPageBtn');
-const pageIndicator = document.getElementById('pageIndicator');
-
-// Dashboard elements
-const countTotal = document.getElementById('countTotal');
-const countExisting = document.getElementById('countExisting');
-const countNotFound = document.getElementById('countNotFound');
-const countVerification = document.getElementById('countVerification');
-const countWithPhotos = document.getElementById('countWithPhotos');
-const countTaxDec = document.getElementById('countTaxDec'); 
-
-const countBuilding = document.getElementById('countBuilding');
-const countAssetMod = document.getElementById('countAssetMod'); 
-const countFlood = document.getElementById('countFlood');
-const countHospital = document.getElementById('countHospital');
-const countLand = document.getElementById('countLand');
-const countMarket = document.getElementById('countMarket');
-const countOtherInfra = document.getElementById('countOtherInfra');
-const countOtherLand = document.getElementById('countOtherLand');
-const countOtherStruct = document.getElementById('countOtherStruct');
-const countPark = document.getElementById('countPark');
-const countRoad = document.getElementById('countRoad');
-const countSchool = document.getElementById('countSchool');
-const countSlaughterhouse = document.getElementById('countSlaughterhouse');
-const countWater = document.getElementById('countWater');
-
-// Modal elements
-const editModal = document.getElementById('editModal');
-const modalFormContainer = document.getElementById('modalFormContainer');
-const modalEditBtn = document.getElementById('modalEditBtn');
-const modalSaveBtn = document.getElementById('modalSaveBtn');
-const modalCloseBtn = document.getElementById('modalCloseBtn');
-const modalCloseX = document.getElementById('modalCloseX'); 
-const uploadPhotoBtn = document.getElementById('uploadPhotoBtn'); 
-
-// Tooltip Elements
-const tooltip = document.getElementById('imagePreviewTooltip');
-const tooltipImg = document.getElementById('imagePreviewTooltipImg');
+let searchInput, searchButton, exportButton, exportFilteredButton, remarksFilter, typeFilter, photoFilter, tableHeaderRow, tableBody, statusBanner, foundCountDisplay;
+let paginationContainer, prevPageBtn, nextPageBtn, pageIndicator;
+let countTotal, countExisting, countNotFound, countVerification, countWithPhotos, countTaxDec;
+let countBuilding, countAssetMod, countFlood, countHospital, countLand, countMarket, countOtherInfra, countOtherLand, countOtherStruct, countPark, countRoad, countSchool, countSlaughterhouse, countWater;
+let editModal, modalFormContainer, modalEditBtn, modalSaveBtn, modalCloseBtn, modalCloseX, uploadPhotoBtn;
+let tooltip, tooltipImg;
+let loadingOverlay, customNameModal;
 
 // ⏳ LOADING OVERLAY GENERATOR
-let loadingOverlay = document.getElementById('dynamicLoadingOverlay');
-if (!loadingOverlay) {
-    loadingOverlay = document.createElement('div');
-    loadingOverlay.id = 'dynamicLoadingOverlay';
-    loadingOverlay.innerHTML = `
-    <div style="text-align: center; color: #ffffff !important; font-family: Arial, sans-serif !important; z-index: 100000 !important;">
-        <div style="width: 80px !important; height: 80px !important; border: 8px solid rgba(255,255,255,0.2) !important; border-radius: 50% !important; border-top-color: #28a745 !important; animation: spin 0.4s linear infinite !important; margin: 0 auto 20px auto !important; box-shadow: 0 0 20px rgba(40, 167, 69, 0.6) !important;"></div>
-        <div id="loadingOverlayText" style="font-size: 20px !important; font-weight: bold !important; color: #ffffff !important; text-shadow: 1px 1px 5px rgba(0,0,0,0.5) !important;">Connecting...</div>
-    </div>
-`;
-    Object.assign(loadingOverlay.style, {
-        position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
-        backgroundColor: 'rgba(0, 0, 0, 0.85)', display: 'none', justify-content: 'center',
-        alignItems: 'center', zIndex: '99999', transition: 'opacity 0.2s ease'
-    });
-    const styleSheet = document.createElement("style");
-    styleSheet.innerText = "@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }";
-    document.head.appendChild(styleSheet);
-    document.body.appendChild(loadingOverlay);
+function initUIReferences() {
+    searchInput = document.getElementById('searchInput');
+    searchButton = document.getElementById('searchButton');
+    exportButton = document.getElementById('exportButton');
+    exportFilteredButton = document.getElementById('exportFilteredButton');
+    remarksFilter = document.getElementById('remarksFilter');
+    typeFilter = document.getElementById('typeFilter');
+    photoFilter = document.getElementById('photoFilter');
+    tableHeaderRow = document.getElementById('tableHeaderRow');
+    tableBody = document.getElementById('tableBody');
+    statusBanner = document.getElementById('statusBanner');
+    foundCountDisplay = document.getElementById('foundCountDisplay'); 
+
+    paginationContainer = document.getElementById('paginationContainer');
+    prevPageBtn = document.getElementById('prevPageBtn');
+    nextPageBtn = document.getElementById('nextPageBtn');
+    pageIndicator = document.getElementById('pageIndicator');
+
+    countTotal = document.getElementById('countTotal');
+    countExisting = document.getElementById('countExisting');
+    countNotFound = document.getElementById('countNotFound');
+    countVerification = document.getElementById('countVerification');
+    countWithPhotos = document.getElementById('countWithPhotos');
+    countTaxDec = document.getElementById('countTaxDec'); 
+
+    countBuilding = document.getElementById('countBuilding');
+    countAssetMod = document.getElementById('countAssetMod'); 
+    countFlood = document.getElementById('countFlood');
+    countHospital = document.getElementById('countHospital');
+    countLand = document.getElementById('countLand');
+    countMarket = document.getElementById('countMarket');
+    countOtherInfra = document.getElementById('countOtherInfra');
+    countOtherLand = document.getElementById('countOtherLand');
+    countOtherStruct = document.getElementById('countOtherStruct');
+    countPark = document.getElementById('countPark');
+    countRoad = document.getElementById('countRoad');
+    countSchool = document.getElementById('countSchool');
+    countSlaughterhouse = document.getElementById('countSlaughterhouse');
+    countWater = document.getElementById('countWater');
+
+    editModal = document.getElementById('editModal');
+    modalFormContainer = document.getElementById('modalFormContainer');
+    modalEditBtn = document.getElementById('modalEditBtn');
+    modalSaveBtn = document.getElementById('modalSaveBtn');
+    modalCloseBtn = document.getElementById('modalCloseBtn');
+    modalCloseX = document.getElementById('modalCloseX'); 
+    uploadPhotoBtn = document.getElementById('uploadPhotoBtn'); 
+
+    tooltip = document.getElementById('imagePreviewTooltip');
+    tooltipImg = document.getElementById('imagePreviewTooltipImg');
+
+    loadingOverlay = document.getElementById('dynamicLoadingOverlay');
+    if (!loadingOverlay) {
+        loadingOverlay = document.createElement('div');
+        loadingOverlay.id = 'dynamicLoadingOverlay';
+        loadingOverlay.innerHTML = `
+        <div style="text-align: center; color: #ffffff !important; font-family: Arial, sans-serif !important; z-index: 100000 !important;">
+            <div style="width: 80px !important; height: 80px !important; border: 8px solid rgba(255,255,255,0.2) !important; border-radius: 50% !important; border-top-color: #28a745 !important; animation: spin 0.4s linear infinite !important; margin: 0 auto 20px auto !important; box-shadow: 0 0 20px rgba(40, 167, 69, 0.6) !important;"></div>
+            <div id="loadingOverlayText" style="font-size: 20px !important; font-weight: bold !important; color: #ffffff !important; text-shadow: 1px 1px 5px rgba(0,0,0,0.5) !important;">Connecting...</div>
+        </div>
+    `;
+        Object.assign(loadingOverlay.style, {
+            position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
+            backgroundColor: 'rgba(0, 0, 0, 0.85)', display: 'none', justifyContent: 'center',
+            alignItems: 'center', zIndex: '99999', transition: 'opacity 0.2s ease'
+        });
+        const styleSheet = document.createElement("style");
+        styleSheet.innerText = "@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }";
+        document.head.appendChild(styleSheet);
+        document.body.appendChild(loadingOverlay);
+    }
+
+    customNameModal = document.getElementById('customNameModal');
+    if (!customNameModal) {
+        customNameModal = document.createElement('div');
+        customNameModal.id = 'customNameModal';
+        customNameModal.innerHTML = `
+            <div style="background: #ffffff !important; padding: 30px !important; border-radius: 8px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important; width: 90% !important; max-width: 400px !important; box-sizing: border-box !important; text-align: center !important; font-family: Arial, sans-serif !important;">
+                <label style="font-size: 18px !important; font-weight: bold !important; color: #333333 !important; display: block !important; margin-bottom: 15px !important;">Enter Your Name to Log This Change:</label>
+                <input type="text" id="custom-operator-input" value="Noel Rie N. Deliña" placeholder="Your Name" style="width: 100% !important; padding: 12px !important; font-size: 16px !important; border: 1px solid #ccc !important; border-radius: 4px !important; margin-bottom: 20px !important; box-sizing: border-box !important;" />
+                <div style="display: flex !important; gap: 10px !important; justify-content: center !important;">
+                    <button id="customCancelNameBtn" style="background: #6c757d !important; color: white !important; border: none !important; padding: 10px 20px !important; border-radius: 4px !important; cursor: pointer !important; font-weight: bold !important; font-size: 14px !important;">Cancel</button>
+                    <button id="customConfirmNameBtn" style="background: #28a745 !important; color: white !important; border: none !important; padding: 10px 20px !important; border-radius: 4px !important; cursor: pointer !important; font-weight: bold !important; font-size: 14px !important;">Confirm & Publish</button>
+                </div>
+            </div>
+        `;
+        Object.assign(customNameModal.style, {
+            position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
+            backgroundColor: 'rgba(0, 0, 0, 0.6)', display: 'none', justifyContent: 'center',
+            alignItems: 'center', zIndex: '99999'
+        });
+        document.body.appendChild(customNameModal);
+    }
 }
 
 function showLoading(msg) {
     const textEl = document.getElementById('loadingOverlayText');
     if (textEl) textEl.textContent = msg;
-    loadingOverlay.style.setProperty('display', 'flex', 'important');
+    if (loadingOverlay) loadingOverlay.style.setProperty('display', 'flex', 'important');
 }
 
 function hideLoading() {
-    loadingOverlay.style.setProperty('display', 'none', 'important');
-}
-
-// 🎯 NAME POPUP MODAL
-let customNameModal = document.getElementById('customNameModal');
-if (!customNameModal) {
-    customNameModal = document.createElement('div');
-    customNameModal.id = 'customNameModal';
-    customNameModal.innerHTML = `
-        <div style="background: #ffffff !important; padding: 30px !important; border-radius: 8px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important; width: 90% !important; max-width: 400px !important; box-sizing: border-box !important; text-align: center !important; font-family: Arial, sans-serif !important;">
-            <label style="font-size: 18px !important; font-weight: bold !important; color: #333333 !important; display: block !important; margin-bottom: 15px !important;">Enter Your Name to Log This Change:</label>
-            <input type="text" id="custom-operator-input" value="Noel Rie N. Deliña" placeholder="Your Name" style="width: 100% !important; padding: 12px !important; font-size: 16px !important; border: 1px solid #ccc !important; border-radius: 4px !important; margin-bottom: 20px !important; box-sizing: border-box !important;" />
-            <div style="display: flex !important; gap: 10px !important; justify-content: center !important;">
-                <button id="customCancelNameBtn" style="background: #6c757d !important; color: white !important; border: none !important; padding: 10px 20px !important; border-radius: 4px !important; cursor: pointer !important; font-weight: bold !important; font-size: 14px !important;">Cancel</button>
-                <button id="customConfirmNameBtn" style="background: #28a745 !important; color: white !important; border: none !important; padding: 10px 20px !important; border-radius: 4px !important; cursor: pointer !important; font-weight: bold !important; font-size: 14px !important;">Confirm & Publish</button>
-            </div>
-        </div>
-    `;
-    Object.assign(customNameModal.style, {
-        position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
-        backgroundColor: 'rgba(0, 0, 0, 0.6)', display: 'none', justifyContent: 'center',
-        alignItems: 'center', zIndex: '99999'
-    });
-    document.body.appendChild(customNameModal);
+    if (loadingOverlay) loadingOverlay.style.setProperty('display', 'none', 'important');
 }
 
 // --- BACK TO TOP SCROLL LISTENER ---
@@ -168,8 +173,10 @@ window.addEventListener('scroll', () => {
     }
 });
 
-// 🔐 LOGIN HANDLER & INITIALIZATION
-window.addEventListener('DOMContentLoaded', () => {
+// 🔐 SECURE INITIALIZER & LOGIN HANDLER
+function initApp() {
+    initUIReferences();
+
     const loginBtn = document.getElementById('loginBtn');
     const userIn = document.getElementById('usernameIn');
     const passIn = document.getElementById('passwordIn');
@@ -177,14 +184,14 @@ window.addEventListener('DOMContentLoaded', () => {
     const backToTopBtn = document.getElementById('backToTopBtn');
 
     const executeLogin = () => {
-        if (userIn.value === 'ADMIN' && passIn.value === '1234567890') {
+        if (userIn && passIn && userIn.value.trim() === 'ADMIN' && passIn.value.trim() === '1234567890') {
             document.getElementById('loginScreen').style.display = 'none';
             document.getElementById('mainApp').style.display = 'block';
             
             setupSystemEventHandlers();
             loadInventoryFromGoogleSheets();
         } else {
-            loginErr.textContent = 'Invalid Username or Password';
+            if (loginErr) loginErr.textContent = 'Invalid Username or Password';
         }
     };
 
@@ -192,6 +199,12 @@ window.addEventListener('DOMContentLoaded', () => {
     
     if (passIn) {
         passIn.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') executeLogin();
+        });
+    }
+
+    if (userIn) {
+        userIn.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') executeLogin();
         });
     }
@@ -226,7 +239,7 @@ window.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('mouseover', function(e) {
         if (e.target && e.target.classList.contains('hover-preview-img')) {
             const srcToUse = e.target.src;
-            if (srcToUse) {
+            if (srcToUse && tooltip && tooltipImg) {
                 tooltipImg.src = srcToUse;
                 tooltip.style.display = 'block';
             }
@@ -234,7 +247,7 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 
     document.addEventListener('mousemove', function(e) {
-        if (e.target && e.target.classList.contains('hover-preview-img') && tooltip.style.display === 'block') {
+        if (e.target && e.target.classList.contains('hover-preview-img') && tooltip && tooltip.style.display === 'block') {
             let x = e.clientX + 15;
             let y = e.clientY + 15;
             
@@ -253,16 +266,27 @@ window.addEventListener('DOMContentLoaded', () => {
 
     document.addEventListener('mouseout', function(e) {
         if (e.target && e.target.classList.contains('hover-preview-img')) {
-            tooltip.style.display = 'none';
-            tooltipImg.src = '';
+            if (tooltip && tooltipImg) {
+                tooltip.style.display = 'none';
+                tooltipImg.src = '';
+            }
         }
     });
-});
+}
+
+// Safely execute initialization regardless of script loading timing
+if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', initApp);
+} else {
+    initApp();
+}
 
 async function loadInventoryFromGoogleSheets(retainPage = false) {
-    statusBanner.style.backgroundColor = "#fff3cd";
-    statusBanner.style.color = "#856404";
-    statusBanner.textContent = "Connecting to Google Sheets Live Datastream...";
+    if (statusBanner) {
+        statusBanner.style.backgroundColor = "#fff3cd";
+        statusBanner.style.color = "#856404";
+        statusBanner.textContent = "Connecting to Google Sheets Live Datastream...";
+    }
     showLoading("Syncing live spreadsheet grid...");
 
     try {
@@ -305,17 +329,21 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
         });
     } catch (err) {
         hideLoading();
-        statusBanner.style.backgroundColor = "#f8d7da";
-        statusBanner.style.color = "#721c24";
-        statusBanner.textContent = "Connection Error: Check Sheet spreadsheet access permission configuration.";
+        if (statusBanner) {
+            statusBanner.style.backgroundColor = "#f8d7da";
+            statusBanner.style.color = "#721c24";
+            statusBanner.textContent = "Connection Error: Check Sheet spreadsheet access permission configuration.";
+        }
         console.error(err);
     }
 }
 
 function initializeSystemUI(retainPage = false) {
-    statusBanner.style.backgroundColor = "#d4edda";
-    statusBanner.style.color = "#155724";
-    statusBanner.innerHTML = `<span class="live-animated-text">✅ Connected to Google Sheets: Live View Active.</span>`;
+    if (statusBanner) {
+        statusBanner.style.backgroundColor = "#d4edda";
+        statusBanner.style.color = "#155724";
+        statusBanner.innerHTML = `<span class="live-animated-text">✅ Connected to Google Sheets: Live View Active.</span>`;
+    }
 
     if (searchInput) searchInput.disabled = false;
     if (searchButton) searchButton.disabled = false;
@@ -342,7 +370,6 @@ function initializeSystemUI(retainPage = false) {
         updatePaginationUI(0);
         isAppInitialized = true;
     } else {
-        // If retainPage is true, executeSearch(false) prevents resetting the page number to 1
         executeSearch(!retainPage);
     }
 }
@@ -488,7 +515,6 @@ function calculateStaticDashboardTotals(items) {
         
         const typeStr = String(row[tKey] || '').toUpperCase().trim();
         
-        // FLEXIBLE MATCHING IMPLEMENTED HERE: Allows the system to capture variations, plurals, and missing punctuation
         if (typeStr.includes('BUILDING MOD') || typeStr.includes('ASSET MOD')) stats['Building Modifications']++;
         else if (typeStr.includes('SCHOOL')) stats['School Building']++;
         else if (typeStr.includes('HOSPITAL')) stats['Hospital']++;
@@ -681,7 +707,7 @@ function openPopUp(rowId, clickedPhotoKey = null) {
     
     renderModalPhotoViewer();
 
-    modalModified = false; // Reset modification tracker on fresh open
+    modalModified = false;
     modalEditBtn.style.display = 'inline-block';
     modalSaveBtn.style.display = 'none';
     uploadPhotoBtn.style.display = 'inline-block';
@@ -777,8 +803,9 @@ function enableEditMode() {
 }
 
 function triggerSaveProcess() {
-    document.getElementById('custom-operator-input').value = 'Noel Rie N. Deliña';
-    customNameModal.style.display = 'flex';
+    const operatorInput = document.getElementById('custom-operator-input');
+    if (operatorInput) operatorInput.value = 'Noel Rie N. Deliña';
+    if (customNameModal) customNameModal.style.display = 'flex';
 }
 
 function finalizeSaveData(operatorName) {
@@ -824,7 +851,6 @@ function finalizeSaveData(operatorName) {
             hideLoading();
             if(res.success) {
                 alert("Cloud Sync Successful: Data modifications permanently applied.");
-                // Let closeModal handle the background refresh to keep the page state
                 closeModal();
             } else {
                 alert("Sync Failure: " + (res.error || "Unknown Network Exception"));
@@ -847,26 +873,17 @@ function openUploadWindow() {
     const itemData = inventoryData.find(r => r._rowId === activeEditIndex);
     if (!itemData) return;
 
-    // Pull exact Item ID required by GAS
     const articleKey = headerMapping['article/item'];
     const itemCode = itemData[articleKey] || 'Unknown';
-
-    // Append ?itemCode= to deployment URL
     const uploadUrl = GOOGLE_APPS_SCRIPT_URL + "?itemCode=" + encodeURIComponent(itemCode);
     
-    // Launch upload window 
-    // MODIFICATION: Removed the width and height restrictions so the browser automatically handles it in a standard new tab.
     window.open(uploadUrl, '_blank');
-
-    // Mark modal as modified so the table syncs the new photos upon closing
     modalModified = true;
 }
 
-// 🌐 REFRESHES IN PLACE ON CLOSE
 function closeModal() {
-    editModal.style.display = 'none';
+    if (editModal) editModal.style.display = 'none';
     
-    // If photos were uploaded or data was edited, refresh sheets but keep the current page
     if (modalModified) {
         loadInventoryFromGoogleSheets(true);
     }
@@ -886,7 +903,6 @@ function setupSystemEventHandlers() {
     if(exportButton) exportButton.addEventListener('click', () => downloadDatasetCSV(inventoryData, 'Full_Inventory'));
     if(exportFilteredButton) exportFilteredButton.addEventListener('click', () => downloadSearchedHTML(currentFilteredData));
     
-    // Upload event binding added here
     if(uploadPhotoBtn) uploadPhotoBtn.addEventListener('click', openUploadWindow); 
     
     if(modalEditBtn) modalEditBtn.addEventListener('click', enableEditMode);
@@ -894,16 +910,23 @@ function setupSystemEventHandlers() {
     if(modalCloseBtn) modalCloseBtn.addEventListener('click', closeModal);
     if(modalCloseX) modalCloseX.addEventListener('click', closeModal); 
     
-    document.getElementById('customCancelNameBtn').addEventListener('click', () => {
-        customNameModal.style.display = 'none';
-    });
+    const cancelNameBtn = document.getElementById('customCancelNameBtn');
+    if (cancelNameBtn) {
+        cancelNameBtn.addEventListener('click', () => {
+            if (customNameModal) customNameModal.style.display = 'none';
+        });
+    }
     
-    document.getElementById('customConfirmNameBtn').addEventListener('click', () => {
-        const nameVal = document.getElementById('custom-operator-input').value.trim();
-        if(!nameVal) { alert("Authorization Denied: Operator name required."); return; }
-        customNameModal.style.display = 'none';
-        finalizeSaveData(nameVal);
-    });
+    const confirmNameBtn = document.getElementById('customConfirmNameBtn');
+    if (confirmNameBtn) {
+        confirmNameBtn.addEventListener('click', () => {
+            const operatorInput = document.getElementById('custom-operator-input');
+            const nameVal = operatorInput ? operatorInput.value.trim() : '';
+            if(!nameVal) { alert("Authorization Denied: Operator name required."); return; }
+            if (customNameModal) customNameModal.style.display = 'none';
+            finalizeSaveData(nameVal);
+        });
+    }
 }
 
 function downloadDatasetCSV(data, filenamePrefix) {
@@ -925,7 +948,6 @@ function downloadDatasetCSV(data, filenamePrefix) {
     document.body.removeChild(link);
 }
 
-// 🌐 Restored & Optimized HTML Export Function with Larger Photos & High-Contrast Print-Ready Text
 function downloadSearchedHTML(data) {
     if(!data || data.length === 0) {
         alert("Export Nullified: No dataset active for export.");
@@ -935,7 +957,6 @@ function downloadSearchedHTML(data) {
     let tableRowsHTML = '';
     data.forEach(row => {
         tableRowsHTML += '<tr>';
-        // USE THE NEW CONFIGURATION ARRAY HERE
         EXPORT_TABLE_CONFIG.forEach(col => {
             const tKey = col.key;
             const resolvedKey = headerMapping[tKey];
@@ -950,19 +971,17 @@ function downloadSearchedHTML(data) {
                     tableRowsHTML += `<td style="text-align: center; color: #64748b; font-style: italic;">No Photo</td>`;
                 }
             } else {
-            // 💡 Custom sizing specifically for the Description column
-            let styleAttr = "";
-            if (tKey === "description") {
-                styleAttr = ' style="width: 200px; min-width: 190px;"';
+                let styleAttr = "";
+                if (tKey === "description") {
+                    styleAttr = ' style="width: 200px; min-width: 190px;"';
+                }
+                tableRowsHTML += `<td${styleAttr}>${escapeHtml(val)}</td>`;
             }
-            tableRowsHTML += `<td${styleAttr}>${escapeHtml(val)}</td>`;
-        }
         });
         tableRowsHTML += '</tr>';
     });
 
     let headersHTML = '';
-    // USE THE NEW CONFIGURATION ARRAY HERE
     EXPORT_TABLE_CONFIG.forEach(col => {
         headersHTML += `<th>${col.display}</th>`;
     });
