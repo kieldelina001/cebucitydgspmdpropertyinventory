@@ -5,10 +5,6 @@ const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHE
 
 // =========================================================================
 // 🛠️ MANUAL EXPORT TABLE ADJUSTMENT CONFIGURATION 🛠️
-// Adjust the items below to change which columns appear in the "Export Searched" HTML file.
-// 'display' is the column header text shown in the generated export table.
-// 'key' is the internal lowercase identifier matching your spreadsheet columns.
-// Simply delete or comment out a line to remove that column from the export.
 // =========================================================================
 const EXPORT_TABLE_CONFIG = [
     { display: "Article no./ TCT no.", key: "article/item" },
@@ -22,7 +18,6 @@ const EXPORT_TABLE_CONFIG = [
     { display: "Transfer Certificate of Title Page 1", key: "transfer_cert1" },
     { display: "Transfer Certificate of Title Page 2", key: "transfer_cert2" },
 ];
-// =========================================================================
 
 const displayHeaders = ["Article no./ TCT no.", "Description", "Acquisition Date", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Coordinates", "Tax Declaration", "Transfer Certificate of Title Page 1", "Transfer Certificate of Title Page 2", "UPDATED BY", "LAST UPDATE"];
 const targetHeadersLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "transfer_cert1", "transfer_cert2", "updated by", "last update"];
@@ -53,7 +48,6 @@ let editModal, modalFormContainer, modalEditBtn, modalSaveBtn, modalCloseBtn, mo
 let tooltip, tooltipImg;
 let loadingOverlay, customNameModal;
 
-// ⏳ LOADING OVERLAY GENERATOR
 function initUIReferences() {
     searchInput = document.getElementById('searchInput');
     searchButton = document.getElementById('searchButton');
@@ -143,7 +137,7 @@ function initUIReferences() {
         Object.assign(customNameModal.style, {
             position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
             backgroundColor: 'rgba(0, 0, 0, 0.6)', display: 'none', justifyContent: 'center',
-            alignItems: 'center', zIndex: '200000' // Set higher than editModal (100000) so it appears strictly on top
+            alignItems: 'center', zIndex: '200000'
         });
         document.body.appendChild(customNameModal);
     }
@@ -159,7 +153,6 @@ function hideLoading() {
     if (loadingOverlay) loadingOverlay.style.setProperty('display', 'none', 'important');
 }
 
-// --- BACK TO TOP SCROLL LISTENER ---
 window.addEventListener('scroll', () => {
     const backToTopBtn = document.getElementById('backToTopBtn');
     if (backToTopBtn) {
@@ -173,7 +166,6 @@ window.addEventListener('scroll', () => {
     }
 });
 
-// 🔐 SECURE INITIALIZER & LOGIN HANDLER
 function initApp() {
     initUIReferences();
 
@@ -196,26 +188,10 @@ function initApp() {
     };
 
     if (loginBtn) loginBtn.addEventListener('click', executeLogin);
-    
-    if (passIn) {
-        passIn.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') executeLogin();
-        });
-    }
+    if (passIn) passIn.addEventListener('keypress', (e) => { if (e.key === 'Enter') executeLogin(); });
+    if (userIn) userIn.addEventListener('keypress', (e) => { if (e.key === 'Enter') executeLogin(); });
+    if (backToTopBtn) backToTopBtn.addEventListener('click', () => { window.scrollTo({ top: 0, behavior: 'smooth' }); });
 
-    if (userIn) {
-        userIn.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') executeLogin();
-        });
-    }
-
-    if (backToTopBtn) {
-        backToTopBtn.addEventListener('click', () => {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        });
-    }
-
-    // Pagination Listeners
     if (prevPageBtn) {
         prevPageBtn.addEventListener('click', () => {
             if (currentPage > 1) {
@@ -235,7 +211,6 @@ function initApp() {
         });
     }
     
-    // --- HOVER PREVIEW EVENT LISTENERS ---
     document.addEventListener('mouseover', function(e) {
         if (e.target && e.target.classList.contains('hover-preview-img')) {
             const srcToUse = e.target.src;
@@ -250,15 +225,9 @@ function initApp() {
         if (e.target && e.target.classList.contains('hover-preview-img') && tooltip && tooltip.style.display === 'block') {
             let x = e.clientX + 15;
             let y = e.clientY + 15;
-            
             const tooltipRect = tooltip.getBoundingClientRect();
-            if (x + tooltipRect.width > window.innerWidth) {
-                x = e.clientX - tooltipRect.width - 15;
-            }
-            if (y + tooltipRect.height > window.innerHeight) {
-                y = e.clientY - tooltipRect.height - 15;
-            }
-            
+            if (x + tooltipRect.width > window.innerWidth) x = e.clientX - tooltipRect.width - 15;
+            if (y + tooltipRect.height > window.innerHeight) y = e.clientY - tooltipRect.height - 15;
             tooltip.style.left = x + 'px';
             tooltip.style.top = y + 'px';
         }
@@ -274,7 +243,6 @@ function initApp() {
     });
 }
 
-// Safely execute initialization regardless of script loading timing
 if (document.readyState === 'loading') {
     window.addEventListener('DOMContentLoaded', initApp);
 } else {
@@ -310,6 +278,7 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
                             if (normT === 'transfer_cert1' && (normH.includes('transfer') && normH.includes('1'))) return true;
                             if (normT === 'transfer_cert2' && (normH.includes('transfer') && normH.includes('2'))) return true;
                             if (normT === 'article/item' && (normH.includes('article') || normH.includes('tct') || normH.includes('item'))) return true;
+                            if (normT === 'tax declaration' && (normH.includes('tax') || normH.includes('dec'))) return true;
                             
                             return normH.includes(normT) || normT.includes(normH);
                         });
@@ -606,7 +575,6 @@ function executeSearch(resetPage = true) {
     renderTable(currentFilteredData, currentPage);
 }
 
-// 🖼️ MODAL HANDLING & EDIT
 function openPopUp(rowId, clickedPhotoKey = null) {
     activeEditIndex = rowId;
     const itemData = inventoryData.find(r => r._rowId === rowId);
@@ -624,10 +592,10 @@ function openPopUp(rowId, clickedPhotoKey = null) {
     photoSide.className = 'modal-photo-side';
     photoSide.id = 'modalPhotoSide'; 
 
-    // --- POPULATE FIELDS ---
     popupOrderLowercase.forEach(tKey => {
         const mappedKey = headerMapping[tKey];
         const val = mappedKey ? (itemData[mappedKey] || '') : '';
+        const sanitizedId = 'modal_' + tKey.replace(/[^a-zA-Z0-9]/g, '_');
         
         const fDiv = document.createElement('div');
         fDiv.className = 'modal-field';
@@ -638,7 +606,7 @@ function openPopUp(rowId, clickedPhotoKey = null) {
         let inp;
         if(tKey === 'remarks') {
             inp = document.createElement('select');
-            inp.id = 'modal_' + tKey;
+            inp.id = sanitizedId;
             inp.disabled = true;
             let found = false;
             parsedUniqueRemarks.forEach(r => {
@@ -655,14 +623,14 @@ function openPopUp(rowId, clickedPhotoKey = null) {
             }
         } else if(tKey === 'description') {
             inp = document.createElement('textarea');
-            inp.id = 'modal_' + tKey;
+            inp.id = sanitizedId;
             inp.value = val;
             inp.rows = 8;
             inp.disabled = true;
         } else {
             inp = document.createElement('input');
             inp.type = 'text';
-            inp.id = 'modal_' + tKey;
+            inp.id = sanitizedId;
             inp.value = val;
             inp.disabled = true;
         }
@@ -672,7 +640,6 @@ function openPopUp(rowId, clickedPhotoKey = null) {
         fieldsSide.appendChild(fDiv);
     });
 
-    // --- POPULATE MULTIPLE PHOTOS FOR VIEWER ---
     modalPhotos = [];
     const photoKeysDef = [
         { key: 'photo 1', label: 'Photo 1' },
@@ -696,9 +663,7 @@ function openPopUp(rowId, clickedPhotoKey = null) {
     currentPhotoIndex = 0;
     if (clickedPhotoKey) {
         const foundIndex = modalPhotos.findIndex(mp => mp.key === clickedPhotoKey);
-        if (foundIndex !== -1) {
-            currentPhotoIndex = foundIndex;
-        }
+        if (foundIndex !== -1) currentPhotoIndex = foundIndex;
     }
     
     flexWrapper.appendChild(fieldsSide);
@@ -747,7 +712,6 @@ function renderModalPhotoViewer() {
         document.body.removeChild(a);
     };
     actionsContainer.appendChild(downloadBtn);
-
     photoContainer.appendChild(actionsContainer);
 
     if (modalPhotos.length > 1) {
@@ -769,9 +733,7 @@ function renderModalPhotoViewer() {
     imgEl.src = viewUrl;
     imgEl.alt = currentImg.label;
     imgEl.onerror = function() {
-        this.onerror = function() {
-            this.src = currentImg.url;
-        };
+        this.onerror = function() { this.src = currentImg.url; };
         this.src = thumbUrl;
     };
 
@@ -794,7 +756,8 @@ function navigatePhoto(dir) {
 
 function enableEditMode() {
     popupOrderLowercase.forEach(tKey => {
-        const el = document.getElementById('modal_' + tKey);
+        const sanitizedId = 'modal_' + tKey.replace(/[^a-zA-Z0-9]/g, '_');
+        const el = document.getElementById(sanitizedId);
         if (el && tKey !== 'article/item') el.disabled = false;
     });
     modalModified = true;
@@ -822,7 +785,8 @@ function finalizeSaveData(operatorName) {
     let hasChanges = false;
     popupOrderLowercase.forEach(tKey => {
         if(tKey === 'article/item') return;
-        const el = document.getElementById('modal_' + tKey);
+        const sanitizedId = 'modal_' + tKey.replace(/[^a-zA-Z0-9]/g, '_');
+        const el = document.getElementById(sanitizedId);
         const mappedKey = headerMapping[tKey];
         if (el && mappedKey) {
             const newVal = el.value.trim();
@@ -834,24 +798,27 @@ function finalizeSaveData(operatorName) {
         }
     });
 
-  if (hasChanges) {
+    if (hasChanges) {
         showLoading("Transmitting modified datasets to Google Cloud...");
         const updateMappedKey = headerMapping['updated by'];
         const dateMappedKey = headerMapping['last update'];
         if(updateMappedKey) itemData[updateMappedKey] = operatorName;
         if(dateMappedKey) itemData[dateMappedKey] = new Date().toLocaleString();
 
-        // Updated fetch configuration to bypass browser CORS restrictions for Google Apps Script
         fetch(GOOGLE_APPS_SCRIPT_URL, {
             method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
+            headers: { 'Content-Type': 'application/json' }
         })
-        .then(() => {
+        .then(res => res.json())
+        .then(res => {
             hideLoading();
-            alert("Cloud Sync Successful: Data modifications permanently applied.");
-            closeModal();
+            if(res.success) {
+                alert("Cloud Sync Successful: Data modifications permanently applied.");
+                closeModal();
+            } else {
+                alert("Sync Failure: " + (res.error || "Unknown Network Exception"));
+            }
         })
         .catch(err => {
             hideLoading();
@@ -864,7 +831,6 @@ function finalizeSaveData(operatorName) {
     }
 }
 
-// 🌐 OPENS UPLOAD WINDOW AND LINKS TO GAS
 function openUploadWindow() {
     if (activeEditIndex === null) return;
     const itemData = inventoryData.find(r => r._rowId === activeEditIndex);
@@ -880,11 +846,9 @@ function openUploadWindow() {
 
 function closeModal() {
     if (editModal) editModal.style.display = 'none';
-    
     if (modalModified) {
         loadInventoryFromGoogleSheets(true);
     }
-    
     activeEditIndex = null;
     modalModified = false;
 }
@@ -969,9 +933,7 @@ function downloadSearchedHTML(data) {
                 }
             } else {
                 let styleAttr = "";
-                if (tKey === "description") {
-                    styleAttr = ' style="width: 200px; min-width: 190px;"';
-                }
+                if (tKey === "description") styleAttr = ' style="width: 200px; min-width: 190px;"';
                 tableRowsHTML += `<td${styleAttr}>${escapeHtml(val)}</td>`;
             }
         });
@@ -989,55 +951,13 @@ function downloadSearchedHTML(data) {
     <meta charset="UTF-8">
     <title>Searched Inventory Report</title>
     <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            margin: 20px; 
-            color: #0f172a; 
-            background: #ffffff; 
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
-        h1 { 
-            text-align: center; 
-            color: #0f172a; 
-            text-transform: uppercase; 
-            font-size: 24px;
-            margin-bottom: 5px;
-        }
-        .report-meta {
-            text-align: center;
-            font-size: 14px;
-            color: #334155;
-            margin-bottom: 25px;
-            font-weight: bold;
-        }
-        table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            margin-top: 10px; 
-            background: white; 
-        }
-        th, td { 
-            border: 1px solid #64748b; 
-            padding: 10px 12px; 
-            text-align: left; 
-            font-size: 16px; 
-            line-height: 1.4;
-            word-break: break-word; 
-            color: #0f172a;
-            vertical-align: middle;
-        }
-        th { 
-            background-color: #cbd5e1 !important; 
-            color: #0f172a;
-            font-weight: bold;
-            text-transform: uppercase;
-            font-size: 12px;
-            letter-spacing: 0.5px;
-        }
-        tr:nth-child(even) {
-            background-color: #f8fafc;
-        }
+        body { font-family: Arial, sans-serif; margin: 20px; color: #0f172a; background: #ffffff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        h1 { text-align: center; color: #0f172a; text-transform: uppercase; font-size: 24px; margin-bottom: 5px; }
+        .report-meta { text-align: center; font-size: 14px; color: #334155; margin-bottom: 25px; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
+        th, td { border: 1px solid #64748b; padding: 10px 12px; text-align: left; font-size: 16px; line-height: 1.4; word-break: break-word; color: #0f172a; vertical-align: middle; }
+        th { background-color: #cbd5e1 !important; color: #0f172a; font-weight: bold; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
+        tr:nth-child(even) { background-color: #f8fafc; }
         @media print {
             body { margin: 10px; }
             table { page-break-inside: auto; }
