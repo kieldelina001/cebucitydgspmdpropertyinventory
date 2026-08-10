@@ -466,6 +466,7 @@ function calculateStaticDashboardTotals(items) {
         
         const typeStr = String(row[tKey] || '').toUpperCase().trim();
         
+        // FLEXIBLE MATCHING IMPLEMENTED HERE
         if (typeStr.includes('BUILDING MOD') || typeStr.includes('ASSET MOD')) stats['Building Modifications']++;
         else if (typeStr.includes('SCHOOL')) stats['School Building']++;
         else if (typeStr.includes('HOSPITAL')) stats['Hospital']++;
@@ -871,21 +872,21 @@ function downloadDatasetCSV(data, filenamePrefix) {
     document.body.removeChild(link);
 }
 
-// 🌐 Restored & Optimized HTML Export Function with Larger Photos & High-Contrast Print-Ready Text
+// 🌐 Restored & Optimized HTML Export Function Modified to Match the Excel File Provided
 function downloadSearchedHTML(data) {
     if(!data || data.length === 0) {
         alert("Export Nullified: No dataset active for export.");
         return;
     }
 
-    // Filter out "updated by" and "last update" for this export specifically
-    const exportTargetHeaders = targetHeadersLowercase.filter(h => h !== "updated by" && h !== "last update");
-    const exportDisplayHeaders = displayHeaders.filter(h => h.toLowerCase() !== "updated by" && h.toLowerCase() !== "last update");
+    // Aligned strictly to the 12 columns required
+    const exportHeaders = ['Article/Item', 'Description', 'Acquisition Date', 'Unit Value', 'Remarks', 'Type', 'Photo 1', 'Photo 2', 'Map Coordinates', 'Tax Declaration', 'Transfer_Cert1', 'Transfer_Cert2'];
+    const exportTargetLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "transfer_cert1", "transfer_cert2"];
 
     let tableRowsHTML = '';
     data.forEach(row => {
         tableRowsHTML += '<tr>';
-        exportTargetHeaders.forEach(tKey => {
+        exportTargetLowercase.forEach(tKey => {
             const resolvedKey = headerMapping[tKey];
             const val = resolvedKey ? (row[resolvedKey] || '') : '';
             
@@ -893,29 +894,23 @@ function downloadSearchedHTML(data) {
                 if (val.trim() !== '') {
                     const viewUrl = getDirectImageUrl(val, 'view') || val;
                     const thumbUrl = getDirectImageUrl(val, 'thumbnail') || val;
-                    // Images scaled up significantly
-                    tableRowsHTML += `<td style="text-align: center;"><img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" style="height: 250px; max-width: 300px; width: auto; object-fit: contain; border: 1px solid #94a3b8; border-radius: 4px; display: block; margin: 0 auto;" /></td>`;
+                    // Adjusted cell dimensions and image width/height attribute to force Excel compatibility
+                    tableRowsHTML += `<td style="text-align: center; vertical-align: middle; height: 150px; width: 150px; padding: 5px;">
+                                        <img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" width="140" height="140" style="object-fit: contain; display: block; margin: 0 auto;" alt="Media" />
+                                      </td>`;
                 } else {
-                    tableRowsHTML += `<td style="text-align: center; color: #64748b; font-style: italic;">No Photo</td>`;
+                    tableRowsHTML += `<td style="text-align: center; color: #64748b; font-style: italic;"></td>`;
                 }
-            } else if (tKey === 'description') {
-                // Wrap the description row to match header styles
-                tableRowsHTML += `<td class="desc-col">${escapeHtml(val)}</td>`;
             } else {
-                tableRowsHTML += `<td>${escapeHtml(val)}</td>`;
+                tableRowsHTML += `<td style="vertical-align: middle; padding: 5px;">${escapeHtml(val)}</td>`;
             }
         });
         tableRowsHTML += '</tr>';
     });
 
     let headersHTML = '';
-    exportDisplayHeaders.forEach(h => {
-        if (h.toLowerCase() === 'description') {
-            // Description header adjusted class
-            headersHTML += `<th class="desc-col">${h}</th>`;
-        } else {
-            headersHTML += `<th>${h}</th>`;
-        }
+    exportHeaders.forEach(h => {
+        headersHTML += `<th style="background-color: #D9D9D9; color: black; font-weight: bold; border: 1px solid black; padding: 8px;">${h}</th>`;
     });
 
     const htmlContent = `<!DOCTYPE html>
@@ -924,81 +919,30 @@ function downloadSearchedHTML(data) {
     <meta charset="UTF-8">
     <title>Searched Inventory Report</title>
     <style>
-        /* Forces A4 Portrait */
-        @page {
-            size: A4 portrait;
-            margin: 15mm;
-        }
         body { 
-            font-family: Arial, sans-serif; 
-            margin: 0 auto; 
-            width: 100%;
-            max-width: 210mm; /* Maximum size constrained to A4 width */
-            color: #0f172a; 
+            font-family: Calibri, Arial, sans-serif; 
+            margin: 0; 
+            padding: 10px;
             background: #ffffff; 
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
-        h1 { 
-            text-align: center; 
-            color: #0f172a; 
-            text-transform: uppercase; 
-            font-size: 24px;
-            margin-bottom: 5px;
-        }
-        .report-meta {
-            text-align: center;
-            font-size: 14px;
-            color: #334155;
-            margin-bottom: 25px;
-            font-weight: bold;
         }
         table { 
             width: 100%; 
             border-collapse: collapse; 
-            margin-top: 10px; 
             background: white; 
-            table-layout: auto;
         }
         th, td { 
-            border: 1px solid #64748b; 
-            padding: 10px 12px; 
+            border: 1px solid #000000; 
+            padding: 8px; 
             text-align: left; 
-            font-size: 13px; 
-            line-height: 1.4;
+            font-size: 11pt; 
             word-break: break-word; 
-            color: #0f172a;
-            vertical-align: middle;
-        }
-        /* Compresses the description column */
-        .desc-col {
-            width: 12%; 
-            max-width: 12%; 
         }
         th { 
-            background-color: #cbd5e1 !important; 
-            color: #0f172a;
-            font-weight: bold;
-            text-transform: uppercase;
-            font-size: 12px;
-            letter-spacing: 0.5px;
-        }
-        tr:nth-child(even) {
-            background-color: #f8fafc;
-        }
-        @media print {
-            body { width: 100%; margin: 0; }
-            table { page-break-inside: auto; }
-            tr { page-break-inside: avoid; page-break-after: auto; }
-            th { background-color: #cbd5e1 !important; }
+            text-align: center;
         }
     </style>
 </head>
 <body>
-    <h1>Real Estate Inventory Report</h1>
-    <div class="report-meta">
-        Exported On: ${new Date().toLocaleString()} &bull; Total Records: ${data.length}
-    </div>
     <table>
         <thead>
             <tr>${headersHTML}</tr>
@@ -1010,6 +954,7 @@ function downloadSearchedHTML(data) {
 </body>
 </html>`;
 
+    // Download forced as .html, perfectly scaled to be openable natively in Excel
     const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
