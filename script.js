@@ -842,6 +842,44 @@ function finalizeSaveData(operatorName) {
         if(updateMappedKey) itemData[updateMappedKey] = operatorName;
         if(dateMappedKey) itemData[dateMappedKey] = timestamp;
 
+        const params = new URLSearchParams();
+        params.append('article', articleVal);
+        params.append('remarks', newRemarks);
+        params.append('updatedby', operatorName);
+        params.append('timestamp', timestamp);
+
+        fetch(GOOGLE_APPS_SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors', // Bypasses browser CORS redirect restrictions
+            body: params,
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        })
+        .then(() => {
+            hideLoading();
+            alert("Cloud Sync Successful: Data modifications permanently applied.");
+            closeModal();
+        })
+        .catch(err => {
+            hideLoading();
+            alert("Fatal Error: Cloud Server unreachable.");
+            console.error(err);
+        });
+    } else {
+        alert("Integrity Check: No changes detected in the matrix.");
+        closeModal();
+    }
+}
+    });
+
+    if (hasChanges || newRemarks !== (itemData[remarksKey] || '')) {
+        showLoading("Transmitting modified datasets to Google Cloud...");
+        
+        const timestamp = new Date().toLocaleString();
+        const updateMappedKey = headerMapping['updated by'];
+        const dateMappedKey = headerMapping['last update'];
+        if(updateMappedKey) itemData[updateMappedKey] = operatorName;
+        if(dateMappedKey) itemData[dateMappedKey] = timestamp;
+
         // Form-urlencoded payload to match backend e.parameter requirements
         const params = new URLSearchParams();
         params.append('article', articleVal);
