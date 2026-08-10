@@ -1,5 +1,5 @@
 // 🔑 Google Sheets Cloud Gateway Architecture
-const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxTP64Hj6y6U9rHQm49tgGIOOj5tcA-aGI3ug6rRmlpg0C7s5-aooLGGS_LkE9oOgyxTg/exec";
+const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrqoIQ1yjd5XiGIPb9FLnxLI2LTgNJFV1ug-klApiKfNScxd_CX07o2nYYk_4lnvTBPw/exec";
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
 const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
 
@@ -143,7 +143,7 @@ function initUIReferences() {
         Object.assign(customNameModal.style, {
             position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
             backgroundColor: 'rgba(0, 0, 0, 0.6)', display: 'none', justifyContent: 'center',
-            alignItems: 'center', zIndex: '200000' // Set higher than editModal (100000) so it appears strictly on top
+            alignItems: 'center', zIndex: '200000'
         });
         document.body.appendChild(customNameModal);
     }
@@ -841,10 +841,15 @@ function finalizeSaveData(operatorName) {
         if(updateMappedKey) itemData[updateMappedKey] = operatorName;
         if(dateMappedKey) itemData[dateMappedKey] = new Date().toLocaleString();
 
+        const formBody = new URLSearchParams();
+        formBody.append('rowId', payload.rowId);
+        formBody.append('updatedBy', payload.updatedBy);
+        formBody.append('updates', JSON.stringify(payload.updates));
+
         fetch(GOOGLE_APPS_SCRIPT_URL, {
             method: 'POST',
-            body: JSON.stringify(payload),
-            headers: { 'Content-Type': 'application/json' }
+            body: formBody,
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
         })
         .then(res => res.json())
         .then(res => {
