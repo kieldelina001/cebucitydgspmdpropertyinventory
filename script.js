@@ -683,7 +683,7 @@ function openPopUp(rowId, clickedPhotoKey = null) {
     modalModified = false;
     modalEditBtn.style.display = 'inline-block';
     modalSaveBtn.style.display = 'none';
-    uploadPhotoBtn.style.display = 'none'; 
+    uploadPhotoBtn.style.display = 'inline-block';
     editModal.style.display = 'flex';
 }
 
