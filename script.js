@@ -857,11 +857,11 @@ function finalizeSaveData(operatorName) {
                 alert("Sync Failure: " + resText);
             }
         })
-        .catch(err => {
-            hideLoading();
-            alert("Fatal Error: Cloud Server unreachable.");
-            console.error(err);
-        });
+    //    .catch(err => {
+      //      hideLoading();
+        //    alert("Fatal Error: Cloud Server unreachable.");
+          //  console.error(err);
+        //});
     } else {
         alert("Integrity Check: No changes detected in the matrix.");
         closeModal();
