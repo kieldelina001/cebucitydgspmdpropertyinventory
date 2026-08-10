@@ -921,7 +921,7 @@ function downloadSearchedHTML(data) {
             // 💡 Custom sizing specifically for the Description column
             let styleAttr = "";
             if (tKey === "description") {
-                styleAttr = ' style="width: 350px; min-width: 250px;"';
+                styleAttr = ' style="width: 250px; min-width: 200px;"';
             }
             tableRowsHTML += `<td${styleAttr}>${escapeHtml(val)}</td>`;
         }
