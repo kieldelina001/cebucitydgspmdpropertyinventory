@@ -895,12 +895,15 @@ function downloadSearchedHTML(data) {
                     const viewUrl = getDirectImageUrl(val, 'view') || val;
                     const thumbUrl = getDirectImageUrl(val, 'thumbnail') || val;
                     // Adjusted cell dimensions and image width/height attribute to force Excel compatibility
-                    tableRowsHTML += `<td style="text-align: center; vertical-align: middle; height: 150px; width: 150px; padding: 5px;">
-                                        <img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" width="140" height="140" style="object-fit: contain; display: block; margin: 0 auto;" alt="Media" />
+                    tableRowsHTML += `<td style="text-align: center; vertical-align: middle; height: 300px; width: 300px; padding: 5px;">
+                                        <img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" width="290" height="290" style="object-fit: contain; display: block; margin: 0 auto;" alt="Media" />
                                       </td>`;
                 } else {
-                    tableRowsHTML += `<td style="text-align: center; color: #64748b; font-style: italic;"></td>`;
+                    tableRowsHTML += `<td style="text-align: center; color: #64748b; font-style: italic; width: 300px;"></td>`;
                 }
+            } else if (tKey === 'description') {
+                // Constrains the description column size
+                tableRowsHTML += `<td style="vertical-align: middle; padding: 5px; width: 150px; min-width: 150px; word-wrap: break-word; white-space: normal;">${escapeHtml(val)}</td>`;
             } else {
                 tableRowsHTML += `<td style="vertical-align: middle; padding: 5px;">${escapeHtml(val)}</td>`;
             }
@@ -910,7 +913,14 @@ function downloadSearchedHTML(data) {
 
     let headersHTML = '';
     exportHeaders.forEach(h => {
-        headersHTML += `<th style="background-color: #D9D9D9; color: black; font-weight: bold; border: 1px solid black; padding: 8px;">${h}</th>`;
+        let extraWidthStyle = "";
+        if (h === 'Description') {
+            extraWidthStyle = "width: 150px;";
+        } else if (['Photo 1', 'Photo 2', 'Map Coordinates', 'Tax Declaration', 'Transfer_Cert1', 'Transfer_Cert2'].includes(h)) {
+            extraWidthStyle = "width: 300px;";
+        }
+
+        headersHTML += `<th style="background-color: #D9D9D9; color: black; font-weight: bold; border: 1px solid black; padding: 8px; ${extraWidthStyle}">${h}</th>`;
     });
 
     const htmlContent = `<!DOCTYPE html>
@@ -929,6 +939,7 @@ function downloadSearchedHTML(data) {
             width: 100%; 
             border-collapse: collapse; 
             background: white; 
+            table-layout: fixed;
         }
         th, td { 
             border: 1px solid #000000; 
