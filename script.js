@@ -1,11 +1,10 @@
-```javascript
 // 🔑 Google Sheets Cloud Gateway Architecture
 const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrqoIQ1yjd5XiGIPb9FLnxLI2LTgNJFV1ug-klApiKfNScxd_CX07o2nYYk_4lnvTBPw/exec";
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
 const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
 
 // =========================================================================
-// 🛠️ MANUAL EXPORT TABLE CONFIGURATION
+// 🛠️ MANUAL EXPORT TABLE ADJUSTMENT CONFIGURATION
 // =========================================================================
 const EXPORT_TABLE_CONFIG = [
     { display: "Article no./ TCT no.", key: "article/item" },
@@ -17,11 +16,11 @@ const EXPORT_TABLE_CONFIG = [
     { display: "Map Coordinates", key: "map coordinates" },
     { display: "Tax Declaration", key: "tax declaration" },
     { display: "Transfer Certificate of Title Page 1", key: "transfer_cert1" },
-    { display: "Transfer Certificate of Title Page 2", key: "transfer_cert2" },
+    { display: "Transfer Certificate of Title Page 2", key: "transfer_cert2" }
 ];
 
 // =========================================================================
-// DISPLAY HEADERS
+// DISPLAY / SHEET HEADER CONFIGURATION
 // =========================================================================
 const displayHeaders = [
     "Article no./ TCT no.",
@@ -69,7 +68,6 @@ const popupOrderLowercase = [
 // =========================================================================
 // GLOBAL VARIABLES
 // =========================================================================
-
 let inventoryData = [];
 let currentFilteredData = [];
 let rawHeaders = [];
@@ -79,12 +77,11 @@ let parsedUniqueRemarks = [];
 let isAppInitialized = false;
 let modalModified = false;
 
-// Refresh control
-let modalNeedsRefresh = false;
-let pendingRestoreScrollY = null;
-let pendingRestorePage = null;
+// Preserve page position when modal/upload/edit is used
+let modalOpenedScrollY = 0;
+let modalActionTaken = false;
 
-// Photo gallery
+// Modal Photo Gallery State
 let modalPhotos = [];
 let currentPhotoIndex = 0;
 
@@ -92,10 +89,12 @@ let currentPhotoIndex = 0;
 let currentPage = 1;
 const itemsPerPage = 50;
 
+// Prevent duplicate event handlers
+let systemHandlersBound = false;
+
 // =========================================================================
 // DOM ELEMENTS
 // =========================================================================
-
 const searchInput = document.getElementById('searchInput');
 const searchButton = document.getElementById('searchButton');
 const exportButton = document.getElementById('exportButton');
@@ -110,6 +109,7 @@ const tableBody = document.getElementById('tableBody');
 const statusBanner = document.getElementById('statusBanner');
 const foundCountDisplay = document.getElementById('foundCountDisplay');
 
+// Pagination Elements
 const paginationContainer = document.getElementById('paginationContainer');
 const prevPageBtn = document.getElementById('prevPageBtn');
 const nextPageBtn = document.getElementById('nextPageBtn');
@@ -154,17 +154,12 @@ const tooltipImg = document.getElementById('imagePreviewTooltipImg');
 // =========================================================================
 // LOADING OVERLAY
 // =========================================================================
-
-let loadingOverlay =
-    document.getElementById('dynamicLoadingOverlay');
+let loadingOverlay = document.getElementById('dynamicLoadingOverlay');
 
 if (!loadingOverlay) {
 
-    loadingOverlay =
-        document.createElement('div');
-
-    loadingOverlay.id =
-        'dynamicLoadingOverlay';
+    loadingOverlay = document.createElement('div');
+    loadingOverlay.id = 'dynamicLoadingOverlay';
 
     loadingOverlay.innerHTML = `
         <div style="
@@ -173,7 +168,6 @@ if (!loadingOverlay) {
             font-family:Arial,sans-serif !important;
             z-index:100000 !important;
         ">
-
             <div style="
                 width:80px !important;
                 height:80px !important;
@@ -193,29 +187,24 @@ if (!loadingOverlay) {
             ">
                 Connecting...
             </div>
-
         </div>
     `;
 
-    Object.assign(
-        loadingOverlay.style,
-        {
-            position: 'fixed',
-            top: '0',
-            left: '0',
-            width: '100vw',
-            height: '100vh',
-            backgroundColor: 'rgba(0,0,0,0.85)',
-            display: 'none',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: '99999',
-            transition: 'opacity 0.2s ease'
-        }
-    );
+    Object.assign(loadingOverlay.style, {
+        position: 'fixed',
+        top: '0',
+        left: '0',
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: 'rgba(0,0,0,0.85)',
+        display: 'none',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: '99999',
+        transition: 'opacity 0.2s ease'
+    });
 
-    const styleSheet =
-        document.createElement("style");
+    const styleSheet = document.createElement("style");
 
     styleSheet.innerText = `
         @keyframes spin {
@@ -234,10 +223,7 @@ if (!loadingOverlay) {
 
 function showLoading(msg) {
 
-    const textEl =
-        document.getElementById(
-            'loadingOverlayText'
-        );
+    const textEl = document.getElementById('loadingOverlayText');
 
     if (textEl) {
         textEl.textContent = msg;
@@ -252,29 +238,24 @@ function showLoading(msg) {
 
 function hideLoading() {
 
-    loadingOverlay.style.setProperty(
-        'display',
-        'none',
-        'important'
-    );
+    if (loadingOverlay) {
+        loadingOverlay.style.setProperty(
+            'display',
+            'none',
+            'important'
+        );
+    }
 }
 
 // =========================================================================
-// OPERATOR NAME MODAL
+// CUSTOM OPERATOR NAME MODAL
 // =========================================================================
-
-let customNameModal =
-    document.getElementById(
-        'customNameModal'
-    );
+let customNameModal = document.getElementById('customNameModal');
 
 if (!customNameModal) {
 
-    customNameModal =
-        document.createElement('div');
-
-    customNameModal.id =
-        'customNameModal';
+    customNameModal = document.createElement('div');
+    customNameModal.id = 'customNameModal';
 
     customNameModal.innerHTML = `
         <div style="
@@ -354,368 +335,222 @@ if (!customNameModal) {
                 </button>
 
             </div>
-
         </div>
     `;
 
-    Object.assign(
-        customNameModal.style,
-        {
-            position: 'fixed',
-            top: '0',
-            left: '0',
-            width: '100vw',
-            height: '100vh',
-            backgroundColor: 'rgba(0,0,0,0.6)',
-            display: 'none',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: '99999'
-        }
-    );
+    Object.assign(customNameModal.style, {
+        position: 'fixed',
+        top: '0',
+        left: '0',
+        width: '100vw',
+        height: '100vh',
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        display: 'none',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: '99999'
+    });
 
-    document.body.appendChild(
-        customNameModal
-    );
+    document.body.appendChild(customNameModal);
 }
 
 // =========================================================================
 // BACK TO TOP
 // =========================================================================
+window.addEventListener('scroll', () => {
 
-window.addEventListener(
-    'scroll',
-    () => {
+    const backToTopBtn =
+        document.getElementById('backToTopBtn');
 
-        const backToTopBtn =
-            document.getElementById(
-                'backToTopBtn'
-            );
+    if (!backToTopBtn) return;
 
-        if (backToTopBtn) {
+    if (
+        document.body.scrollTop > 300 ||
+        document.documentElement.scrollTop > 300
+    ) {
 
-            if (
-                document.body.scrollTop > 300 ||
-                document.documentElement.scrollTop > 300
-            ) {
+        backToTopBtn.style.visibility = "visible";
+        backToTopBtn.style.opacity = "1";
 
-                backToTopBtn.style.visibility =
-                    "visible";
+    } else {
 
-                backToTopBtn.style.opacity =
-                    "1";
-
-            } else {
-
-                backToTopBtn.style.visibility =
-                    "hidden";
-
-                backToTopBtn.style.opacity =
-                    "0";
-
-            }
-
-        }
+        backToTopBtn.style.visibility = "hidden";
+        backToTopBtn.style.opacity = "0";
 
     }
-);
+
+});
 
 // =========================================================================
-// LOGIN & INITIALIZATION
+// LOGIN HANDLER
+// IMPORTANT: ORIGINAL USERNAME/PASSWORD ARE UNCHANGED
+// USERNAME = ADMIN
+// PASSWORD = 1234567890
 // =========================================================================
+window.addEventListener('DOMContentLoaded', () => {
 
-window.addEventListener(
-    'DOMContentLoaded',
-    () => {
+    const loginBtn =
+        document.getElementById('loginBtn');
 
-        const loginBtn =
-            document.getElementById(
-                'loginBtn'
-            );
+    const userIn =
+        document.getElementById('usernameIn');
 
-        const userIn =
-            document.getElementById(
-                'usernameIn'
-            );
+    const passIn =
+        document.getElementById('passwordIn');
 
-        const passIn =
-            document.getElementById(
-                'passwordIn'
-            );
+    const loginErr =
+        document.getElementById('loginError');
 
-        const loginErr =
-            document.getElementById(
-                'loginError'
-            );
+    const backToTopBtn =
+        document.getElementById('backToTopBtn');
 
-        const backToTopBtn =
-            document.getElementById(
-                'backToTopBtn'
-            );
+    function executeLogin(event) {
 
-        const executeLogin = () => {
+        if (event) {
+            event.preventDefault();
+        }
 
-            if (
-                userIn.value === 'ADMIN' &&
-                passIn.value === '1234567890'
-            ) {
+        const username =
+            userIn ? userIn.value : '';
 
-                document.getElementById(
-                    'loginScreen'
-                ).style.display = 'none';
+        const password =
+            passIn ? passIn.value : '';
 
-                document.getElementById(
-                    'mainApp'
-                ).style.display = 'block';
+        // DO NOT CHANGE THESE CREDENTIALS
+        if (
+            username === 'ADMIN' &&
+            password === '1234567890'
+        ) {
+
+            if (loginErr) {
+                loginErr.textContent = '';
+            }
+
+            const loginScreen =
+                document.getElementById('loginScreen');
+
+            const mainApp =
+                document.getElementById('mainApp');
+
+            if (loginScreen) {
+                loginScreen.style.display = 'none';
+            }
+
+            if (mainApp) {
+                mainApp.style.display = 'block';
+            }
+
+            try {
 
                 setupSystemEventHandlers();
 
-                loadInventoryFromGoogleSheets();
+            } catch (handlerError) {
 
-            } else {
+                console.error(
+                    'System handler initialization error:',
+                    handlerError
+                );
 
+                if (loginErr) {
+                    loginErr.textContent =
+                        'System initialization error. Check browser console.';
+                }
+
+                return;
+            }
+
+            loadInventoryFromGoogleSheets();
+
+        } else {
+
+            if (loginErr) {
                 loginErr.textContent =
                     'Invalid Username or Password';
-
             }
 
-        };
-
-        if (loginBtn) {
-
-            loginBtn.addEventListener(
-                'click',
-                executeLogin
-            );
-
         }
+    }
 
-        if (passIn) {
+    if (loginBtn) {
 
-            passIn.addEventListener(
-                'keypress',
-                (e) => {
+        loginBtn.addEventListener(
+            'click',
+            executeLogin
+        );
 
-                    if (e.key === 'Enter') {
-                        executeLogin();
-                    }
+    }
 
-                }
-            );
+    if (userIn) {
 
-        }
+        userIn.addEventListener(
+            'keypress',
+            (e) => {
 
-        if (backToTopBtn) {
-
-            backToTopBtn.addEventListener(
-                'click',
-                () => {
-
-                    window.scrollTo({
-                        top: 0,
-                        behavior: 'smooth'
-                    });
-
-                }
-            );
-
-        }
-
-        // Pagination
-        if (prevPageBtn) {
-
-            prevPageBtn.addEventListener(
-                'click',
-                () => {
-
-                    if (currentPage > 1) {
-
-                        renderTable(
-                            currentFilteredData,
-                            currentPage - 1
-                        );
-
-                        const tableSection =
-                            document.querySelector(
-                                '.table-section'
-                            );
-
-                        if (tableSection) {
-
-                            window.scrollTo({
-                                top:
-                                    tableSection.offsetTop - 20,
-                                behavior:
-                                    'smooth'
-                            });
-
-                        }
-
-                    }
-
-                }
-            );
-
-        }
-
-        if (nextPageBtn) {
-
-            nextPageBtn.addEventListener(
-                'click',
-                () => {
-
-                    const totalPages =
-                        Math.ceil(
-                            currentFilteredData.length /
-                            itemsPerPage
-                        );
-
-                    if (
-                        currentPage <
-                        totalPages
-                    ) {
-
-                        renderTable(
-                            currentFilteredData,
-                            currentPage + 1
-                        );
-
-                        const tableSection =
-                            document.querySelector(
-                                '.table-section'
-                            );
-
-                        if (tableSection) {
-
-                            window.scrollTo({
-                                top:
-                                    tableSection.offsetTop - 20,
-                                behavior:
-                                    'smooth'
-                            });
-
-                        }
-
-                    }
-
-                }
-            );
-
-        }
-
-        // Hover image preview
-        document.addEventListener(
-            'mouseover',
-            function(e) {
-
-                if (
-                    e.target &&
-                    e.target.classList.contains(
-                        'hover-preview-img'
-                    )
-                ) {
-
-                    const srcToUse =
-                        e.target.src;
-
-                    if (srcToUse) {
-
-                        if (tooltipImg) {
-                            tooltipImg.src =
-                                srcToUse;
-                        }
-
-                        if (tooltip) {
-                            tooltip.style.display =
-                                'block';
-                        }
-
-                    }
-
+                if (e.key === 'Enter') {
+                    executeLogin(e);
                 }
 
             }
         );
 
-        document.addEventListener(
-            'mousemove',
-            function(e) {
+    }
 
-                if (
-                    e.target &&
-                    e.target.classList.contains(
-                        'hover-preview-img'
-                    ) &&
-                    tooltip &&
-                    tooltip.style.display ===
-                    'block'
-                ) {
+    if (passIn) {
 
-                    let x =
-                        e.clientX + 15;
+        passIn.addEventListener(
+            'keypress',
+            (e) => {
 
-                    let y =
-                        e.clientY + 15;
-
-                    const tooltipRect =
-                        tooltip.getBoundingClientRect();
-
-                    if (
-                        x +
-                        tooltipRect.width >
-                        window.innerWidth
-                    ) {
-
-                        x =
-                            e.clientX -
-                            tooltipRect.width -
-                            15;
-
-                    }
-
-                    if (
-                        y +
-                        tooltipRect.height >
-                        window.innerHeight
-                    ) {
-
-                        y =
-                            e.clientY -
-                            tooltipRect.height -
-                            15;
-
-                    }
-
-                    tooltip.style.left =
-                        x + 'px';
-
-                    tooltip.style.top =
-                        y + 'px';
-
+                if (e.key === 'Enter') {
+                    executeLogin(e);
                 }
 
             }
         );
 
-        document.addEventListener(
-            'mouseout',
-            function(e) {
+    }
 
-                if (
-                    e.target &&
-                    e.target.classList.contains(
-                        'hover-preview-img'
-                    )
-                ) {
+    if (backToTopBtn) {
 
-                    if (tooltip) {
-                        tooltip.style.display =
-                            'none';
-                    }
+        backToTopBtn.addEventListener(
+            'click',
+            () => {
 
-                    if (tooltipImg) {
-                        tooltipImg.src =
-                            '';
+                window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+
+            }
+        );
+
+    }
+
+    // Pagination
+    if (prevPageBtn) {
+
+        prevPageBtn.addEventListener(
+            'click',
+            () => {
+
+                if (currentPage > 1) {
+
+                    renderTable(
+                        currentFilteredData,
+                        currentPage - 1
+                    );
+
+                    const tableSection =
+                        document.querySelector('.table-section');
+
+                    if (tableSection) {
+
+                        window.scrollTo({
+                            top:
+                                tableSection.offsetTop - 20,
+                            behavior: 'smooth'
+                        });
+
                     }
 
                 }
@@ -724,24 +559,181 @@ window.addEventListener(
         );
 
     }
-);
+
+    if (nextPageBtn) {
+
+        nextPageBtn.addEventListener(
+            'click',
+            () => {
+
+                const totalPages =
+                    Math.ceil(
+                        currentFilteredData.length /
+                        itemsPerPage
+                    );
+
+                if (currentPage < totalPages) {
+
+                    renderTable(
+                        currentFilteredData,
+                        currentPage + 1
+                    );
+
+                    const tableSection =
+                        document.querySelector('.table-section');
+
+                    if (tableSection) {
+
+                        window.scrollTo({
+                            top:
+                                tableSection.offsetTop - 20,
+                            behavior: 'smooth'
+                        });
+
+                    }
+
+                }
+
+            }
+        );
+
+    }
+
+    // =========================================================================
+    // IMAGE HOVER PREVIEW
+    // =========================================================================
+    document.addEventListener(
+        'mouseover',
+        function(e) {
+
+            if (
+                e.target &&
+                e.target.classList.contains(
+                    'hover-preview-img'
+                )
+            ) {
+
+                const srcToUse =
+                    e.target.src;
+
+                if (
+                    srcToUse &&
+                    tooltip &&
+                    tooltipImg
+                ) {
+
+                    tooltipImg.src =
+                        srcToUse;
+
+                    tooltip.style.display =
+                        'block';
+
+                }
+
+            }
+
+        }
+    );
+
+    document.addEventListener(
+        'mousemove',
+        function(e) {
+
+            if (
+                e.target &&
+                e.target.classList.contains(
+                    'hover-preview-img'
+                ) &&
+                tooltip &&
+                tooltip.style.display === 'block'
+            ) {
+
+                let x =
+                    e.clientX + 15;
+
+                let y =
+                    e.clientY + 15;
+
+                const tooltipRect =
+                    tooltip.getBoundingClientRect();
+
+                if (
+                    x + tooltipRect.width >
+                    window.innerWidth
+                ) {
+
+                    x =
+                        e.clientX -
+                        tooltipRect.width -
+                        15;
+
+                }
+
+                if (
+                    y + tooltipRect.height >
+                    window.innerHeight
+                ) {
+
+                    y =
+                        e.clientY -
+                        tooltipRect.height -
+                        15;
+
+                }
+
+                tooltip.style.left =
+                    x + 'px';
+
+                tooltip.style.top =
+                    y + 'px';
+
+            }
+
+        }
+    );
+
+    document.addEventListener(
+        'mouseout',
+        function(e) {
+
+            if (
+                e.target &&
+                e.target.classList.contains(
+                    'hover-preview-img'
+                ) &&
+                tooltip &&
+                tooltipImg
+            ) {
+
+                tooltip.style.display =
+                    'none';
+
+                tooltipImg.src = '';
+
+            }
+
+        }
+    );
+
+});
 
 // =========================================================================
-// LOAD GOOGLE SHEETS
+// LOAD INVENTORY FROM GOOGLE SHEETS
 // =========================================================================
+async function loadInventoryFromGoogleSheets() {
 
-async function loadInventoryFromGoogleSheets(
-    options = {}
-) {
+    if (statusBanner) {
 
-    statusBanner.style.backgroundColor =
-        "#fff3cd";
+        statusBanner.style.backgroundColor =
+            "#fff3cd";
 
-    statusBanner.style.color =
-        "#856404";
+        statusBanner.style.color =
+            "#856404";
 
-    statusBanner.textContent =
-        "Connecting to Google Sheets Live Datastream...";
+        statusBanner.textContent =
+            "Connecting to Google Sheets Live Datastream...";
+
+    }
 
     showLoading(
         "Syncing live spreadsheet grid..."
@@ -751,7 +743,12 @@ async function loadInventoryFromGoogleSheets(
 
         const response =
             await fetch(
-                GOOGLE_SHEET_CSV_URL
+                GOOGLE_SHEET_CSV_URL +
+                "&t=" +
+                Date.now(),
+                {
+                    cache: "no-store"
+                }
             );
 
         if (!response.ok) {
@@ -768,143 +765,175 @@ async function loadInventoryFromGoogleSheets(
         Papa.parse(
             rawCsvText,
             {
-
                 header: true,
-
                 skipEmptyLines: true,
 
                 complete: function(results) {
 
-                    if (
-                        results.data &&
-                        results.data.length > 0
-                    ) {
+                    try {
 
-                        rawHeaders =
-                            Object.keys(
-                                results.data[0]
-                            );
+                        if (
+                            results.data &&
+                            results.data.length > 0
+                        ) {
 
-                        headerMapping = {};
+                            rawHeaders =
+                                Object.keys(
+                                    results.data[0]
+                                );
 
-                        targetHeadersLowercase.forEach(
-                            target => {
+                            headerMapping = {};
 
-                                const actualKey =
-                                    rawHeaders.find(
-                                        h => {
+                            targetHeadersLowercase.forEach(
+                                target => {
 
-                                            const normH =
-                                                h.toLowerCase()
-                                                    .trim();
+                                    const actualKey =
+                                        rawHeaders.find(
+                                            h => {
 
-                                            const normT =
-                                                target.toLowerCase()
-                                                    .trim();
+                                                const normH =
+                                                    String(h)
+                                                        .toLowerCase()
+                                                        .trim();
 
-                                            if (
-                                                normT ===
-                                                'transfer_cert1' &&
-                                                normH.includes(
-                                                    'transfer'
-                                                ) &&
-                                                normH.includes(
-                                                    '1'
-                                                )
-                                            ) {
-                                                return true;
-                                            }
+                                                const normT =
+                                                    target
+                                                        .toLowerCase()
+                                                        .trim();
 
-                                            if (
-                                                normT ===
-                                                'transfer_cert2' &&
-                                                normH.includes(
-                                                    'transfer'
-                                                ) &&
-                                                normH.includes(
-                                                    '2'
-                                                )
-                                            ) {
-                                                return true;
-                                            }
-
-                                            if (
-                                                normT ===
-                                                'article/item' &&
-                                                (
+                                                if (
+                                                    normT ===
+                                                    'transfer_cert1' &&
                                                     normH.includes(
-                                                        'article'
-                                                    ) ||
+                                                        'transfer'
+                                                    ) &&
                                                     normH.includes(
-                                                        'tct'
-                                                    ) ||
-                                                    normH.includes(
-                                                        'item'
+                                                        '1'
                                                     )
-                                                )
-                                            ) {
-                                                return true;
+                                                ) {
+                                                    return true;
+                                                }
+
+                                                if (
+                                                    normT ===
+                                                    'transfer_cert2' &&
+                                                    normH.includes(
+                                                        'transfer'
+                                                    ) &&
+                                                    normH.includes(
+                                                        '2'
+                                                    )
+                                                ) {
+                                                    return true;
+                                                }
+
+                                                if (
+                                                    normT ===
+                                                    'article/item' &&
+                                                    (
+                                                        normH.includes(
+                                                            'article'
+                                                        ) ||
+                                                        normH.includes(
+                                                            'tct'
+                                                        ) ||
+                                                        normH.includes(
+                                                            'item'
+                                                        )
+                                                    )
+                                                ) {
+                                                    return true;
+                                                }
+
+                                                return (
+                                                    normH.includes(
+                                                        normT
+                                                    ) ||
+                                                    normT.includes(
+                                                        normH
+                                                    )
+                                                );
+
                                             }
+                                        );
 
-                                            return (
-                                                normH.includes(
-                                                    normT
-                                                ) ||
-                                                normT.includes(
-                                                    normH
-                                                )
-                                            );
-
-                                        }
-                                    );
-
-                                headerMapping[target] =
-                                    actualKey ||
-                                    target;
-
-                            }
-                        );
-
-                        inventoryData =
-                            results.data.map(
-                                (row, idx) => {
-
-                                    row._rowId =
-                                        idx;
-
-                                    return row;
+                                    headerMapping[target] =
+                                        actualKey || target;
 
                                 }
                             );
 
-                        if (
-                            options &&
-                            options.restoreScrollY !==
-                            undefined &&
-                            options.restoreScrollY !==
-                            null
-                        ) {
+                            inventoryData =
+                                results.data.map(
+                                    (row, idx) => {
 
-                            pendingRestoreScrollY =
-                                options.restoreScrollY;
+                                        row._rowId =
+                                            idx;
 
-                            pendingRestorePage =
-                                options.restorePage ||
-                                1;
+                                        return row;
+
+                                    }
+                                );
+
+                            initializeSystemUI();
+
+                        } else {
+
+                            throw new Error(
+                                "Target dataset sheet contains no metrics."
+                            );
 
                         }
 
-                        initializeSystemUI();
+                        hideLoading();
 
-                    } else {
+                    } catch (parseError) {
 
-                        throw new Error(
-                            "Target dataset sheet contains no metrics."
+                        hideLoading();
+
+                        console.error(
+                            "Sheet parsing error:",
+                            parseError
                         );
+
+                        if (statusBanner) {
+
+                            statusBanner.style.backgroundColor =
+                                "#f8d7da";
+
+                            statusBanner.style.color =
+                                "#721c24";
+
+                            statusBanner.textContent =
+                                "Error processing Google Sheets data.";
+
+                        }
 
                     }
 
+                },
+
+                error: function(parseError) {
+
                     hideLoading();
+
+                    console.error(
+                        "PapaParse error:",
+                        parseError
+                    );
+
+                    if (statusBanner) {
+
+                        statusBanner.style.backgroundColor =
+                            "#f8d7da";
+
+                        statusBanner.style.color =
+                            "#721c24";
+
+                        statusBanner.textContent =
+                            "Error reading Google Sheets data.";
+
+                    }
 
                 }
 
@@ -915,16 +944,23 @@ async function loadInventoryFromGoogleSheets(
 
         hideLoading();
 
-        statusBanner.style.backgroundColor =
-            "#f8d7da";
+        if (statusBanner) {
 
-        statusBanner.style.color =
-            "#721c24";
+            statusBanner.style.backgroundColor =
+                "#f8d7da";
 
-        statusBanner.textContent =
-            "Connection Error: Check Sheet spreadsheet access permission configuration.";
+            statusBanner.style.color =
+                "#721c24";
 
-        console.error(err);
+            statusBanner.textContent =
+                "Connection Error: Check Sheet spreadsheet access permission configuration.";
+
+        }
+
+        console.error(
+            "Google Sheets connection error:",
+            err
+        );
 
     }
 
@@ -933,19 +969,22 @@ async function loadInventoryFromGoogleSheets(
 // =========================================================================
 // INITIALIZE SYSTEM UI
 // =========================================================================
-
 function initializeSystemUI() {
 
-    statusBanner.style.backgroundColor =
-        "#d4edda";
+    if (statusBanner) {
 
-    statusBanner.style.color =
-        "#155724";
+        statusBanner.style.backgroundColor =
+            "#d4edda";
 
-    statusBanner.innerHTML =
-        `<span class="live-animated-text">
-            ✅ Connected to Google Sheets: Live View Active.
-        </span>`;
+        statusBanner.style.color =
+            "#155724";
+
+        statusBanner.innerHTML =
+            `<span class="live-animated-text">
+                ✅ Connected to Google Sheets: Live View Active.
+            </span>`;
+
+    }
 
     if (searchInput)
         searchInput.disabled = false;
@@ -968,12 +1007,9 @@ function initializeSystemUI() {
     if (photoFilter)
         photoFilter.disabled = false;
 
-    if (searchInput) {
-
+    if (searchInput)
         searchInput.placeholder =
             "Type keywords...";
-
-    }
 
     populateDropdown(
         'remarks',
@@ -1001,17 +1037,14 @@ function initializeSystemUI() {
 
         if (tableBody) {
 
-            tableBody.innerHTML = `
-                <tr>
-                    <td
-                        colspan="${displayHeaders.length}"
-                        class="no-data"
-                    >
+            tableBody.innerHTML =
+                `<tr>
+                    <td colspan="${displayHeaders.length}"
+                        class="no-data">
                         Data loaded successfully.
                         Apply a filter or search to view records.
                     </td>
-                </tr>
-            `;
+                </tr>`;
 
         }
 
@@ -1024,92 +1057,19 @@ function initializeSystemUI() {
 
         updatePaginationUI(0);
 
-        isAppInitialized =
-            true;
+        isAppInitialized = true;
 
     } else {
 
-        const restorePage =
-            pendingRestorePage;
-
-        const restoreScrollY =
-            pendingRestoreScrollY;
-
-        executeSearch(false);
-
-        if (
-            restorePage &&
-            currentFilteredData.length > 0
-        ) {
-
-            const totalPages =
-                Math.ceil(
-                    currentFilteredData.length /
-                    itemsPerPage
-                );
-
-            const safePage =
-                Math.min(
-                    Math.max(
-                        1,
-                        restorePage
-                    ),
-                    Math.max(
-                        1,
-                        totalPages
-                    )
-                );
-
-            currentPage =
-                safePage;
-
-            renderTable(
-                currentFilteredData,
-                currentPage
-            );
-
-        }
-
-        pendingRestorePage =
-            null;
-
-        pendingRestoreScrollY =
-            null;
-
-        if (
-            restoreScrollY !== null &&
-            restoreScrollY !== undefined
-        ) {
-
-            requestAnimationFrame(
-                () => {
-
-                    requestAnimationFrame(
-                        () => {
-
-                            window.scrollTo({
-                                top:
-                                    restoreScrollY,
-                                behavior:
-                                    'auto'
-                            });
-
-                        }
-                    );
-
-                }
-            );
-
-        }
+        executeSearch(true);
 
     }
 
 }
 
 // =========================================================================
-// DROPDOWN
+// POPULATE FILTER DROPDOWN
 // =========================================================================
-
 function populateDropdown(
     type,
     selectEl,
@@ -1131,7 +1091,7 @@ function populateDropdown(
 
     if (!sheetKey) return;
 
-    let elements =
+    const elements =
         new Set();
 
     inventoryData.forEach(
@@ -1165,11 +1125,8 @@ function populateDropdown(
                     'option'
                 );
 
-            opt.value =
-                val;
-
-            opt.textContent =
-                val;
+            opt.value = val;
+            opt.textContent = val;
 
             selectEl.appendChild(
                 opt
@@ -1197,9 +1154,8 @@ function populateDropdown(
 }
 
 // =========================================================================
-// TABLE HEADERS
+// RENDER TABLE HEADERS
 // =========================================================================
-
 function renderHeaders(headers) {
 
     if (!tableHeaderRow) return;
@@ -1207,15 +1163,13 @@ function renderHeaders(headers) {
     tableHeaderRow.innerHTML = '';
 
     headers.forEach(
-        h => {
+        header => {
 
             const th =
-                document.createElement(
-                    'th'
-                );
+                document.createElement('th');
 
             th.textContent =
-                h;
+                header;
 
             tableHeaderRow.appendChild(
                 th
@@ -1224,291 +1178,304 @@ function renderHeaders(headers) {
         }
     );
 
-}
-
-// =========================================================================
-// GOOGLE DRIVE IMAGE URL
-// =========================================================================
-
-function getDirectImageUrl(
-    driveLink,
-    requestType = 'view'
-) {
-
-    if (
-        !driveLink ||
-        typeof driveLink !==
-        'string'
-    ) {
-        return null;
-    }
-
-    const match =
-        driveLink.match(
-            /[-\w]{25,}/
-        );
-
-    if (match) {
-
-        if (
-            requestType ===
-            'thumbnail'
-        ) {
-
-            return `
-                https://drive.google.com/thumbnail?id=${match[0]}&sz=w1600
-            `.trim();
-
-        }
-
-        return `
-            https://lh3.googleusercontent.com/d/${match[0]}
-        `.trim();
-
-    }
-
-    return null;
-
-}
-
-// =========================================================================
-// PAGINATION UI
-// =========================================================================
-
-function updatePaginationUI(
-    totalPages
-) {
-
-    if (totalPages <= 1) {
-
-        if (paginationContainer) {
-
-            paginationContainer.style.display =
-                'none';
-
-        }
-
-    } else {
-
-        if (paginationContainer) {
-
-            paginationContainer.style.display =
-                'flex';
-
-        }
-
-        if (pageIndicator) {
-
-            pageIndicator.textContent =
-                `Page ${currentPage} of ${totalPages}`;
-
-        }
-
-        if (prevPageBtn) {
-
-            prevPageBtn.disabled =
-                currentPage === 1;
-
-        }
-
-        if (nextPageBtn) {
-
-            nextPageBtn.disabled =
-                currentPage === totalPages;
-
-        }
-
-    }
-
-}
-
-// =========================================================================
+}// =========================================================================
 // RENDER TABLE
 // =========================================================================
-
-function renderTable(
-    data,
-    page = 1
-) {
+function renderTable(data, page = 1) {
 
     if (!tableBody) return;
 
-    tableBody.innerHTML = '';
+    currentFilteredData = data || [];
+
+    const totalItems =
+        currentFilteredData.length;
 
     const totalPages =
-        Math.ceil(
-            data.length /
-            itemsPerPage
+        Math.max(
+            1,
+            Math.ceil(
+                totalItems /
+                itemsPerPage
+            )
         );
 
-    if (page > totalPages) {
-        page = totalPages;
-    }
-
-    if (page < 1) {
-        page = 1;
-    }
-
     currentPage =
-        page;
-
-    if (data.length === 0) {
-
-        tableBody.innerHTML = `
-            <tr>
-                <td
-                    colspan="${displayHeaders.length}"
-                    class="no-data"
-                >
-                    No records match the active matrix search filters.
-                </td>
-            </tr>
-        `;
-
-        updatePaginationUI(0);
-
-        return;
-
-    }
+        Math.min(
+            Math.max(1, page),
+            totalPages
+        );
 
     const startIndex =
-        (page - 1) *
+        (currentPage - 1) *
         itemsPerPage;
 
     const endIndex =
-        startIndex +
-        itemsPerPage;
+        Math.min(
+            startIndex +
+            itemsPerPage,
+            totalItems
+        );
 
-    const paginatedData =
-        data.slice(
+    const pageData =
+        currentFilteredData.slice(
             startIndex,
             endIndex
         );
 
-    paginatedData.forEach(
+    tableBody.innerHTML = '';
+
+    if (foundCountDisplay) {
+
+        foundCountDisplay.textContent =
+            `(${totalItems.toLocaleString()} items found)`;
+
+    }
+
+    if (pageData.length === 0) {
+
+        tableBody.innerHTML =
+            `<tr>
+                <td
+                    colspan="${displayHeaders.length}"
+                    class="no-data"
+                >
+                    No matching records found.
+                </td>
+            </tr>`;
+
+        updatePaginationUI(
+            totalItems
+        );
+
+        return;
+    }
+
+    pageData.forEach(
         row => {
 
             const tr =
-                document.createElement(
-                    'tr'
-                );
+                document.createElement('tr');
 
-            tr.setAttribute(
-                'data-id',
-                row._rowId
+            tr.dataset.rowId =
+                row._rowId;
+
+            tr.style.cursor =
+                'pointer';
+
+            // -------------------------------------------------------------
+            // ROW CLICK -> PROPERTY DETAILS
+            // -------------------------------------------------------------
+            tr.addEventListener(
+                'click',
+                function() {
+
+                    openPopUp(
+                        row._rowId
+                    );
+
+                }
             );
 
-            targetHeadersLowercase.forEach(
-                tKey => {
+            displayHeaders.forEach(
+                displayHeader => {
 
                     const td =
-                        document.createElement(
-                            'td'
-                        );
+                        document.createElement('td');
 
-                    const resolvedKey =
-                        headerMapping[tKey];
+                    const lower =
+                        displayHeader
+                            .toLowerCase()
+                            .trim();
 
+                    const sheetKey =
+                        headerMapping[lower];
+
+                    let value =
+                        sheetKey
+                            ? row[sheetKey]
+                            : '';
+
+                    value =
+                        value === undefined ||
+                        value === null
+                            ? ''
+                            : String(value).trim();
+
+                    // -----------------------------------------------------
+                    // PHOTO 1 / PHOTO 2
+                    // -----------------------------------------------------
                     if (
-                        tKey.includes('photo') ||
-                        tKey.includes(
-                            'map coordinates'
-                        ) ||
-                        tKey.includes(
-                            'tax declaration'
-                        ) ||
-                        tKey.includes(
-                            'transfer_cert'
-                        )
+                        lower === 'photo 1' ||
+                        lower === 'photo 2'
                     ) {
 
-                        const url =
-                            resolvedKey ?
-                            (
-                                row[
-                                    resolvedKey
-                                ] || ''
-                            ) :
-                            '';
-
                         if (
-                            url.trim() !== ''
+                            value &&
+                            /^https?:\/\//i.test(
+                                value
+                            )
                         ) {
 
-                            const viewUrl =
-                                getDirectImageUrl(
-                                    url,
-                                    'view'
-                                ) ||
-                                url;
+                            const img =
+                                document.createElement(
+                                    'img'
+                                );
 
-                            const thumbUrl =
-                                getDirectImageUrl(
-                                    url,
-                                    'thumbnail'
-                                ) ||
-                                url;
+                            img.src =
+                                value;
 
-                            td.innerHTML = `
-                                <img
-                                    src="${viewUrl}"
-                                    onerror="
-                                        this.onerror=null;
-                                        this.src='${thumbUrl}';
-                                    "
-                                    class="hover-preview-img"
-                                    alt="Preview"
-                                    style="
-                                        height:50px;
-                                        max-width:80px;
-                                        object-fit:cover;
-                                        border:1px solid #ccc;
-                                        border-radius:4px;
-                                        cursor:zoom-in;
-                                    "
-                                    onclick="
-                                        event.stopPropagation();
-                                        openPopUp(
-                                            ${row._rowId},
-                                            '${tKey}'
-                                        );
-                                    "
-                                >
-                            `;
+                            img.alt =
+                                displayHeader;
+
+                            img.className =
+                                'hover-preview-img';
+
+                            img.style.maxWidth =
+                                '70px';
+
+                            img.style.maxHeight =
+                                '50px';
+
+                            img.style.objectFit =
+                                'cover';
+
+                            img.style.cursor =
+                                'pointer';
+
+                            img.addEventListener(
+                                'click',
+                                function(e) {
+
+                                    e.stopPropagation();
+
+                                    openImageViewer(
+                                        value
+                                    );
+
+                                }
+                            );
+
+                            td.appendChild(
+                                img
+                            );
 
                         } else {
 
                             td.textContent =
-                                'No Photo';
+                                value || '—';
+
+                        }
+
+                    // -----------------------------------------------------
+                    // MAP COORDINATES
+                    // -----------------------------------------------------
+                    } else if (
+                        lower ===
+                        'map coordinates'
+                    ) {
+
+                        if (value) {
+
+                            const mapLink =
+                                document.createElement(
+                                    'a'
+                                );
+
+                            mapLink.href =
+                                'https://www.google.com/maps/search/?api=1&query=' +
+                                encodeURIComponent(
+                                    value
+                                );
+
+                            mapLink.target =
+                                '_blank';
+
+                            mapLink.rel =
+                                'noopener noreferrer';
+
+                            mapLink.textContent =
+                                value;
+
+                            mapLink.addEventListener(
+                                'click',
+                                e =>
+                                    e.stopPropagation()
+                            );
+
+                            td.appendChild(
+                                mapLink
+                            );
+
+                        } else {
+
+                            td.textContent =
+                                '—';
+
+                        }
+
+                    // -----------------------------------------------------
+                    // DOCUMENT LINKS
+                    // -----------------------------------------------------
+                    } else if (
+                        lower ===
+                            'tax declaration' ||
+                        lower ===
+                            'transfer certificate of title page 1' ||
+                        lower ===
+                            'transfer certificate of title page 2'
+                    ) {
+
+                        if (
+                            value &&
+                            /^https?:\/\//i.test(
+                                value
+                            )
+                        ) {
+
+                            const a =
+                                document.createElement(
+                                    'a'
+                                );
+
+                            a.href =
+                                value;
+
+                            a.target =
+                                '_blank';
+
+                            a.rel =
+                                'noopener noreferrer';
+
+                            a.textContent =
+                                'Open';
+
+                            a.addEventListener(
+                                'click',
+                                e =>
+                                    e.stopPropagation()
+                            );
+
+                            td.appendChild(
+                                a
+                            );
+
+                        } else {
+
+                            td.textContent =
+                                value || '—';
 
                         }
 
                     } else {
 
                         td.textContent =
-                            resolvedKey ?
-                            (
-                                row[
-                                    resolvedKey
-                                ] || ''
-                            ) :
-                            '';
+                            value || '—';
 
                     }
 
-                    tr.appendChild(
-                        td
-                    );
+                    tr.appendChild(td);
 
                 }
-            );
-
-            tr.addEventListener(
-                'click',
-                () =>
-                    openPopUp(
-                        row._rowId
-                    )
             );
 
             tableBody.appendChild(
@@ -1519,472 +1486,418 @@ function renderTable(
     );
 
     updatePaginationUI(
-        totalPages
+        totalItems
     );
+
+}
+
+// =========================================================================
+// PAGINATION UI
+// =========================================================================
+function updatePaginationUI(totalItems) {
+
+    if (!paginationContainer) return;
+
+    const totalPages =
+        Math.max(
+            1,
+            Math.ceil(
+                totalItems /
+                itemsPerPage
+            )
+        );
+
+    if (pageIndicator) {
+
+        pageIndicator.textContent =
+            `Page ${currentPage} of ${totalPages}`;
+
+    }
+
+    if (prevPageBtn) {
+
+        prevPageBtn.disabled =
+            currentPage <= 1;
+
+    }
+
+    if (nextPageBtn) {
+
+        nextPageBtn.disabled =
+            currentPage >= totalPages ||
+            totalItems === 0;
+
+    }
+
+    if (totalItems === 0) {
+
+        paginationContainer.style.display =
+            'none';
+
+    } else {
+
+        paginationContainer.style.display =
+            'flex';
+
+    }
 
 }
 
 // =========================================================================
 // DASHBOARD TOTALS
 // =========================================================================
-
 function calculateStaticDashboardTotals(
     items
 ) {
 
-    if (!countTotal) return;
-
-    countTotal.textContent =
+    const total =
         items.length;
 
-    const rKey =
-        headerMapping['remarks'];
-
-    const tKey =
-        headerMapping['type'];
-
-    const pKey1 =
-        headerMapping['photo 1'];
-
-    const pKey2 =
-        headerMapping['photo 2'];
-
-    const pKey3 =
-        headerMapping['map coordinates'];
-
-    const pKey4 =
-        headerMapping['tax declaration'];
-
-    const pKey5 =
-        headerMapping['transfer_cert1'];
-
-    const pKey6 =
-        headerMapping['transfer_cert2'];
-
     let existing = 0;
-    let notfound = 0;
-    let verify = 0;
-    let photos = 0;
-    let taxdec = 0;
+    let notFound = 0;
+    let verification = 0;
+    let withPhotos = 0;
+    let taxDeclaration = 0;
 
-    let stats = {
-        'Building': 0,
-        'Building Modifications': 0,
-        'Flood Control': 0,
-        'Hospital': 0,
-        'Land': 0,
-        'Markets': 0,
-        'Other Infrastructures': 0,
-        'Other Land Improvements': 0,
-        'Other Structures': 0,
-        'PARKS PLAZAS AND MONUMENTS': 0,
-        'Roads': 0,
-        'School Building': 0,
-        'Slaughterhouse': 0,
-        'Water Supplies': 0
+    const typeCounts = {
+        building: 0,
+        assetmod: 0,
+        flood: 0,
+        hospital: 0,
+        land: 0,
+        market: 0,
+        otherinfra: 0,
+        otherland: 0,
+        otherstruct: 0,
+        park: 0,
+        road: 0,
+        school: 0,
+        slaughterhouse: 0,
+        water: 0
     };
 
     items.forEach(
         row => {
 
-            const rem =
+            const remarks =
                 String(
-                    row[rKey] || ''
-                ).toUpperCase();
-
-            if (
-                rem.includes(
-                    'EXISTING'
+                    row[
+                        headerMapping.remarks
+                    ] || ''
                 )
+                    .trim()
+                    .toLowerCase();
+
+            const type =
+                String(
+                    row[
+                        headerMapping.type
+                    ] || ''
+                )
+                    .trim()
+                    .toLowerCase();
+
+            const photo1 =
+                String(
+                    row[
+                        headerMapping['photo 1']
+                    ] || ''
+                ).trim();
+
+            const photo2 =
+                String(
+                    row[
+                        headerMapping['photo 2']
+                    ] || ''
+                ).trim();
+
+            const taxDec =
+                String(
+                    row[
+                        headerMapping[
+                            'tax declaration'
+                        ]
+                    ] || ''
+                ).trim();
+
+            // -------------------------------------------------------------
+            // REMARKS
+            // -------------------------------------------------------------
+            if (
+                remarks.includes('existing')
             ) {
+
                 existing++;
-            }
 
-            if (
-                rem.includes(
-                    'NOT FOUND'
-                )
+            } else if (
+                remarks.includes('not found') ||
+                remarks.includes('notfound')
             ) {
-                notfound++;
-            }
 
-            if (
-                rem.includes(
-                    'FOR VERIFICATION'
-                )
-            ) {
-                verify++;
-            }
+                notFound++;
 
-            if (
-                (
-                    row[pKey1] &&
-                    row[pKey1].trim() !== ''
-                ) ||
-                (
-                    row[pKey2] &&
-                    row[pKey2].trim() !== ''
+            } else if (
+                remarks.includes(
+                    'verification'
                 )
             ) {
 
-                photos++;
+                verification++;
 
             }
 
+            // -------------------------------------------------------------
+            // PHOTOS
+            // -------------------------------------------------------------
             if (
-                (
-                    row[pKey4] &&
-                    row[pKey4].trim() !== ''
-                ) ||
-                (
-                    row[pKey5] &&
-                    row[pKey5].trim() !== ''
-                ) ||
-                (
-                    row[pKey6] &&
-                    row[pKey6].trim() !== ''
-                )
+                photo1 ||
+                photo2
             ) {
 
-                taxdec++;
+                withPhotos++;
 
             }
 
-            const typeStr =
-                String(
-                    row[tKey] || ''
-                )
-                .toUpperCase()
-                .trim();
+            // -------------------------------------------------------------
+            // TAX DECLARATION
+            // -------------------------------------------------------------
+            if (taxDec) {
 
+                taxDeclaration++;
+
+            }
+
+            // -------------------------------------------------------------
+            // TYPE
+            // -------------------------------------------------------------
             if (
-                typeStr.includes(
-                    'BUILDING MOD'
-                ) ||
-                typeStr.includes(
-                    'ASSET MOD'
+                type.includes('building')
+            ) {
+
+                typeCounts.building++;
+
+            } else if (
+                type.includes('asset')
+            ) {
+
+                typeCounts.assetmod++;
+
+            } else if (
+                type.includes('flood')
+            ) {
+
+                typeCounts.flood++;
+
+            } else if (
+                type.includes('hospital')
+            ) {
+
+                typeCounts.hospital++;
+
+            } else if (
+                type === 'land' ||
+                type.includes('land')
+            ) {
+
+                typeCounts.land++;
+
+            } else if (
+                type.includes('market')
+            ) {
+
+                typeCounts.market++;
+
+            } else if (
+                type.includes('infra')
+            ) {
+
+                typeCounts.otherinfra++;
+
+            } else if (
+                type.includes('park')
+            ) {
+
+                typeCounts.park++;
+
+            } else if (
+                type.includes('road')
+            ) {
+
+                typeCounts.road++;
+
+            } else if (
+                type.includes('school')
+            ) {
+
+                typeCounts.school++;
+
+            } else if (
+                type.includes(
+                    'slaughter'
                 )
             ) {
 
-                stats[
-                    'Building Modifications'
-                ]++;
+                typeCounts.slaughterhouse++;
 
             } else if (
-                typeStr.includes(
-                    'SCHOOL'
-                )
+                type.includes('water')
             ) {
 
-                stats[
-                    'School Building'
-                ]++;
+                typeCounts.water++;
 
             } else if (
-                typeStr.includes(
-                    'HOSPITAL'
-                )
+                type.includes('structure')
             ) {
 
-                stats[
-                    'Hospital'
-                ]++;
+                typeCounts.otherstruct++;
 
             } else if (
-                typeStr.includes(
-                    'MARKET'
-                )
+                type.includes('other land')
             ) {
 
-                stats[
-                    'Markets'
-                ]++;
-
-            } else if (
-                typeStr.includes(
-                    'OTHER INFRA'
-                )
-            ) {
-
-                stats[
-                    'Other Infrastructures'
-                ]++;
-
-            } else if (
-                typeStr.includes(
-                    'OTHER STRUCT'
-                )
-            ) {
-
-                stats[
-                    'Other Structures'
-                ]++;
-
-            } else if (
-                typeStr.includes(
-                    'PARK'
-                ) ||
-                typeStr.includes(
-                    'PLAZA'
-                ) ||
-                typeStr.includes(
-                    'MONUMENT'
-                )
-            ) {
-
-                stats[
-                    'PARKS PLAZAS AND MONUMENTS'
-                ]++;
-
-            } else if (
-                typeStr.includes(
-                    'OTHER LAND'
-                )
-            ) {
-
-                stats[
-                    'Other Land Improvements'
-                ]++;
-
-            } else if (
-                typeStr.includes(
-                    'LAND'
-                ) ||
-                typeStr === 'LOT'
-            ) {
-
-                stats[
-                    'Land'
-                ]++;
-
-            } else if (
-                typeStr.includes(
-                    'FLOOD'
-                )
-            ) {
-
-                stats[
-                    'Flood Control'
-                ]++;
-
-            } else if (
-                typeStr.includes(
-                    'WATER'
-                )
-            ) {
-
-                stats[
-                    'Water Supplies'
-                ]++;
-
-            } else if (
-                typeStr.includes(
-                    'ROAD'
-                )
-            ) {
-
-                stats[
-                    'Roads'
-                ]++;
-
-            } else if (
-                typeStr.includes(
-                    'SLAUGHTERHOUSE'
-                )
-            ) {
-
-                stats[
-                    'Slaughterhouse'
-                ]++;
-
-            } else if (
-                typeStr.includes(
-                    'BUILDING'
-                )
-            ) {
-
-                stats[
-                    'Building'
-                ]++;
+                typeCounts.otherland++;
 
             }
 
         }
     );
 
+    if (countTotal)
+        countTotal.textContent =
+            total.toLocaleString();
+
     if (countExisting)
         countExisting.textContent =
-            existing;
+            existing.toLocaleString();
 
     if (countNotFound)
         countNotFound.textContent =
-            notfound;
+            notFound.toLocaleString();
 
     if (countVerification)
         countVerification.textContent =
-            verify;
+            verification.toLocaleString();
 
     if (countWithPhotos)
         countWithPhotos.textContent =
-            photos;
+            withPhotos.toLocaleString();
 
     if (countTaxDec)
         countTaxDec.textContent =
-            taxdec;
+            taxDeclaration.toLocaleString();
 
     if (countBuilding)
         countBuilding.textContent =
-            stats['Building'];
+            typeCounts.building;
 
     if (countAssetMod)
         countAssetMod.textContent =
-            stats['Building Modifications'];
+            typeCounts.assetmod;
 
     if (countFlood)
         countFlood.textContent =
-            stats['Flood Control'];
+            typeCounts.flood;
 
     if (countHospital)
         countHospital.textContent =
-            stats['Hospital'];
+            typeCounts.hospital;
 
     if (countLand)
         countLand.textContent =
-            stats['Land'];
+            typeCounts.land;
 
     if (countMarket)
         countMarket.textContent =
-            stats['Markets'];
+            typeCounts.market;
 
     if (countOtherInfra)
         countOtherInfra.textContent =
-            stats['Other Infrastructures'];
+            typeCounts.otherinfra;
 
     if (countOtherLand)
         countOtherLand.textContent =
-            stats['Other Land Improvements'];
+            typeCounts.otherland;
 
     if (countOtherStruct)
         countOtherStruct.textContent =
-            stats['Other Structures'];
+            typeCounts.otherstruct;
 
     if (countPark)
         countPark.textContent =
-            stats[
-                'PARKS PLAZAS AND MONUMENTS'
-            ];
+            typeCounts.park;
 
     if (countRoad)
         countRoad.textContent =
-            stats['Roads'];
+            typeCounts.road;
 
     if (countSchool)
         countSchool.textContent =
-            stats['School Building'];
+            typeCounts.school;
 
     if (countSlaughterhouse)
         countSlaughterhouse.textContent =
-            stats['Slaughterhouse'];
+            typeCounts.slaughterhouse;
 
     if (countWater)
         countWater.textContent =
-            stats['Water Supplies'];
+            typeCounts.water;
 
 }
 
 // =========================================================================
-// SEARCH
+// SEARCH / FILTER
 // =========================================================================
-
 function executeSearch(
-    resetPage = true
+    preservePage = false
 ) {
 
-    const term =
-        searchInput ?
-        searchInput.value
-            .toLowerCase()
-            .trim() :
-        '';
+    const searchTerm =
+        searchInput
+            ? searchInput.value
+                .trim()
+                .toLowerCase()
+            : '';
 
-    const remF =
-        remarksFilter ?
-        remarksFilter.value :
-        'ALL';
+    const selectedRemarks =
+        remarksFilter
+            ? remarksFilter.value
+            : 'ALL';
 
-    const typF =
-        typeFilter ?
-        typeFilter.value :
-        'ALL';
+    const selectedType =
+        typeFilter
+            ? typeFilter.value
+            : 'ALL';
 
-    const phoF =
-        photoFilter ?
-        photoFilter.value :
-        'ALL';
+    const selectedPhoto =
+        photoFilter
+            ? photoFilter.value
+            : 'ALL';
 
-    const rKey =
-        headerMapping['remarks'];
-
-    const tKey =
-        headerMapping['type'];
-
-    const pKey1 =
-        headerMapping['photo 1'];
-
-    const pKey2 =
-        headerMapping['photo 2'];
-
-    const pKey3 =
-        headerMapping['map coordinates'];
-
-    const pKey4 =
-        headerMapping['tax declaration'];
-
-    const pKey5 =
-        headerMapping['transfer_cert1'];
-
-    const pKey6 =
-        headerMapping['transfer_cert2'];
-
-    const pKeys = [
-        pKey1,
-        pKey2,
-        pKey3
-    ];
-
-    const taxKeys = [
-        pKey4,
-        pKey5,
-        pKey6
-    ];
-
-    currentFilteredData =
+    let filtered =
         inventoryData.filter(
             row => {
 
-                let matchText = true;
-                let matchRem = true;
-                let matchType = true;
-                let matchPhoto = true;
+                // ---------------------------------------------------------
+                // SEARCH
+                // ---------------------------------------------------------
+                let matchesSearch = true;
 
-                if (term) {
+                if (searchTerm) {
 
-                    matchText =
-                        targetHeadersLowercase.some(
-                            k => {
+                    matchesSearch =
+                        rawHeaders.some(
+                            header => {
 
-                                const mk =
-                                    headerMapping[k];
-
-                                return (
-                                    mk &&
+                                const val =
                                     String(
-                                        row[mk] || ''
+                                        row[
+                                            header
+                                        ] || ''
                                     )
-                                    .toLowerCase()
-                                    .includes(
-                                        term
-                                    )
+                                        .toLowerCase();
+
+                                return val.includes(
+                                    searchTerm
                                 );
 
                             }
@@ -1992,1082 +1905,843 @@ function executeSearch(
 
                 }
 
-                if (remF !== 'ALL') {
+                if (!matchesSearch)
+                    return false;
 
-                    matchRem =
+                // ---------------------------------------------------------
+                // REMARKS
+                // ---------------------------------------------------------
+                if (
+                    selectedRemarks !==
+                    'ALL'
+                ) {
+
+                    const value =
                         String(
-                            row[rKey] || ''
-                        ) === remF;
+                            row[
+                                headerMapping.remarks
+                            ] || ''
+                        ).trim();
+
+                    if (
+                        value !==
+                        selectedRemarks
+                    ) {
+
+                        return false;
+
+                    }
 
                 }
 
-                if (typF !== 'ALL') {
+                // ---------------------------------------------------------
+                // TYPE
+                // ---------------------------------------------------------
+                if (
+                    selectedType !==
+                    'ALL'
+                ) {
 
-                    matchType =
+                    const value =
                         String(
-                            row[tKey] || ''
-                        ) === typF;
-
-                }
-
-                if (phoF !== 'ALL') {
-
-                    const hasAnyMedia =
-                        pKeys.some(
-                            k =>
-                                row[k] &&
-                                row[k].trim() !== ''
-                        );
-
-                    const hasTaxDec =
-                        taxKeys.some(
-                            k =>
-                                row[k] &&
-                                row[k].trim() !== ''
-                        );
+                            row[
+                                headerMapping.type
+                            ] || ''
+                        ).trim();
 
                     if (
-                        phoF ===
-                        'WITH_PHOTO'
+                        value !==
+                        selectedType
                     ) {
 
-                        matchPhoto =
-                            hasAnyMedia;
-
-                    }
-
-                    if (
-                        phoF ===
-                        'NO_PHOTO'
-                    ) {
-
-                        matchPhoto =
-                            !hasAnyMedia;
-
-                    }
-
-                    if (
-                        phoF ===
-                        'WITH_TAX_DEC'
-                    ) {
-
-                        matchPhoto =
-                            hasTaxDec;
+                        return false;
 
                     }
 
                 }
 
-                return (
-                    matchText &&
-                    matchRem &&
-                    matchType &&
-                    matchPhoto
-                );
+                // ---------------------------------------------------------
+                // PHOTO FILTER
+                // ---------------------------------------------------------
+                if (
+                    selectedPhoto !==
+                    'ALL'
+                ) {
+
+                    const p1 =
+                        String(
+                            row[
+                                headerMapping[
+                                    'photo 1'
+                                ]
+                            ] || ''
+                        ).trim();
+
+                    const p2 =
+                        String(
+                            row[
+                                headerMapping[
+                                    'photo 2'
+                                ]
+                            ] || ''
+                        ).trim();
+
+                    const hasPhoto =
+                        !!(p1 || p2);
+
+                    if (
+                        selectedPhoto ===
+                            'WITH_PHOTO' &&
+                        !hasPhoto
+                    ) {
+
+                        return false;
+
+                    }
+
+                    if (
+                        selectedPhoto ===
+                            'WITHOUT_PHOTO' &&
+                        hasPhoto
+                    ) {
+
+                        return false;
+
+                    }
+
+                }
+
+                return true;
 
             }
         );
 
-    if (foundCountDisplay) {
+    currentFilteredData =
+        filtered;
 
-        foundCountDisplay.textContent =
-            `(${currentFilteredData.length} records active)`;
-
-    }
-
-    if (resetPage) {
-
+    if (!preservePage) {
         currentPage = 1;
-
     }
 
     renderTable(
-        currentFilteredData,
+        filtered,
         currentPage
     );
 
 }
 
 // =========================================================================
-// PROPERTY DETAILS POPUP
+// OPEN PROPERTY DETAILS POPUP
 // =========================================================================
+function openPopUp(rowId) {
 
-function openPopUp(
-    rowId,
-    clickedPhotoKey = null
-) {
+    const numericRowId =
+        Number(rowId);
+
+    const rowIndex =
+        inventoryData.findIndex(
+            row =>
+                Number(row._rowId) ===
+                numericRowId
+        );
+
+    if (rowIndex === -1) {
+
+        console.error(
+            'Property row not found:',
+            rowId
+        );
+
+        return;
+
+    }
 
     activeEditIndex =
-        rowId;
+        rowIndex;
 
-    const itemData =
-        inventoryData.find(
-            r =>
-                r._rowId === rowId
-        );
+    modalModified = false;
+    modalActionTaken = false;
 
-    if (!itemData) return;
+    modalOpenedScrollY =
+        window.scrollY ||
+        window.pageYOffset ||
+        0;
 
-    modalFormContainer.innerHTML =
-        '';
+    const row =
+        inventoryData[
+            activeEditIndex
+        ];
 
-    const flexWrapper =
+    if (!modalFormContainer) return;
+
+    modalFormContainer.innerHTML = '';
+
+    // -------------------------------------------------------------
+    // TITLE / ITEM IDENTIFIER
+    // -------------------------------------------------------------
+    const itemKey =
+        headerMapping[
+            'article/item'
+        ];
+
+    const itemCode =
+        String(
+            row[itemKey] || ''
+        ).trim();
+
+    const modalTitle =
         document.createElement(
             'div'
         );
 
-    flexWrapper.className =
-        'modal-flex-layout';
+    modalTitle.style.cssText =
+        `
+            margin-bottom:18px;
+            padding:12px;
+            background:#f1f3f5;
+            border-radius:6px;
+            font-weight:bold;
+            color:#212529;
+        `;
 
-    const fieldsSide =
-        document.createElement(
-            'div'
-        );
+    modalTitle.innerHTML =
+        `
+            <div style="font-size:12px;color:#6c757d;">
+                PROPERTY IDENTIFIER
+            </div>
 
-    fieldsSide.className =
-        'modal-fields-side';
+            <div style="font-size:20px;color:#212529;">
+                ${escapeHtml(
+                    itemCode ||
+                    'Unknown Item'
+                )}
+            </div>
+        `;
 
-    const photoSide =
-        document.createElement(
-            'div'
-        );
+    modalFormContainer.appendChild(
+        modalTitle
+    );
 
-    photoSide.className =
-        'modal-photo-side';
-
-    photoSide.id =
-        'modalPhotoSide';
-
+    // -------------------------------------------------------------
+    // PROPERTY FIELDS
+    // -------------------------------------------------------------
     popupOrderLowercase.forEach(
-        tKey => {
+        lowerKey => {
 
-            const mappedKey =
-                headerMapping[tKey];
+            const sheetKey =
+                headerMapping[
+                    lowerKey
+                ];
 
-            const val =
-                mappedKey ?
-                (
-                    itemData[
-                        mappedKey
-                    ] || ''
-                ) :
-                '';
+            const value =
+                String(
+                    row[sheetKey] || ''
+                );
 
-            const fDiv =
+            const wrapper =
                 document.createElement(
                     'div'
                 );
 
-            fDiv.className =
+            wrapper.className =
                 'modal-field';
 
-            const lbl =
+            wrapper.style.marginBottom =
+                '12px';
+
+            const label =
                 document.createElement(
                     'label'
                 );
 
-            lbl.textContent =
-                mappedKey ||
-                tKey;
+            const displayLabel =
+                displayHeaders.find(
+                    h =>
+                        h.toLowerCase()
+                            .trim() ===
+                        lowerKey
+                ) ||
+                lowerKey;
 
-            let inp;
+            label.textContent =
+                displayLabel;
+
+            label.style.display =
+                'block';
+
+            label.style.fontWeight =
+                'bold';
+
+            label.style.marginBottom =
+                '5px';
+
+            const input =
+                document.createElement(
+                    lowerKey ===
+                    'remarks'
+                        ? 'select'
+                        : 'input'
+                );
+
+            input.dataset.field =
+                lowerKey;
+
+            input.dataset.sheetKey =
+                sheetKey || '';
+
+            input.className =
+                'modal-edit-field';
+
+            input.value =
+                value;
+
+            input.disabled =
+                true;
+
+            input.style.width =
+                '100%';
+
+            input.style.boxSizing =
+                'border-box';
+
+            input.style.padding =
+                '9px';
+
+            input.style.border =
+                '1px solid #ced4da';
+
+            input.style.borderRadius =
+                '4px';
 
             if (
-                tKey ===
+                lowerKey ===
                 'remarks'
             ) {
 
-                inp =
-                    document.createElement(
-                        'select'
+                const allValues =
+                    new Set(
+                        parsedUniqueRemarks
                     );
 
-                inp.id =
-                    'modal_' +
-                    tKey;
+                if (
+                    value &&
+                    !allValues.has(value)
+                ) {
 
-                inp.disabled =
-                    true;
+                    allValues.add(
+                        value
+                    );
 
-                let found = false;
+                }
 
-                parsedUniqueRemarks.forEach(
-                    r => {
+                input.innerHTML =
+                    '';
 
-                        const opt =
-                            document.createElement(
-                                'option'
+                Array.from(
+                    allValues
+                )
+                    .sort()
+                    .forEach(
+                        remark => {
+
+                            const option =
+                                document.createElement(
+                                    'option'
+                                );
+
+                            option.value =
+                                remark;
+
+                            option.textContent =
+                                remark;
+
+                            input.appendChild(
+                                option
                             );
 
-                        opt.value =
-                            r;
-
-                        opt.textContent =
-                            r;
-
-                        if (r === val) {
-
-                            opt.selected =
-                                true;
-
-                            found = true;
-
                         }
+                    );
 
-                        inp.appendChild(
-                            opt
+                input.value =
+                    value;
+
+            }
+
+            input.addEventListener(
+                'change',
+                () => {
+
+                    modalModified =
+                        true;
+
+                }
+            );
+
+            wrapper.appendChild(
+                label
+            );
+
+            wrapper.appendChild(
+                input
+            );
+
+            modalFormContainer.appendChild(
+                wrapper
+            );
+
+        }
+    );
+
+    // -------------------------------------------------------------
+    // PHOTO GALLERY
+    // -------------------------------------------------------------
+    createModalPhotoGallery(
+        row
+    );
+
+    if (editModal) {
+
+        editModal.style.display =
+            'flex';
+
+    }
+
+}
+
+// =========================================================================
+// PHOTO GALLERY IN PROPERTY DETAILS
+// =========================================================================
+function createModalPhotoGallery(
+    row
+) {
+
+    const existing =
+        document.getElementById(
+            'modalPhotoGallery'
+        );
+
+    if (existing) {
+        existing.remove();
+    }
+
+    const gallery =
+        document.createElement(
+            'div'
+        );
+
+    gallery.id =
+        'modalPhotoGallery';
+
+    gallery.style.cssText =
+        `
+            margin-top:20px;
+            border-top:1px solid #ddd;
+            padding-top:15px;
+        `;
+
+    const title =
+        document.createElement(
+            'div'
+        );
+
+    title.textContent =
+        'Property Photos';
+
+    title.style.cssText =
+        `
+            font-weight:bold;
+            font-size:16px;
+            margin-bottom:10px;
+        `;
+
+    gallery.appendChild(
+        title
+    );
+
+    modalPhotos = [];
+
+    const photo1 =
+        String(
+            row[
+                headerMapping[
+                    'photo 1'
+                ]
+            ] || ''
+        ).trim();
+
+    const photo2 =
+        String(
+            row[
+                headerMapping[
+                    'photo 2'
+                ]
+            ] || ''
+        ).trim();
+
+    if (
+        photo1 &&
+        /^https?:\/\//i.test(
+            photo1
+        )
+    ) {
+
+        modalPhotos.push(
+            photo1
+        );
+
+    }
+
+    if (
+        photo2 &&
+        /^https?:\/\//i.test(
+            photo2
+        )
+    ) {
+
+        modalPhotos.push(
+            photo2
+        );
+
+    }
+
+    if (
+        modalPhotos.length === 0
+    ) {
+
+        const noPhoto =
+            document.createElement(
+                'div'
+            );
+
+        noPhoto.textContent =
+            'No photos uploaded.';
+
+        noPhoto.style.color =
+            '#6c757d';
+
+        gallery.appendChild(
+            noPhoto
+        );
+
+    } else {
+
+        const photoContainer =
+            document.createElement(
+                'div'
+            );
+
+        photoContainer.style.cssText =
+            `
+                display:flex;
+                flex-wrap:wrap;
+                gap:10px;
+            `;
+
+        modalPhotos.forEach(
+            (src, index) => {
+
+                const img =
+                    document.createElement(
+                        'img'
+                    );
+
+                img.src =
+                    src;
+
+                img.alt =
+                    'Property Photo ' +
+                    (index + 1);
+
+                img.style.cssText =
+                    `
+                        width:120px;
+                        height:90px;
+                        object-fit:cover;
+                        border-radius:6px;
+                        border:1px solid #ccc;
+                        cursor:pointer;
+                    `;
+
+                img.addEventListener(
+                    'click',
+                    () => {
+
+                        openImageViewer(
+                            src
                         );
 
                     }
                 );
 
-                if (
-                    val &&
-                    !found
-                ) {
-
-                    const opt =
-                        document.createElement(
-                            'option'
-                        );
-
-                    opt.value =
-                        val;
-
-                    opt.textContent =
-                        val;
-
-                    opt.selected =
-                        true;
-
-                    inp.appendChild(
-                        opt
-                    );
-
-                }
-
-            } else if (
-                tKey ===
-                'description'
-            ) {
-
-                inp =
-                    document.createElement(
-                        'textarea'
-                    );
-
-                inp.id =
-                    'modal_' +
-                    tKey;
-
-                inp.value =
-                    val;
-
-                inp.rows =
-                    8;
-
-                inp.disabled =
-                    true;
-
-            } else {
-
-                inp =
-                    document.createElement(
-                        'input'
-                    );
-
-                inp.type =
-                    'text';
-
-                inp.id =
-                    'modal_' +
-                    tKey;
-
-                inp.value =
-                    val;
-
-                inp.disabled =
-                    true;
-
-            }
-
-            fDiv.appendChild(
-                lbl
-            );
-
-            fDiv.appendChild(
-                inp
-            );
-
-            fieldsSide.appendChild(
-                fDiv
-            );
-
-        }
-    );
-
-    // =====================================================================
-    // PHOTO GALLERY
-    // =====================================================================
-
-    modalPhotos = [];
-
-    const photoKeysDef = [
-
-        {
-            key: 'photo 1',
-            label: 'Photo 1'
-        },
-
-        {
-            key: 'photo 2',
-            label: 'Photo 2'
-        },
-
-        {
-            key: 'map coordinates',
-            label: 'Map Coordinates'
-        },
-
-        {
-            key: 'tax declaration',
-            label: 'Tax Declaration'
-        },
-
-        {
-            key: 'transfer_cert1',
-            label:
-                'Transfer Certificate of Title Page 1'
-        },
-
-        {
-            key: 'transfer_cert2',
-            label:
-                'Transfer Certificate of Title Page 2'
-        }
-
-    ];
-
-    photoKeysDef.forEach(
-        p => {
-
-            const mappedKey =
-                headerMapping[p.key];
-
-            if (
-                mappedKey &&
-                itemData[mappedKey] &&
-                itemData[mappedKey].trim() !== ''
-            ) {
-
-                const val =
-                    itemData[
-                        mappedKey
-                    ].trim();
-
-                if (
-                    val.startsWith(
-                        'http'
-                    ) ||
-                    val.length > 0
-                ) {
-
-                    modalPhotos.push({
-                        label:
-                            p.label,
-
-                        url:
-                            val,
-
-                        key:
-                            p.key
-                    });
-
-                }
-
-            }
-
-        }
-    );
-
-    currentPhotoIndex =
-        0;
-
-    if (clickedPhotoKey) {
-
-        const foundIndex =
-            modalPhotos.findIndex(
-                mp =>
-                    mp.key ===
-                    clickedPhotoKey
-            );
-
-        if (
-            foundIndex !==
-            -1
-        ) {
-
-            currentPhotoIndex =
-                foundIndex;
-
-        }
-
-    }
-
-    flexWrapper.appendChild(
-        fieldsSide
-    );
-
-    flexWrapper.appendChild(
-        photoSide
-    );
-
-    modalFormContainer.appendChild(
-        flexWrapper
-    );
-
-    renderModalPhotoViewer();
-
-    modalModified =
-        false;
-
-    modalNeedsRefresh =
-        false;
-
-    modalEditBtn.style.display =
-        'inline-block';
-
-    modalSaveBtn.style.display =
-        'none';
-
-    uploadPhotoBtn.style.display =
-        'inline-block';
-
-    editModal.style.display =
-        'flex';
-
-}
-
-// =========================================================================
-// PHOTO VIEWER
-// =========================================================================
-
-function renderModalPhotoViewer() {
-
-    const photoSide =
-        document.getElementById(
-            'modalPhotoSide'
-        );
-
-    if (!photoSide) return;
-
-    photoSide.innerHTML =
-        '';
-
-    if (
-        modalPhotos.length ===
-        0
-    ) {
-
-        photoSide.innerHTML = `
-            <div style="
-                color:#64748b;
-                font-style:italic;
-                display:flex;
-                height:100%;
-                align-items:center;
-                justify-content:center;
-            ">
-                No visual media documented for this asset.
-            </div>
-        `;
-
-        return;
-
-    }
-
-    const currentImg =
-        modalPhotos[
-            currentPhotoIndex
-        ];
-
-    const viewUrl =
-        getDirectImageUrl(
-            currentImg.url,
-            'view'
-        ) ||
-        currentImg.url;
-
-    const thumbUrl =
-        getDirectImageUrl(
-            currentImg.url,
-            'thumbnail'
-        ) ||
-        currentImg.url;
-
-    const photoContainer =
-        document.createElement(
-            'div'
-        );
-
-    photoContainer.className =
-        'modal-photo-container';
-
-    const actionsContainer =
-        document.createElement(
-            'div'
-        );
-
-    actionsContainer.className =
-        'photo-actions-container';
-
-    const downloadBtn =
-        document.createElement(
-            'button'
-        );
-
-    downloadBtn.className =
-        'photo-action-btn';
-
-    downloadBtn.innerHTML =
-        `View Photo`;
-
-    downloadBtn.onclick =
-        () => {
-
-            const a =
-                document.createElement(
-                    'a'
+                photoContainer.appendChild(
+                    img
                 );
 
-            a.href =
-                viewUrl;
-
-            a.download =
-                `property_photo_${currentPhotoIndex + 1}.jpg`;
-
-            a.target =
-                '_blank';
-
-            document.body.appendChild(
-                a
-            );
-
-            a.click();
-
-            document.body.removeChild(
-                a
-            );
-
-        };
-
-    actionsContainer.appendChild(
-        downloadBtn
-    );
-
-    photoContainer.appendChild(
-        actionsContainer
-    );
-
-    if (
-        modalPhotos.length > 1
-    ) {
-
-        const prevBtn =
-            document.createElement(
-                'button'
-            );
-
-        prevBtn.className =
-            'photo-nav-btn photo-prev-btn';
-
-        prevBtn.innerHTML =
-            '&#10094;';
-
-        prevBtn.onclick =
-            (e) => {
-
-                e.stopPropagation();
-
-                navigatePhoto(-1);
-
-            };
-
-        const nextBtn =
-            document.createElement(
-                'button'
-            );
-
-        nextBtn.className =
-            'photo-nav-btn photo-next-btn';
-
-        nextBtn.innerHTML =
-            '&#10095;';
-
-        nextBtn.onclick =
-            (e) => {
-
-                e.stopPropagation();
-
-                navigatePhoto(1);
-
-            };
-
-        photoContainer.appendChild(
-            prevBtn
-        );
-
-        photoContainer.appendChild(
-            nextBtn
-        );
-
-    }
-
-    const imgEl =
-        document.createElement(
-            'img'
-        );
-
-    imgEl.src =
-        viewUrl;
-
-    imgEl.alt =
-        currentImg.label;
-
-    imgEl.onerror =
-        function() {
-
-            this.onerror =
-                function() {
-
-                    this.src =
-                        currentImg.url;
-
-                };
-
-            this.src =
-                thumbUrl;
-
-        };
-
-    photoContainer.appendChild(
-        imgEl
-    );
-
-    photoSide.appendChild(
-        photoContainer
-    );
-
-    const caption =
-        document.createElement(
-            'div'
-        );
-
-    caption.className =
-        'photo-caption';
-
-    caption.textContent =
-        `${currentImg.label} (${currentPhotoIndex + 1} of ${modalPhotos.length})`;
-
-    photoSide.appendChild(
-        caption
-    );
-
-}
-
-// =========================================================================
-// PHOTO NAVIGATION
-// =========================================================================
-
-function navigatePhoto(dir) {
-
-    if (
-        modalPhotos.length <= 1
-    ) {
-        return;
-    }
-
-    currentPhotoIndex +=
-        dir;
-
-    if (
-        currentPhotoIndex < 0
-    ) {
-
-        currentPhotoIndex =
-            modalPhotos.length - 1;
-
-    }
-
-    if (
-        currentPhotoIndex >=
-        modalPhotos.length
-    ) {
-
-        currentPhotoIndex =
-            0;
-
-    }
-
-    renderModalPhotoViewer();
-
-}
-
-// =========================================================================
-// EDIT MODE
-// =========================================================================
-
-function enableEditMode() {
-
-    modalNeedsRefresh =
-        true;
-
-    popupOrderLowercase.forEach(
-        tKey => {
-
-            const el =
-                document.getElementById(
-                    'modal_' +
-                    tKey
-                );
-
-            if (
-                el &&
-                tKey !==
-                'article/item'
-            ) {
-
-                el.disabled =
-                    false;
-
             }
-
-        }
-    );
-
-    modalModified =
-        true;
-
-    modalEditBtn.style.display =
-        'none';
-
-    modalSaveBtn.style.display =
-        'inline-block';
-
-}
-
-// =========================================================================
-// SAVE PROCESS
-// =========================================================================
-
-function triggerSaveProcess() {
-
-    const operatorInput =
-        document.getElementById(
-            'custom-operator-input'
         );
 
-    if (operatorInput) {
-
-        operatorInput.value =
-            'Noel Rie N. Deliña';
+        gallery.appendChild(
+            photoContainer
+        );
 
     }
 
-    customNameModal.style.display =
-        'flex';
+    if (modalFormContainer) {
+
+        modalFormContainer.appendChild(
+            gallery
+        );
+
+    }
 
 }
 
 // =========================================================================
-// SAVE DATA
+// ESCAPE HTML
 // =========================================================================
+function escapeHtml(value) {
 
-function finalizeSaveData(
-    operatorName
+    return String(value)
+        .replace(
+            /&/g,
+            '&amp;'
+        )
+        .replace(
+            /</g,
+            '&lt;'
+        )
+        .replace(
+            />/g,
+            '&gt;'
+        )
+        .replace(
+            /"/g,
+            '&quot;'
+        )
+        .replace(
+            /'/g,
+            '&#039;'
+        );
+
+}
+
+// =========================================================================
+// IMAGE VIEWER
+// =========================================================================
+function openImageViewer(
+    imageUrl
 ) {
 
-    if (
-        activeEditIndex ===
-        null
-    ) {
-        return;
+    let viewer =
+        document.getElementById(
+            'inventoryImageViewer'
+        );
+
+    if (!viewer) {
+
+        viewer =
+            document.createElement(
+                'div'
+            );
+
+        viewer.id =
+            'inventoryImageViewer';
+
+        viewer.style.cssText =
+            `
+                position:fixed;
+                inset:0;
+                background:rgba(0,0,0,0.88);
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                z-index:100001;
+                padding:30px;
+                box-sizing:border-box;
+            `;
+
+        viewer.innerHTML =
+            `
+                <button
+                    id="inventoryImageViewerClose"
+                    style="
+                        position:absolute;
+                        top:20px;
+                        right:25px;
+                        background:#fff;
+                        border:none;
+                        border-radius:50%;
+                        width:42px;
+                        height:42px;
+                        font-size:25px;
+                        cursor:pointer;
+                        z-index:2;
+                    "
+                >
+                    ×
+                </button>
+
+                <img
+                    id="inventoryImageViewerImg"
+                    src=""
+                    alt="Property Photo"
+                    style="
+                        max-width:95vw;
+                        max-height:90vh;
+                        object-fit:contain;
+                        border-radius:6px;
+                        box-shadow:0 0 30px rgba(0,0,0,0.5);
+                    "
+                />
+            `;
+
+        document.body.appendChild(
+            viewer
+        );
+
+        document
+            .getElementById(
+                'inventoryImageViewerClose'
+            )
+            .addEventListener(
+                'click',
+                () => {
+
+                    viewer.style.display =
+                        'none';
+
+                }
+            );
+
+        viewer.addEventListener(
+            'click',
+            e => {
+
+                if (
+                    e.target ===
+                    viewer
+                ) {
+
+                    viewer.style.display =
+                        'none';
+
+                }
+
+            }
+        );
+
     }
 
-    const itemData =
-        inventoryData.find(
-            r =>
-                r._rowId ===
-                activeEditIndex
+    const image =
+        document.getElementById(
+            'inventoryImageViewerImg'
         );
 
-    if (!itemData) {
-        return;
+    if (image) {
+        image.src =
+            imageUrl;
     }
 
-    // IMPORTANT:
-    // Your Google Apps Script doPost()
-    // identifies the record using "article".
-    const articleKey =
-        headerMapping[
-            'article/item'
-        ];
+    viewer.style.display =
+        'flex';
 
-    const articleValue =
-        articleKey ?
-        String(
-            itemData[
-                articleKey
-            ] || ''
-        ).trim() :
-        '';
+}
 
-    let payload = {
+// =========================================================================
+// REFRESH DATA WHILE PRESERVING POSITION
+// =========================================================================
+async function refreshInventoryPreservePosition(
+    savedScrollY = null
+) {
 
-        article:
-            articleValue,
+    const position =
+        savedScrollY !== null
+            ? savedScrollY
+            : modalOpenedScrollY;
 
-        remarks:
-            '',
+    const searchValue =
+        searchInput
+            ? searchInput.value
+            : '';
 
-        updatedby:
-            operatorName,
+    const remarksValue =
+        remarksFilter
+            ? remarksFilter.value
+            : 'ALL';
 
-        timestamp:
-            new Date().toLocaleString(),
+    const typeValue =
+        typeFilter
+            ? typeFilter.value
+            : 'ALL';
 
-        rowId:
-            activeEditIndex + 2,
+    const photoValue =
+        photoFilter
+            ? photoFilter.value
+            : 'ALL';
 
-        updates: {}
+    try {
 
-    };
+        await loadInventoryFromGoogleSheets();
 
-    let hasChanges =
-        false;
+    } finally {
 
-    popupOrderLowercase.forEach(
-        tKey => {
+        requestAnimationFrame(
+            () => {
 
-            if (
-                tKey ===
-                'article/item'
-            ) {
-                return;
-            }
+                requestAnimationFrame(
+                    () => {
 
-            const el =
-                document.getElementById(
-                    'modal_' +
-                    tKey
-                );
+                        if (searchInput)
+                            searchInput.value =
+                                searchValue;
 
-            const mappedKey =
-                headerMapping[tKey];
+                        if (remarksFilter)
+                            remarksFilter.value =
+                                remarksValue;
 
-            if (
-                el &&
-                mappedKey
-            ) {
+                        if (typeFilter)
+                            typeFilter.value =
+                                typeValue;
 
-                const newVal =
-                    el.value.trim();
+                        if (photoFilter)
+                            photoFilter.value =
+                                photoValue;
 
-                if (
-                    newVal !==
-                    (
-                        itemData[
-                            mappedKey
-                        ] || ''
-                    ).trim()
-                ) {
+                        executeSearch(
+                            true
+                        );
 
-                    payload.updates[
-                        mappedKey
-                    ] =
-                        newVal;
+                        window.scrollTo(
+                            0,
+                            position
+                        );
 
-                    itemData[
-                        mappedKey
-                    ] =
-                        newVal;
-
-                    hasChanges =
-                        true;
-
-                }
-
-                if (
-                    tKey ===
-                    'remarks'
-                ) {
-
-                    payload.remarks =
-                        newVal;
-
-                }
-
-            }
-
-        }
-    );
-
-    if (hasChanges) {
-
-        showLoading(
-            "Transmitting modified datasets to Google Cloud..."
-        );
-
-        const updateMappedKey =
-            headerMapping[
-                'updated by'
-            ];
-
-        const dateMappedKey =
-            headerMapping[
-                'last update'
-            ];
-
-        if (updateMappedKey) {
-
-            itemData[
-                updateMappedKey
-            ] =
-                operatorName;
-
-        }
-
-        if (dateMappedKey) {
-
-            itemData[
-                dateMappedKey
-            ] =
-                new Date().toLocaleString();
-
-        }
-
-        fetch(
-            GOOGLE_APPS_SCRIPT_URL,
-            {
-
-                method:
-                    'POST',
-
-                body:
-                    new URLSearchParams({
-                        article:
-                            payload.article,
-
-                        remarks:
-                            payload.remarks,
-
-                        updatedby:
-                            payload.updatedby,
-
-                        timestamp:
-                            payload.timestamp,
-
-                        rowId:
-                            String(
-                                payload.rowId
-                            ),
-
-                        updates:
-                            JSON.stringify(
-                                payload.updates
-                            )
-
-                    })
-
-            }
-        )
-        .then(
-            res =>
-                res.text()
-        )
-        .then(
-            responseText => {
-
-                hideLoading();
-
-                if (
-                    responseText
-                        .toLowerCase()
-                        .includes(
-                            'success'
-                        )
-                ) {
-
-                    alert(
-                        "Cloud Sync Successful: Data modifications permanently applied."
-                    );
-
-                    executeSearch(
-                        false
-                    );
-
-                    closeModal();
-
-                } else {
-
-                    alert(
-                        "Sync Failure: " +
-                        responseText
-                    );
-
-                }
-
-            }
-        )
-        .catch(
-            err => {
-
-                hideLoading();
-
-                alert(
-                    "Fatal Error: Cloud Server unreachable."
-                );
-
-                console.error(
-                    err
+                    }
                 );
 
             }
         );
-
-    } else {
-
-        alert(
-            "Integrity Check: No changes detected in the matrix."
-        );
-
-        closeModal();
 
     }
 
 }
 
 // =========================================================================
-// CLOSE MODAL
+// CLOSE PROPERTY MODAL
 // =========================================================================
+function closePropertyModal(
+    shouldRefresh = false
+) {
 
-function closeModal() {
+    const savedScrollY =
+        modalOpenedScrollY;
 
-    const restoreScrollY =
-        window.scrollY ||
-        window.pageYOffset ||
-        document.documentElement.scrollTop ||
-        0;
+    if (editModal) {
 
-    const restorePage =
-        currentPage ||
-        1;
+        editModal.style.display =
+            'none';
 
-    const shouldRefresh =
-        modalNeedsRefresh;
-
-    editModal.style.display =
-        'none';
+    }
 
     activeEditIndex =
         null;
@@ -3075,51 +2749,907 @@ function closeModal() {
     modalModified =
         false;
 
-    modalNeedsRefresh =
-        false;
-
     if (shouldRefresh) {
 
-        loadInventoryFromGoogleSheets({
+        refreshInventoryPreservePosition(
+            savedScrollY
+        );
 
-            restoreScrollY:
-                restoreScrollY,
+    } else {
 
-            restorePage:
-                restorePage
+        requestAnimationFrame(
+            () => {
 
-        });
+                window.scrollTo(
+                    0,
+                    savedScrollY
+                );
+
+            }
+        );
 
     }
 
 }
 
 // =========================================================================
-// SYSTEM EVENT HANDLERS
+// ENABLE EDIT MODE
 // =========================================================================
+function enableModalEditMode() {
 
-function setupSystemEventHandlers() {
+    if (!modalFormContainer)
+        return;
 
-    if (searchButton) {
+    const fields =
+        modalFormContainer.querySelectorAll(
+            '.modal-edit-field'
+        );
 
-        searchButton.addEventListener(
-            'click',
-            () =>
-                executeSearch(true)
+    fields.forEach(
+        field => {
+
+            field.disabled =
+                false;
+
+        }
+    );
+
+    if (modalEditBtn) {
+
+        modalEditBtn.style.display =
+            'none';
+
+    }
+
+    if (modalSaveBtn) {
+
+        modalSaveBtn.style.display =
+            'inline-block';
+
+    }
+
+    modalModified =
+        false;
+
+}
+
+// =========================================================================
+// GET ACTIVE ITEM CODE
+// =========================================================================
+function getActiveItemCode() {
+
+    if (
+        activeEditIndex === null ||
+        !inventoryData[
+            activeEditIndex
+        ]
+    ) {
+
+        return '';
+
+    }
+
+    const row =
+        inventoryData[
+            activeEditIndex
+        ];
+
+    const key =
+        headerMapping[
+            'article/item'
+        ];
+
+    return String(
+        row[key] || ''
+    ).trim();
+
+}
+
+// =========================================================================
+// BUILD UPLOAD URL
+// =========================================================================
+function buildUploadUrl(
+    itemCode
+) {
+
+    const cleanItem =
+        String(
+            itemCode || ''
+        ).trim();
+
+    if (!cleanItem) {
+
+        return GOOGLE_APPS_SCRIPT_URL;
+
+    }
+
+    return (
+        GOOGLE_APPS_SCRIPT_URL +
+        '?itemCode=' +
+        encodeURIComponent(
+            cleanItem
+        )
+    );
+
+}
+
+// =========================================================================
+// UPLOAD BUTTON
+// IMPORTANT: SENDS THE SELECTED ITEM TO GOOGLE APPS SCRIPT
+// =========================================================================
+function handleUploadPhoto() {
+
+    const itemCode =
+        getActiveItemCode();
+
+    if (!itemCode) {
+
+        alert(
+            'Unable to identify this property. The Article/Item or TCT number is missing.'
+        );
+
+        return;
+
+    }
+
+    modalActionTaken =
+        true;
+
+    modalOpenedScrollY =
+        window.scrollY ||
+        window.pageYOffset ||
+        modalOpenedScrollY;
+
+    const uploadUrl =
+        buildUploadUrl(
+            itemCode
+        );
+
+    console.log(
+        'Opening upload page:',
+        uploadUrl
+    );
+
+    // Close modal first
+    if (editModal) {
+
+        editModal.style.display =
+            'none';
+
+    }
+
+    /*
+     * IMPORTANT:
+     * The itemCode is now included in the URL.
+     *
+     * Google Apps Script can read it using:
+     *
+     * e.parameter.itemCode
+     *
+     * This fixes:
+     *
+     * Item: Unknown Item
+     */
+
+    window.open(
+        uploadUrl,
+        '_blank',
+        'noopener,noreferrer'
+    );
+
+}
+
+// =========================================================================
+// PREPARE UPDATE DATA
+// =========================================================================
+function getModalUpdateValues() {
+
+    const values = {};
+
+    if (!modalFormContainer)
+        return values;
+
+    const fields =
+        modalFormContainer.querySelectorAll(
+            '.modal-edit-field'
+        );
+
+    fields.forEach(
+        field => {
+
+            const fieldKey =
+                field.dataset.field;
+
+            if (!fieldKey)
+                return;
+
+            values[fieldKey] =
+                field.value;
+
+        }
+    );
+
+    return values;
+
+}// =========================================================================
+// TRANSMIT UPDATE TO GOOGLE APPS SCRIPT
+// =========================================================================
+async function transmitUpdateToCloud(
+    remark,
+    user
+) {
+
+    if (
+        activeEditIndex === null ||
+        !inventoryData[activeEditIndex]
+    ) {
+
+        alert(
+            'No property is currently selected.'
+        );
+
+        return false;
+
+    }
+
+    const row =
+        inventoryData[
+            activeEditIndex
+        ];
+
+    const itemCode =
+        String(
+            row[
+                headerMapping[
+                    'article/item'
+                ]
+            ] || ''
+        ).trim();
+
+    if (!itemCode) {
+
+        alert(
+            'Unable to identify the selected property. Article/Item or TCT number is missing.'
+        );
+
+        return false;
+
+    }
+
+    const timestamp =
+        new Date().toISOString();
+
+    if (statusBanner) {
+
+        statusBanner.style.backgroundColor =
+            '#fff3cd';
+
+        statusBanner.style.color =
+            '#856404';
+
+        statusBanner.textContent =
+            'Publishing update to Google Sheets...';
+
+    }
+
+    showLoading(
+        'Publishing property update...'
+    );
+
+    /*
+     * IMPORTANT:
+     * Google Apps Script reads POST values through
+     * e.parameter.
+     *
+     * Therefore we use URLSearchParams instead
+     * of sending JSON.
+     */
+    const params =
+        new URLSearchParams();
+
+    params.append(
+        'article',
+        itemCode
+    );
+
+    params.append(
+        'itemCode',
+        itemCode
+    );
+
+    params.append(
+        'remarks',
+        remark || ''
+    );
+
+    params.append(
+        'updatedby',
+        user || ''
+    );
+
+    params.append(
+        'timestamp',
+        timestamp
+    );
+
+    try {
+
+        const response =
+            await fetch(
+                GOOGLE_APPS_SCRIPT_URL,
+                {
+                    method: 'POST',
+
+                    headers: {
+                        'Content-Type':
+                            'application/x-www-form-urlencoded;charset=UTF-8'
+                    },
+
+                    body:
+                        params.toString()
+                }
+            );
+
+        const responseText =
+            await response.text();
+
+        console.log(
+            'Google Apps Script response:',
+            responseText
+        );
+
+        /*
+         * Update the local row immediately.
+         * This prevents the Google Sheets CSV cache
+         * from making the old value appear again.
+         */
+        const remarksKey =
+            headerMapping[
+                'remarks'
+            ];
+
+        const updatedByKey =
+            headerMapping[
+                'updated by'
+            ];
+
+        const lastUpdateKey =
+            headerMapping[
+                'last update'
+            ];
+
+        if (remarksKey) {
+
+            row[remarksKey] =
+                remark || '';
+
+        }
+
+        if (updatedByKey) {
+
+            row[updatedByKey] =
+                user || '';
+
+        }
+
+        if (lastUpdateKey) {
+
+            row[lastUpdateKey] =
+                timestamp;
+
+        }
+
+        if (statusBanner) {
+
+            statusBanner.style.backgroundColor =
+                '#d4edda';
+
+            statusBanner.style.color =
+                '#155724';
+
+            statusBanner.textContent =
+                '✅ Update published successfully.';
+
+        }
+
+        hideLoading();
+
+        return true;
+
+    } catch (error) {
+
+        hideLoading();
+
+        console.error(
+            'Google Apps Script update error:',
+            error
+        );
+
+        if (statusBanner) {
+
+            statusBanner.style.backgroundColor =
+                '#f8d7da';
+
+            statusBanner.style.color =
+                '#721c24';
+
+            statusBanner.textContent =
+                'Connection error while publishing update.';
+
+        }
+
+        alert(
+            'The update could not be sent to Google Sheets.\n\n' +
+            'Please check your internet connection and Google Apps Script deployment.'
+        );
+
+        return false;
+
+    }
+
+}
+
+// =========================================================================
+// SAVE ALL MODAL CHANGES
+// =========================================================================
+async function saveModalChanges(
+    user
+) {
+
+    if (
+        activeEditIndex === null ||
+        !inventoryData[activeEditIndex]
+    ) {
+
+        alert(
+            'No property is currently selected.'
+        );
+
+        return false;
+
+    }
+
+    const values =
+        getModalUpdateValues();
+
+    const row =
+        inventoryData[
+            activeEditIndex
+        ];
+
+    const itemCode =
+        String(
+            row[
+                headerMapping[
+                    'article/item'
+                ]
+            ] || ''
+        ).trim();
+
+    if (!itemCode) {
+
+        alert(
+            'Unable to identify the selected property.'
+        );
+
+        return false;
+
+    }
+
+    const timestamp =
+        new Date().toISOString();
+
+    showLoading(
+        'Saving property changes...'
+    );
+
+    if (statusBanner) {
+
+        statusBanner.style.backgroundColor =
+            '#fff3cd';
+
+        statusBanner.style.color =
+            '#856404';
+
+        statusBanner.textContent =
+            'Saving property changes to Google Sheets...';
+
+    }
+
+    const params =
+        new URLSearchParams();
+
+    // -------------------------------------------------------------
+    // REQUIRED IDENTIFIERS
+    // -------------------------------------------------------------
+    params.append(
+        'article',
+        itemCode
+    );
+
+    params.append(
+        'itemCode',
+        itemCode
+    );
+
+    params.append(
+        'updatedby',
+        user || ''
+    );
+
+    params.append(
+        'timestamp',
+        timestamp
+    );
+
+    // -------------------------------------------------------------
+    // SEND REMARKS
+    // -------------------------------------------------------------
+    if (
+        values.hasOwnProperty(
+            'remarks'
+        )
+    ) {
+
+        params.append(
+            'remarks',
+            values.remarks
         );
 
     }
 
+    // -------------------------------------------------------------
+    // SEND OTHER EDITABLE VALUES
+    // -------------------------------------------------------------
+    Object.keys(values).forEach(
+        key => {
+
+            if (
+                key === 'remarks'
+            ) {
+                return;
+            }
+
+            params.append(
+                key,
+                values[key] || ''
+            );
+
+        }
+    );
+
+    try {
+
+        const response =
+            await fetch(
+                GOOGLE_APPS_SCRIPT_URL,
+                {
+                    method: 'POST',
+
+                    headers: {
+                        'Content-Type':
+                            'application/x-www-form-urlencoded;charset=UTF-8'
+                    },
+
+                    body:
+                        params.toString()
+                }
+            );
+
+        const responseText =
+            await response.text();
+
+        console.log(
+            'Google Apps Script save response:',
+            responseText
+        );
+
+        // -------------------------------------------------------------
+        // UPDATE LOCAL DATA IMMEDIATELY
+        // -------------------------------------------------------------
+        Object.keys(values).forEach(
+            key => {
+
+                const sheetKey =
+                    headerMapping[key];
+
+                if (
+                    sheetKey &&
+                    row.hasOwnProperty(
+                        sheetKey
+                    )
+                ) {
+
+                    row[sheetKey] =
+                        values[key];
+
+                }
+
+            }
+        );
+
+        const updatedByKey =
+            headerMapping[
+                'updated by'
+            ];
+
+        const lastUpdateKey =
+            headerMapping[
+                'last update'
+            ];
+
+        if (updatedByKey) {
+
+            row[updatedByKey] =
+                user || '';
+
+        }
+
+        if (lastUpdateKey) {
+
+            row[lastUpdateKey] =
+                timestamp;
+
+        }
+
+        modalModified =
+            false;
+
+        hideLoading();
+
+        if (statusBanner) {
+
+            statusBanner.style.backgroundColor =
+                '#d4edda';
+
+            statusBanner.style.color =
+                '#155724';
+
+            statusBanner.textContent =
+                '✅ Property changes saved successfully.';
+
+        }
+
+        /*
+         * Close the modal and refresh.
+         * The scroll position is preserved.
+         */
+        closePropertyModal(
+            true
+        );
+
+        return true;
+
+    } catch (error) {
+
+        hideLoading();
+
+        console.error(
+            'Save changes error:',
+            error
+        );
+
+        if (statusBanner) {
+
+            statusBanner.style.backgroundColor =
+                '#f8d7da';
+
+            statusBanner.style.color =
+                '#721c24';
+
+            statusBanner.textContent =
+                'Connection error while saving changes.';
+
+        }
+
+        alert(
+            'Unable to save the property changes.\n\n' +
+            'Please check your connection and try again.'
+        );
+
+        return false;
+
+    }
+
+}
+
+// =========================================================================
+// CUSTOM NAME MODAL
+// =========================================================================
+function showCustomNameModal() {
+
+    return new Promise(
+        resolve => {
+
+            const input =
+                document.getElementById(
+                    'custom-operator-input'
+                );
+
+            const cancelBtn =
+                document.getElementById(
+                    'customCancelNameBtn'
+                );
+
+            const confirmBtn =
+                document.getElementById(
+                    'customConfirmNameBtn'
+                );
+
+            if (!customNameModal) {
+
+                resolve(null);
+
+                return;
+
+            }
+
+            if (input) {
+
+                input.value =
+                    'Noel Rie N. Deliña';
+
+            }
+
+            customNameModal.style.display =
+                'flex';
+
+            setTimeout(
+                () => {
+
+                    if (input) {
+
+                        input.focus();
+
+                        input.select();
+
+                    }
+
+                },
+                50
+            );
+
+            const cleanup =
+                () => {
+
+                    customNameModal.style.display =
+                        'none';
+
+                    if (cancelBtn) {
+
+                        cancelBtn.onclick =
+                            null;
+
+                    }
+
+                    if (confirmBtn) {
+
+                        confirmBtn.onclick =
+                            null;
+
+                    }
+
+                };
+
+            if (cancelBtn) {
+
+                cancelBtn.onclick =
+                    () => {
+
+                        cleanup();
+
+                        resolve(null);
+
+                    };
+
+            }
+
+            if (confirmBtn) {
+
+                confirmBtn.onclick =
+                    () => {
+
+                        const name =
+                            input
+                                ? input.value.trim()
+                                : '';
+
+                        if (!name) {
+
+                            alert(
+                                'Please enter your name.'
+                            );
+
+                            if (input) {
+                                input.focus();
+                            }
+
+                            return;
+
+                        }
+
+                        cleanup();
+
+                        resolve(
+                            name
+                        );
+
+                    };
+
+            }
+
+        }
+    );
+
+}
+
+// =========================================================================
+// SETUP SYSTEM EVENT HANDLERS
+// =========================================================================
+function setupSystemEventHandlers() {
+
+    if (systemHandlersBound) {
+        return;
+    }
+
+    systemHandlersBound =
+        true;
+
+    // =========================================================================
+    // SEARCH BUTTON
+    // =========================================================================
+    if (searchButton) {
+
+        searchButton.addEventListener(
+            'click',
+            () => {
+
+                executeSearch(
+                    false
+                );
+
+            }
+        );
+
+    }
+
+    // =========================================================================
+    // SEARCH ENTER KEY
+    // =========================================================================
     if (searchInput) {
 
         searchInput.addEventListener(
             'keypress',
             e => {
 
-                if (e.key === 'Enter') {
+                if (
+                    e.key ===
+                    'Enter'
+                ) {
+
+                    e.preventDefault();
 
                     executeSearch(
-                        true
+                        false
+                    );
+
+                }
+
+            }
+        );
+
+        searchInput.addEventListener(
+            'input',
+            () => {
+
+                if (
+                    searchInput.value
+                        .trim()
+                        .length === 0
+                ) {
+
+                    executeSearch(
+                        false
                     );
 
                 }
@@ -3129,327 +3659,371 @@ function setupSystemEventHandlers() {
 
     }
 
+    // =========================================================================
+    // REMARKS FILTER
+    // =========================================================================
     if (remarksFilter) {
 
         remarksFilter.addEventListener(
             'change',
-            () =>
-                executeSearch(true)
+            () => {
+
+                executeSearch(
+                    false
+                );
+
+            }
         );
 
     }
 
+    // =========================================================================
+    // TYPE FILTER
+    // =========================================================================
     if (typeFilter) {
 
         typeFilter.addEventListener(
             'change',
-            () =>
-                executeSearch(true)
+            () => {
+
+                executeSearch(
+                    false
+                );
+
+            }
         );
 
     }
 
+    // =========================================================================
+    // PHOTO FILTER
+    // =========================================================================
     if (photoFilter) {
 
         photoFilter.addEventListener(
             'change',
-            () =>
-                executeSearch(true)
+            () => {
+
+                executeSearch(
+                    false
+                );
+
+            }
         );
 
     }
 
+    // =========================================================================
+    // EXPORT ALL CSV
+    // =========================================================================
     if (exportButton) {
 
         exportButton.addEventListener(
             'click',
-            () =>
-                downloadDatasetCSV(
-                    inventoryData,
-                    'Full_Inventory'
-                )
+            () => {
+
+                if (
+                    !inventoryData ||
+                    inventoryData.length === 0
+                ) {
+
+                    alert(
+                        'There is no inventory data to export.'
+                    );
+
+                    return;
+
+                }
+
+                try {
+
+                    const exportRows =
+                        inventoryData.map(
+                            row => {
+
+                                const output =
+                                    {};
+
+                                EXPORT_TABLE_CONFIG.forEach(
+                                    config => {
+
+                                        const key =
+                                            headerMapping[
+                                                config.key
+                                            ];
+
+                                        output[
+                                            config.display
+                                        ] =
+                                            key
+                                                ? row[key] || ''
+                                                : '';
+
+                                    }
+                                );
+
+                                return output;
+
+                            }
+                        );
+
+                    const csv =
+                        Papa.unparse(
+                            exportRows
+                        );
+
+                    const blob =
+                        new Blob(
+                            [csv],
+                            {
+                                type:
+                                    'text/csv;charset=utf-8;'
+                            }
+                        );
+
+                    const url =
+                        URL.createObjectURL(
+                            blob
+                        );
+
+                    const a =
+                        document.createElement(
+                            'a'
+                        );
+
+                    a.href =
+                        url;
+
+                    a.download =
+                        'real_estate_inventory.csv';
+
+                    document.body.appendChild(
+                        a
+                    );
+
+                    a.click();
+
+                    a.remove();
+
+                    URL.revokeObjectURL(
+                        url
+                    );
+
+                } catch (error) {
+
+                    console.error(
+                        'CSV export error:',
+                        error
+                    );
+
+                    alert(
+                        'Unable to export CSV.'
+                    );
+
+                }
+
+            }
         );
 
     }
 
+    // =========================================================================
+    // EXPORT FILTERED CSV
+    // =========================================================================
     if (exportFilteredButton) {
 
         exportFilteredButton.addEventListener(
             'click',
-            () =>
-                downloadSearchedHTML(
-                    currentFilteredData
-                )
+            () => {
+
+                if (
+                    !currentFilteredData ||
+                    currentFilteredData.length === 0
+                ) {
+
+                    alert(
+                        'There are no filtered records to export.'
+                    );
+
+                    return;
+
+                }
+
+                try {
+
+                    const exportRows =
+                        currentFilteredData.map(
+                            row => {
+
+                                const output =
+                                    {};
+
+                                EXPORT_TABLE_CONFIG.forEach(
+                                    config => {
+
+                                        const key =
+                                            headerMapping[
+                                                config.key
+                                            ];
+
+                                        output[
+                                            config.display
+                                        ] =
+                                            key
+                                                ? row[key] || ''
+                                                : '';
+
+                                    }
+                                );
+
+                                return output;
+
+                            }
+                        );
+
+                    const csv =
+                        Papa.unparse(
+                            exportRows
+                        );
+
+                    const blob =
+                        new Blob(
+                            [csv],
+                            {
+                                type:
+                                    'text/csv;charset=utf-8;'
+                            }
+                        );
+
+                    const url =
+                        URL.createObjectURL(
+                            blob
+                        );
+
+                    const a =
+                        document.createElement(
+                            'a'
+                        );
+
+                    a.href =
+                        url;
+
+                    a.download =
+                        'filtered_real_estate_inventory.csv';
+
+                    document.body.appendChild(
+                        a
+                    );
+
+                    a.click();
+
+                    a.remove();
+
+                    URL.revokeObjectURL(
+                        url
+                    );
+
+                } catch (error) {
+
+                    console.error(
+                        'Filtered CSV export error:',
+                        error
+                    );
+
+                    alert(
+                        'Unable to export filtered CSV.'
+                    );
+
+                }
+
+            }
         );
 
     }
 
-    // =====================================================================
-    // 📸 UPLOAD PHOTOS
-    // =====================================================================
+    // =========================================================================
+    // PROPERTY MODAL EDIT BUTTON
+    // =========================================================================
+    if (modalEditBtn) {
 
+        modalEditBtn.addEventListener(
+            'click',
+            () => {
+
+                modalActionTaken =
+                    true;
+
+                enableModalEditMode();
+
+            }
+        );
+
+    }
+
+    // =========================================================================
+    // PROPERTY MODAL SAVE BUTTON
+    // =========================================================================
+    if (modalSaveBtn) {
+
+        modalSaveBtn.addEventListener(
+            'click',
+            async () => {
+
+                modalActionTaken =
+                    true;
+
+                const operator =
+                    await showCustomNameModal();
+
+                if (!operator) {
+                    return;
+                }
+
+                await saveModalChanges(
+                    operator
+                );
+
+            }
+        );
+
+    }
+
+    // =========================================================================
+    // UPLOAD PHOTO BUTTON
+    // =========================================================================
     if (uploadPhotoBtn) {
 
         uploadPhotoBtn.addEventListener(
             'click',
             () => {
 
-                if (
-                    activeEditIndex ===
-                    null
-                ) {
-
-                    alert(
-                        "Upload Error: No property record is currently selected."
-                    );
-
-                    return;
-
-                }
-
-                const itemData =
-                    inventoryData.find(
-                        r =>
-                            r._rowId ===
-                            activeEditIndex
-                    );
-
-                if (!itemData) {
-
-                    alert(
-                        "Upload Error: The selected property record could not be found."
-                    );
-
-                    return;
-
-                }
-
-                // =========================================================
-                // GET ARTICLE / TCT / ITEM
-                // =========================================================
-
-                const articleKey =
-                    headerMapping[
-                        'article/item'
-                    ];
-
-                const descriptionKey =
-                    headerMapping[
-                        'description'
-                    ];
-
-                const itemValue =
-                    articleKey ?
-                    String(
-                        itemData[
-                            articleKey
-                        ] || ''
-                    ).trim() :
-                    '';
-
-                const descriptionValue =
-                    descriptionKey ?
-                    String(
-                        itemData[
-                            descriptionKey
-                        ] || ''
-                    ).trim() :
-                    '';
-
-                if (!itemValue) {
-
-                    alert(
-                        "Upload Error: This property has no Article/TCT number."
-                    );
-
-                    return;
-
-                }
-
-                // =========================================================
-                // VERY IMPORTANT
-                //
-                // Your Google Apps Script doGet() expects:
-                //
-                // e.parameter.itemCode
-                //
-                // NOT:
-                // item
-                // article
-                // rowId
-                //
-                // Therefore itemCode is the primary parameter.
-                // =========================================================
-
-                modalNeedsRefresh =
-                    true;
-
-                const uploadUrl =
-                    new URL(
-                        GOOGLE_APPS_SCRIPT_URL
-                    );
-
-                // THIS IS THE IMPORTANT FIX
-                uploadUrl.searchParams.set(
-                    'itemCode',
-                    itemValue
-                );
-
-                // Additional parameters
-                // These do not hurt the existing Apps Script
-                // and can be used later if needed.
-
-                uploadUrl.searchParams.set(
-                    'item',
-                    itemValue
-                );
-
-                uploadUrl.searchParams.set(
-                    'article',
-                    itemValue
-                );
-
-                uploadUrl.searchParams.set(
-                    'rowId',
-                    String(
-                        activeEditIndex + 2
-                    )
-                );
-
-                if (descriptionValue) {
-
-                    uploadUrl.searchParams.set(
-                        'description',
-                        descriptionValue
-                    );
-
-                }
-
-                // =========================================================
-                // OPEN GOOGLE APPS SCRIPT UPLOAD FORM
-                // =========================================================
-
-                window.open(
-                    uploadUrl.toString(),
-                    '_blank'
-                );
+                handleUploadPhoto();
 
             }
         );
 
     }
 
-    // =====================================================================
-    // EDIT
-    // =====================================================================
-
-    if (modalEditBtn) {
-
-        modalEditBtn.addEventListener(
-            'click',
-            enableEditMode
-        );
-
-    }
-
-    // =====================================================================
-    // SAVE
-    // =====================================================================
-
-    if (modalSaveBtn) {
-
-        modalSaveBtn.addEventListener(
-            'click',
-            triggerSaveProcess
-        );
-
-    }
-
-    // =====================================================================
-    // CLOSE
-    // =====================================================================
-
+    // =========================================================================
+    // CLOSE BUTTON
+    // =========================================================================
     if (modalCloseBtn) {
 
         modalCloseBtn.addEventListener(
             'click',
-            closeModal
-        );
-
-    }
-
-    if (modalCloseX) {
-
-        modalCloseX.addEventListener(
-            'click',
-            closeModal
-        );
-
-    }
-
-    // =====================================================================
-    // CANCEL NAME
-    // =====================================================================
-
-    const cancelNameBtn =
-        document.getElementById(
-            'customCancelNameBtn'
-        );
-
-    if (cancelNameBtn) {
-
-        cancelNameBtn.addEventListener(
-            'click',
             () => {
 
-                customNameModal.style.display =
-                    'none';
+                /*
+                 * If Edit or Upload was clicked,
+                 * refresh the data but keep the same
+                 * page/scroll position.
+                 */
+                const needsRefresh =
+                    modalActionTaken ||
+                    modalModified;
 
-            }
-        );
-
-    }
-
-    // =====================================================================
-    // CONFIRM NAME
-    // =====================================================================
-
-    const confirmNameBtn =
-        document.getElementById(
-            'customConfirmNameBtn'
-        );
-
-    if (confirmNameBtn) {
-
-        confirmNameBtn.addEventListener(
-            'click',
-            () => {
-
-                const nameInput =
-                    document.getElementById(
-                        'custom-operator-input'
-                    );
-
-                const nameVal =
-                    nameInput ?
-                    nameInput.value.trim() :
-                    '';
-
-                if (!nameVal) {
-
-                    alert(
-                        "Authorization Denied: Operator name required."
-                    );
-
-                    return;
-
-                }
-
-                customNameModal.style.display =
-                    'none';
-
-                finalizeSaveData(
-                    nameVal
+                closePropertyModal(
+                    needsRefresh
                 );
 
             }
@@ -3457,543 +4031,192 @@ function setupSystemEventHandlers() {
 
     }
 
-}
+    // =========================================================================
+    // X BUTTON
+    // =========================================================================
+    if (modalCloseX) {
 
-// =========================================================================
-// EXPORT CSV
-// =========================================================================
+        modalCloseX.addEventListener(
+            'click',
+            () => {
 
-function downloadDatasetCSV(
-    data,
-    filenamePrefix
-) {
+                const needsRefresh =
+                    modalActionTaken ||
+                    modalModified;
 
-    if (
-        !data ||
-        data.length === 0
-    ) {
+                closePropertyModal(
+                    needsRefresh
+                );
 
-        alert(
-            "Export Nullified: No dataset active for export."
-        );
-
-        return;
-
-    }
-
-    const headerRow =
-        rawHeaders.join(",");
-
-    const rows =
-        data.map(
-            r =>
-                rawHeaders
-                    .map(
-                        h =>
-                            `"${(
-                                r[h] || ''
-                            ).replace(
-                                /"/g,
-                                '""'
-                            )}"`
-                    )
-                    .join(",")
-        );
-
-    const csvContent =
-        [
-            headerRow,
-            ...rows
-        ].join("\n");
-
-    const blob =
-        new Blob(
-            [csvContent],
-            {
-                type:
-                    'text/csv;charset=utf-8;'
             }
         );
 
-    const link =
-        document.createElement(
-            "a"
-        );
-
-    const url =
-        URL.createObjectURL(
-            blob
-        );
-
-    link.setAttribute(
-        "href",
-        url
-    );
-
-    link.setAttribute(
-        "download",
-        `${filenamePrefix}_${new Date().toISOString().slice(0,10)}.csv`
-    );
-
-    link.style.visibility =
-        'hidden';
-
-    document.body.appendChild(
-        link
-    );
-
-    link.click();
-
-    document.body.removeChild(
-        link
-    );
-
-    URL.revokeObjectURL(
-        url
-    );
-
-}
-
-// =========================================================================
-// EXPORT SEARCHED HTML
-// =========================================================================
-
-function downloadSearchedHTML(
-    data
-) {
-
-    if (
-        !data ||
-        data.length === 0
-    ) {
-
-        alert(
-            "Export Nullified: No dataset active for export."
-        );
-
-        return;
-
     }
 
-    let tableRowsHTML =
-        '';
+    // =========================================================================
+    // CLICK OUTSIDE MODAL
+    // =========================================================================
+    if (editModal) {
 
-    data.forEach(
-        row => {
+        editModal.addEventListener(
+            'click',
+            e => {
 
-            tableRowsHTML +=
-                '<tr>';
+                if (
+                    e.target ===
+                    editModal
+                ) {
 
-            EXPORT_TABLE_CONFIG.forEach(
-                col => {
+                    const needsRefresh =
+                        modalActionTaken ||
+                        modalModified;
 
-                    const tKey =
-                        col.key;
-
-                    const resolvedKey =
-                        headerMapping[tKey];
-
-                    const val =
-                        resolvedKey ?
-                        (
-                            row[
-                                resolvedKey
-                            ] || ''
-                        ) :
-                        '';
-
-                    if (
-                        tKey.includes(
-                            'photo'
-                        ) ||
-                        tKey.includes(
-                            'map coordinates'
-                        ) ||
-                        tKey.includes(
-                            'tax declaration'
-                        ) ||
-                        tKey.includes(
-                            'transfer_cert'
-                        )
-                    ) {
-
-                        if (
-                            val.trim() !== ''
-                        ) {
-
-                            const viewUrl =
-                                getDirectImageUrl(
-                                    val,
-                                    'view'
-                                ) ||
-                                val;
-
-                            const thumbUrl =
-                                getDirectImageUrl(
-                                    val,
-                                    'thumbnail'
-                                ) ||
-                                val;
-
-                            tableRowsHTML += `
-                                <td style="
-                                    text-align:center;
-                                ">
-                                    <img
-                                        src="${viewUrl}"
-                                        onerror="
-                                            this.onerror=null;
-                                            this.src='${thumbUrl}';
-                                        "
-                                        style="
-                                            height:250px;
-                                            max-width:250px;
-                                            width:auto;
-                                            object-fit:contain;
-                                            border:1px solid #94a3b8;
-                                            border-radius:4px;
-                                            display:block;
-                                            margin:0 auto;
-                                        "
-                                    />
-                                </td>
-                            `;
-
-                        } else {
-
-                            tableRowsHTML += `
-                                <td style="
-                                    text-align:center;
-                                    color:#64748b;
-                                    font-style:italic;
-                                ">
-                                    No Photo
-                                </td>
-                            `;
-
-                        }
-
-                    } else {
-
-                        let styleAttr =
-                            "";
-
-                        if (
-                            tKey ===
-                            "description"
-                        ) {
-
-                            styleAttr =
-                                ' style="width:200px; min-width:190px;"';
-
-                        }
-
-                        tableRowsHTML +=
-                            `<td${styleAttr}>${escapeHtml(val)}</td>`;
-
-                    }
+                    closePropertyModal(
+                        needsRefresh
+                    );
 
                 }
+
+            }
+        );
+
+    }
+
+    // =========================================================================
+    // ESC KEY
+    // =========================================================================
+    document.addEventListener(
+        'keydown',
+        e => {
+
+            if (
+                e.key === 'Escape'
+            ) {
+
+                // Close image viewer first
+                const viewer =
+                    document.getElementById(
+                        'inventoryImageViewer'
+                    );
+
+                if (
+                    viewer &&
+                    viewer.style.display !==
+                        'none'
+                ) {
+
+                    viewer.style.display =
+                        'none';
+
+                    return;
+
+                }
+
+                // Then close property modal
+                if (
+                    editModal &&
+                    editModal.style.display ===
+                        'flex'
+                ) {
+
+                    const needsRefresh =
+                        modalActionTaken ||
+                        modalModified;
+
+                    closePropertyModal(
+                        needsRefresh
+                    );
+
+                }
+
+            }
+
+        }
+    );
+
+}
+
+// =========================================================================
+// GLOBAL ERROR PROTECTION
+// =========================================================================
+window.addEventListener(
+    'error',
+    function(event) {
+
+        console.error(
+            'Application JavaScript error:',
+            event.error ||
+            event.message
+        );
+
+    }
+);
+
+window.addEventListener(
+    'unhandledrejection',
+    function(event) {
+
+        console.error(
+            'Unhandled Promise rejection:',
+            event.reason
+        );
+
+    }
+);
+
+// =========================================================================
+// INITIAL PAGE STATE
+// =========================================================================
+document.addEventListener(
+    'DOMContentLoaded',
+    () => {
+
+        const loginScreen =
+            document.getElementById(
+                'loginScreen'
             );
 
-            tableRowsHTML +=
-                '</tr>';
+        const mainApp =
+            document.getElementById(
+                'mainApp'
+            );
 
-        }
-    );
+        // Keep login screen visible initially
+        if (loginScreen) {
 
-    let headersHTML =
-        '';
-
-    EXPORT_TABLE_CONFIG.forEach(
-        col => {
-
-            headersHTML +=
-                `<th>${col.display}</th>`;
-
-        }
-    );
-
-    const htmlContent = `
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-
-    <meta charset="UTF-8">
-
-    <title>
-        Searched Inventory Report
-    </title>
-
-    <style>
-
-        body {
-
-            font-family:
-                Arial,
-                sans-serif;
-
-            margin:20px;
-
-            color:#0f172a;
-
-            background:#ffffff;
-
-            -webkit-print-color-adjust:
-                exact;
-
-            print-color-adjust:
-                exact;
+            loginScreen.style.display =
+                'flex';
 
         }
 
-        h1 {
+        if (mainApp) {
 
-            text-align:center;
-
-            color:#0f172a;
-
-            text-transform:uppercase;
-
-            font-size:24px;
-
-            margin-bottom:5px;
+            mainApp.style.display =
+                'none';
 
         }
 
-        .report-meta {
+        // Disable application controls until login
+        [
+            searchInput,
+            searchButton,
+            exportButton,
+            exportFilteredButton,
+            remarksFilter,
+            typeFilter,
+            photoFilter
+        ].forEach(
+            element => {
+
+                if (element) {
+
+                    element.disabled =
+                        true;
+
+                }
 
-            text-align:center;
-
-            font-size:14px;
-
-            color:#334155;
-
-            margin-bottom:25px;
-
-            font-weight:bold;
-
-        }
-
-        table {
-
-            width:100%;
-
-            border-collapse:
-                collapse;
-
-            margin-top:10px;
-
-            background:white;
-
-        }
-
-        th,
-        td {
-
-            border:
-                1px solid #64748b;
-
-            padding:
-                10px 12px;
-
-            text-align:left;
-
-            font-size:16px;
-
-            line-height:1.4;
-
-            word-break:
-                break-word;
-
-            color:#0f172a;
-
-            vertical-align:
-                middle;
-
-        }
-
-        th {
-
-            background-color:
-                #cbd5e1 !important;
-
-            color:#0f172a;
-
-            font-weight:bold;
-
-            text-transform:
-                uppercase;
-
-            font-size:12px;
-
-            letter-spacing:
-                0.5px;
-
-        }
-
-        tr:nth-child(even) {
-
-            background-color:
-                #f8fafc;
-
-        }
-
-        @media print {
-
-            body {
-                margin:10px;
-            }
-
-            table {
-                page-break-inside:auto;
-            }
-
-            tr {
-
-                page-break-inside:
-                    avoid;
-
-                page-break-after:
-                    auto;
-
-            }
-
-            th {
-
-                background-color:
-                    #cbd5e1 !important;
-
-            }
-
-        }
-
-    </style>
-
-</head>
-
-<body>
-
-    <h1>
-        Real Estate Inventory Report
-    </h1>
-
-    <div class="report-meta">
-
-        Exported On:
-        ${new Date().toLocaleString()}
-
-        &bull;
-
-        Total Records:
-        ${data.length}
-
-    </div>
-
-    <table>
-
-        <thead>
-
-            <tr>
-                ${headersHTML}
-            </tr>
-
-        </thead>
-
-        <tbody>
-
-            ${tableRowsHTML}
-
-        </tbody>
-
-    </table>
-
-</body>
-
-</html>
-`;
-
-    const blob =
-        new Blob(
-            [htmlContent],
-            {
-                type:
-                    'text/html;charset=utf-8;'
             }
         );
 
-    const link =
-        document.createElement(
-            "a"
-        );
-
-    const url =
-        URL.createObjectURL(
-            blob
-        );
-
-    link.setAttribute(
-        "href",
-        url
-    );
-
-    link.setAttribute(
-        "download",
-        `Searched_Inventory_Report_${new Date().toISOString().slice(0,10)}.html`
-    );
-
-    link.style.visibility =
-        'hidden';
-
-    document.body.appendChild(
-        link
-    );
-
-    link.click();
-
-    document.body.removeChild(
-        link
-    );
-
-    URL.revokeObjectURL(
-        url
-    );
-
-}
-
-// =========================================================================
-// HTML ESCAPE
-// =========================================================================
-
-function escapeHtml(str) {
-
-    return String(str)
-
-        .replace(
-            /&/g,
-            "&amp;"
-        )
-
-        .replace(
-            /</g,
-            "&lt;"
-        )
-
-        .replace(
-            />/g,
-            "&gt;"
-        )
-
-        .replace(
-            /"/g,
-            "&quot;"
-        )
-
-        .replace(
-            /'/g,
-            "&#039;"
-        );
-
-}
-```
+    }
+);
