@@ -259,7 +259,7 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-async function loadInventoryFromGoogleSheets() {
+async function loadInventoryFromGoogleSheets(retainPage = false) {
     statusBanner.style.backgroundColor = "#fff3cd";
     statusBanner.style.color = "#856404";
     statusBanner.textContent = "Connecting to Google Sheets Live Datastream...";
@@ -296,7 +296,7 @@ async function loadInventoryFromGoogleSheets() {
                         row._rowId = idx;
                         return row;
                     });
-                    initializeSystemUI();
+                    initializeSystemUI(retainPage);
                 } else {
                     throw new Error("Target dataset sheet contains no metrics.");
                 }
@@ -312,7 +312,7 @@ async function loadInventoryFromGoogleSheets() {
     }
 }
 
-function initializeSystemUI() {
+function initializeSystemUI(retainPage = false) {
     statusBanner.style.backgroundColor = "#d4edda";
     statusBanner.style.color = "#155724";
     statusBanner.innerHTML = `<span class="live-animated-text">✅ Connected to Google Sheets: Live View Active.</span>`;
@@ -342,7 +342,8 @@ function initializeSystemUI() {
         updatePaginationUI(0);
         isAppInitialized = true;
     } else {
-        executeSearch(true);
+        // If retainPage is true, executeSearch(false) prevents resetting the page number to 1
+        executeSearch(!retainPage);
     }
 }
 
@@ -680,7 +681,7 @@ function openPopUp(rowId, clickedPhotoKey = null) {
     
     renderModalPhotoViewer();
 
-    modalModified = false;
+    modalModified = false; // Reset modification tracker on fresh open
     modalEditBtn.style.display = 'inline-block';
     modalSaveBtn.style.display = 'none';
     uploadPhotoBtn.style.display = 'inline-block';
@@ -823,7 +824,7 @@ function finalizeSaveData(operatorName) {
             hideLoading();
             if(res.success) {
                 alert("Cloud Sync Successful: Data modifications permanently applied.");
-                executeSearch(false);
+                // Let closeModal handle the background refresh to keep the page state
                 closeModal();
             } else {
                 alert("Sync Failure: " + (res.error || "Unknown Network Exception"));
@@ -840,8 +841,35 @@ function finalizeSaveData(operatorName) {
     }
 }
 
+// 🌐 OPENS UPLOAD WINDOW AND LINKS TO GAS
+function openUploadWindow() {
+    if (activeEditIndex === null) return;
+    const itemData = inventoryData.find(r => r._rowId === activeEditIndex);
+    if (!itemData) return;
+
+    // Pull exact Item ID required by GAS
+    const articleKey = headerMapping['article/item'];
+    const itemCode = itemData[articleKey] || 'Unknown';
+
+    // Append ?itemCode= to deployment URL
+    const uploadUrl = GOOGLE_APPS_SCRIPT_URL + "?itemCode=" + encodeURIComponent(itemCode);
+    
+    // Launch upload window 
+    window.open(uploadUrl, '_blank', 'width=450,height=700');
+
+    // Mark modal as modified so the table syncs the new photos upon closing
+    modalModified = true;
+}
+
+// 🌐 REFRESHES IN PLACE ON CLOSE
 function closeModal() {
     editModal.style.display = 'none';
+    
+    // If photos were uploaded or data was edited, refresh sheets but keep the current page
+    if (modalModified) {
+        loadInventoryFromGoogleSheets(true);
+    }
+    
     activeEditIndex = null;
     modalModified = false;
 }
@@ -856,6 +884,9 @@ function setupSystemEventHandlers() {
     
     if(exportButton) exportButton.addEventListener('click', () => downloadDatasetCSV(inventoryData, 'Full_Inventory'));
     if(exportFilteredButton) exportFilteredButton.addEventListener('click', () => downloadSearchedHTML(currentFilteredData));
+    
+    // Upload event binding added here
+    if(uploadPhotoBtn) uploadPhotoBtn.addEventListener('click', openUploadWindow); 
     
     if(modalEditBtn) modalEditBtn.addEventListener('click', enableEditMode);
     if(modalSaveBtn) modalSaveBtn.addEventListener('click', triggerSaveProcess);
