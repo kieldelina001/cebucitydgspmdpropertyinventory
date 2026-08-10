@@ -973,7 +973,7 @@ function downloadSearchedHTML(data) {
             border: 1px solid #64748b; 
             padding: 10px 12px; 
             text-align: left; 
-            font-size: 13px; 
+            font-size: 16px; 
             line-height: 1.4;
             word-break: break-word; 
             color: #0f172a;
