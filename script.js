@@ -3,6 +3,27 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzrqoIQ1
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
 const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
 
+// =========================================================================
+// 🛠️ MANUAL EXPORT TABLE ADJUSTMENT CONFIGURATION 🛠️
+// Adjust the items below to change which columns appear in the "Export Searched" HTML file.
+// 'display' is the column header text shown in the generated export table.
+// 'key' is the internal lowercase identifier matching your spreadsheet columns.
+// Simply delete or comment out a line to remove that column from the export.
+// =========================================================================
+const EXPORT_TABLE_CONFIG = [
+    { display: "Article no./ TCT no.", key: "article/item" },
+    { display: "Description", key: "description" },
+    { display: "Remarks", key: "remarks" },
+    { display: "Type", key: "type" },
+    { display: "Photo 1", key: "photo 1" },
+    { display: "Photo 2", key: "photo 2" },
+    { display: "Map Coordinates", key: "map coordinates" },
+    { display: "Tax Declaration", key: "tax declaration" },
+    { display: "Transfer Certificate of Title Page 1", key: "transfer_cert1" },
+    { display: "Transfer Certificate of Title Page 2", key: "transfer_cert2" },
+];
+// =========================================================================
+
 const displayHeaders = ["Article no./ TCT no.", "Description", "Acquisition Date", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Coordinates", "Tax Declaration", "Transfer Certificate of Title Page 1", "Transfer Certificate of Title Page 2", "UPDATED BY", "LAST UPDATE"];
 const targetHeadersLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "transfer_cert1", "transfer_cert2", "updated by", "last update"];
 const popupOrderLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type"]; 
@@ -662,7 +683,7 @@ function openPopUp(rowId, clickedPhotoKey = null) {
     modalModified = false;
     modalEditBtn.style.display = 'inline-block';
     modalSaveBtn.style.display = 'none';
-    uploadPhotoBtn.style.display = 'none'; 
+    uploadPhotoBtn.style.display = 'inline-block';
     editModal.style.display = 'flex';
 }
 
@@ -882,7 +903,9 @@ function downloadSearchedHTML(data) {
     let tableRowsHTML = '';
     data.forEach(row => {
         tableRowsHTML += '<tr>';
-        targetHeadersLowercase.forEach(tKey => {
+        // USE THE NEW CONFIGURATION ARRAY HERE
+        EXPORT_TABLE_CONFIG.forEach(col => {
+            const tKey = col.key;
             const resolvedKey = headerMapping[tKey];
             const val = resolvedKey ? (row[resolvedKey] || '') : '';
             
@@ -890,20 +913,26 @@ function downloadSearchedHTML(data) {
                 if (val.trim() !== '') {
                     const viewUrl = getDirectImageUrl(val, 'view') || val;
                     const thumbUrl = getDirectImageUrl(val, 'thumbnail') || val;
-                    tableRowsHTML += `<td style="text-align: center;"><img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" style="height: 140px; max-width: 180px; width: auto; object-fit: contain; border: 1px solid #94a3b8; border-radius: 4px; display: block; margin: 0 auto;" /></td>`;
+                    tableRowsHTML += `<td style="text-align: center;"><img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" style="height: 250px; max-width: 250px; width: auto; object-fit: contain; border: 1px solid #94a3b8; border-radius: 4px; display: block; margin: 0 auto;" /></td>`;
                 } else {
                     tableRowsHTML += `<td style="text-align: center; color: #64748b; font-style: italic;">No Photo</td>`;
                 }
             } else {
-                tableRowsHTML += `<td>${escapeHtml(val)}</td>`;
+            // 💡 Custom sizing specifically for the Description column
+            let styleAttr = "";
+            if (tKey === "description") {
+                styleAttr = ' style="width: 200px; min-width: 190px;"';
             }
+            tableRowsHTML += `<td${styleAttr}>${escapeHtml(val)}</td>`;
+        }
         });
         tableRowsHTML += '</tr>';
     });
 
     let headersHTML = '';
-    displayHeaders.forEach(h => {
-        headersHTML += `<th>${h}</th>`;
+    // USE THE NEW CONFIGURATION ARRAY HERE
+    EXPORT_TABLE_CONFIG.forEach(col => {
+        headersHTML += `<th>${col.display}</th>`;
     });
 
     const htmlContent = `<!DOCTYPE html>
@@ -944,7 +973,7 @@ function downloadSearchedHTML(data) {
             border: 1px solid #64748b; 
             padding: 10px 12px; 
             text-align: left; 
-            font-size: 13px; 
+            font-size: 16px; 
             line-height: 1.4;
             word-break: break-word; 
             color: #0f172a;
