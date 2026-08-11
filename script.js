@@ -560,10 +560,9 @@ function executeSearch(resetPage = true) {
     const tKey = headerMapping['type'];
     const pKey1 = headerMapping['photo 1'];
     const pKey2 = headerMapping['photo 2'];
-    const pKey3 = headerMapping['map coordinates'];
     const pKey4 = headerMapping['tax declaration'];
     
-    const pKeys = [pKey1, pKey2, pKey3];
+    const photo1Or2Keys = [pKey1, pKey2];
 
     currentFilteredData = inventoryData.filter(row => {
         let matchText = true, matchRem = true, matchType = true, matchPhoto = true;
@@ -584,10 +583,10 @@ function executeSearch(resetPage = true) {
         }
         
         if (phoF !== 'ALL') {
-            const hasAnyMedia = pKeys.some(k => row[k] && row[k].trim() !== '');
+            const hasPhoto1Or2 = photo1Or2Keys.some(k => k && row[k] && row[k].trim() !== '');
             const hasTaxDec = pKey4 ? (row[pKey4] && row[pKey4].trim() !== '') : false;
-            if (phoF === 'WITH_PHOTO') matchPhoto = hasAnyMedia;
-            if (phoF === 'NO_PHOTO') matchPhoto = !hasAnyMedia;
+            if (phoF === 'WITH_PHOTO') matchPhoto = hasPhoto1Or2;
+            if (phoF === 'NO_PHOTO') matchPhoto = !hasPhoto1Or2;
             if (phoF === 'WITH_TAX_DEC') matchPhoto = hasTaxDec;
         }
         
