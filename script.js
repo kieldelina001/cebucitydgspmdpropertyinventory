@@ -490,8 +490,6 @@ function calculateStaticDashboardTotals(items) {
     const pKey2 = headerMapping['photo 2'];
     const pKey3 = headerMapping['map coordinates'];
     const pKey4 = headerMapping['tax declaration']; 
-    const pKey5 = headerMapping['transfer_cert1'];
-    const pKey6 = headerMapping['transfer_cert2'];
     
     let existing = 0, notfound = 0, verify = 0, photos = 0, taxdec = 0;
     
@@ -564,11 +562,8 @@ function executeSearch(resetPage = true) {
     const pKey2 = headerMapping['photo 2'];
     const pKey3 = headerMapping['map coordinates'];
     const pKey4 = headerMapping['tax declaration'];
-    const pKey5 = headerMapping['transfer_cert1'];
-    const pKey6 = headerMapping['transfer_cert2'];
     
     const pKeys = [pKey1, pKey2, pKey3];
-    const taxKeys = [pKey4, pKey5, pKey6];
 
     currentFilteredData = inventoryData.filter(row => {
         let matchText = true, matchRem = true, matchType = true, matchPhoto = true;
@@ -590,7 +585,7 @@ function executeSearch(resetPage = true) {
         
         if (phoF !== 'ALL') {
             const hasAnyMedia = pKeys.some(k => row[k] && row[k].trim() !== '');
-            const hasTaxDec = taxKeys.some(k => row[k] && row[k].trim() !== '');
+            const hasTaxDec = pKey4 ? (row[pKey4] && row[pKey4].trim() !== '') : false;
             if (phoF === 'WITH_PHOTO') matchPhoto = hasAnyMedia;
             if (phoF === 'NO_PHOTO') matchPhoto = !hasAnyMedia;
             if (phoF === 'WITH_TAX_DEC') matchPhoto = hasTaxDec;
@@ -856,12 +851,7 @@ function finalizeSaveData(operatorName) {
             } else {
                 alert("Sync Failure: " + resText);
             }
-        })
-    //    .catch(err => {
-      //      hideLoading();
-        //    alert("Fatal Error: Cloud Server unreachable.");
-          //  console.error(err);
-        //});
+        });
     } else {
         alert("Integrity Check: No changes detected in the matrix.");
         closeModal();
