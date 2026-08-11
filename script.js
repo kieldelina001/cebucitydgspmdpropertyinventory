@@ -180,7 +180,6 @@ window.addEventListener('scroll', () => {
 function initApp() {
     initUIReferences();
 
-    // 1. Initialize Google Token Client for Drive read scopes + Userinfo
     if (window.google && google.accounts && google.accounts.oauth2) {
         tokenClient = google.accounts.oauth2.initTokenClient({
             client_id: '84591548482-rfv15nf99g7nsdtlr3i57ms0fuln28s3.apps.googleusercontent.com',
@@ -189,7 +188,6 @@ function initApp() {
                 if (tokenResponse && tokenResponse.access_token) {
                     accessToken = tokenResponse.access_token;
                     
-                    // Fetch User Profile for Operator Name
                     fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
                         headers: { 'Authorization': `Bearer ${accessToken}` }
                     })
@@ -226,7 +224,6 @@ function initApp() {
         });
     }
 
-    // Pagination Listeners
     if (prevPageBtn) {
         prevPageBtn.addEventListener('click', () => {
             if (currentPage > 1) {
@@ -246,11 +243,9 @@ function initApp() {
         });
     }
     
-    // --- HOVER PREVIEW EVENT LISTENERS ---
     document.addEventListener('mouseover', function(e) {
         if (e.target && e.target.classList.contains('hover-preview-img')) {
             const srcToUse = e.target.src;
-            // Prevent showing placeholder spinner in tooltip
             if (srcToUse && !srcToUse.includes('svg+xml') && tooltip && tooltipImg) {
                 tooltipImg.src = srcToUse;
                 tooltip.style.display = 'block';
@@ -330,8 +325,6 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
     showLoading("Syncing live spreadsheet grid...");
 
     try {
-        // Update: We now pass the 'Authorization' Bearer token inside the fetch request.
-        // This validates your connection so Papa.parse doesn't hit a login screen.
         const response = await fetch(GOOGLE_SHEET_CSV_URL, {
             headers: accessToken ? {
                 'Authorization': `Bearer ${accessToken}`
@@ -509,7 +502,6 @@ function renderTable(data, page = 1) {
             if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration') || tKey.includes('transfer_cert')) {
                 const url = resolvedKey ? (row[resolvedKey] || '') : '';
                 if (url.trim() !== '') {
-                    // Create image element dynamically for async fetching
                     const imgEl = document.createElement('img');
                     imgEl.className = "hover-preview-img";
                     imgEl.style.height = "50px";
@@ -519,13 +511,11 @@ function renderTable(data, page = 1) {
                     imgEl.style.borderRadius = "4px";
                     imgEl.style.cursor = "zoom-in";
                     imgEl.alt = "Loading...";
-                    // Loading Spinner SVG Base64 while fetching the image
                     imgEl.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'%3E%3Ccircle cx='25' cy='25' r='20' fill='none' stroke='%23ccc' stroke-width='4' stroke-dasharray='31.4 31.4'%3E%3CanimateTransform attributeName='transform' type='rotate' from='0 25 25' to='360 25 25' dur='1s' repeatCount='indefinite'/%3E%3C/circle%3E%3C/svg%3E";
                     
                     imgEl.onclick = (event) => { event.stopPropagation(); openPopUp(row._rowId, tKey); };
                     td.appendChild(imgEl);
 
-                    // Fetch securely behind the scenes and update SRC
                     fetchAuthorizedImage(url).then(objectUrl => {
                         if(objectUrl) {
                             imgEl.src = objectUrl;
@@ -555,7 +545,6 @@ function calculateStaticDashboardTotals(items) {
     const tKey = headerMapping['type'];
     const pKey1 = headerMapping['photo 1'];
     const pKey2 = headerMapping['photo 2'];
-    const pKey3 = headerMapping['map coordinates'];
     const pKey4 = headerMapping['tax declaration']; 
     
     let existing = 0, notfound = 0, verify = 0, photos = 0, taxdec = 0;
@@ -794,7 +783,6 @@ function renderModalPhotoViewer() {
     downloadBtn.className = 'photo-action-btn';
     downloadBtn.innerHTML = `Download Photo`;
     downloadBtn.onclick = async () => {
-        // Fetch to ensure they get the raw file download reliably
         const objectUrl = await fetchAuthorizedImage(currentImg.url);
         const a = document.createElement('a');
         a.href = objectUrl || currentImg.url;
@@ -826,7 +814,6 @@ function renderModalPhotoViewer() {
     imgEl.alt = currentImg.label;
     imgEl.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'%3E%3Ccircle cx='25' cy='25' r='20' fill='none' stroke='%23ccc' stroke-width='4' stroke-dasharray='31.4 31.4'%3E%3CanimateTransform attributeName='transform' type='rotate' from='0 25 25' to='360 25 25' dur='1s' repeatCount='indefinite'/%3E%3C/circle%3E%3C/svg%3E";
     
-    // Secure background load
     fetchAuthorizedImage(currentImg.url).then(objectUrl => {
         if(objectUrl) imgEl.src = objectUrl;
     });
@@ -862,7 +849,6 @@ function triggerSaveProcess() {
     if (customNameModal) customNameModal.style.display = 'flex';
 }
 
-// 🌐 MODIFIED TO USE URL-ENCODED POST (NO JSON)
 function finalizeSaveData(operatorName) {
     if (activeEditIndex === null) return;
     const itemData = inventoryData.find(r => r._rowId === activeEditIndex);
@@ -1000,26 +986,63 @@ function downloadDatasetCSV(data, filenamePrefix) {
     document.body.removeChild(link);
 }
 
-// ⚠️ Note: Offline HTML export relies on standard Google links as Blob Object URLs expire instantly once the page closes.
-function downloadSearchedHTML(data) {
+// 🖼️ Helper to Convert Image URL to Base64 Data URL for Offline Inclusion
+async function getBase64ImageFromUrl(imageUrl) {
+    if (!imageUrl) return '';
+    try {
+        const match = imageUrl.match(/[-\w]{25,}/);
+        let fetchUrl = imageUrl;
+        let headers = {};
+        if (match && accessToken) {
+            const fileId = match[0];
+            fetchUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+            headers = { 'Authorization': `Bearer ${accessToken}` };
+        }
+        
+        let response = await fetch(fetchUrl, { headers }).catch(() => null);
+        if (!response || !response.ok) {
+            const thumbnailFallback = getDirectImageUrl(imageUrl, 'thumbnail') || imageUrl;
+            response = await fetch(thumbnailFallback).catch(() => null);
+        }
+        if (!response || !response.ok) return imageUrl;
+
+        const blob = await response.blob();
+        return await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => resolve(imageUrl);
+            reader.readAsDataURL(blob);
+        });
+    } catch (e) {
+        console.warn("Base64 image embedding fallback failed:", e);
+        return imageUrl;
+    }
+}
+
+// 🌐 Export Searched HTML with Photos Completely Downloaded & Embedded as Base64
+async function downloadSearchedHTML(data) {
     if(!data || data.length === 0) {
         alert("Export Nullified: No dataset active for export.");
         return;
     }
 
+    showLoading("Downloading and embedding photos into standalone report...");
+
     let tableRowsHTML = '';
-    data.forEach(row => {
+    for (let i = 0; i < data.length; i++) {
+        const row = data[i];
         tableRowsHTML += '<tr>';
-        EXPORT_TABLE_CONFIG.forEach(col => {
+        for (let j = 0; j < EXPORT_TABLE_CONFIG.length; j++) {
+            const col = EXPORT_TABLE_CONFIG[j];
             const tKey = col.key;
             const resolvedKey = headerMapping[tKey];
             const val = resolvedKey ? (row[resolvedKey] || '') : '';
             
             if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration') || tKey.includes('transfer_cert')) {
                 if (val.trim() !== '') {
-                    const viewUrl = getDirectImageUrl(val, 'view') || val;
-                    const thumbUrl = getDirectImageUrl(val, 'thumbnail') || val;
-                    tableRowsHTML += `<td style="text-align: center;"><img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" style="height: 250px; max-width: 250px; width: auto; object-fit: contain; border: 1px solid #94a3b8; border-radius: 4px; display: block; margin: 0 auto;" /></td>`;
+                    // Fetch and convert image to Base64 so photos are fully embedded and downloaded
+                    const base64Img = await getBase64ImageFromUrl(val);
+                    tableRowsHTML += `<td style="text-align: center;"><img src="${base64Img}" style="height: 250px; max-width: 250px; width: auto; object-fit: contain; border: 1px solid #94a3b8; border-radius: 4px; display: block; margin: 0 auto;" /></td>`;
                 } else {
                     tableRowsHTML += `<td style="text-align: center; color: #64748b; font-style: italic;">No Photo</td>`;
                 }
@@ -1030,9 +1053,11 @@ function downloadSearchedHTML(data) {
                 }
                 tableRowsHTML += `<td${styleAttr}>${escapeHtml(val)}</td>`;
             }
-        });
+        }
         tableRowsHTML += '</tr>';
-    });
+    }
+
+    hideLoading();
 
     let headersHTML = '';
     EXPORT_TABLE_CONFIG.forEach(col => {
