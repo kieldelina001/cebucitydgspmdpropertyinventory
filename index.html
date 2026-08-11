@@ -7,7 +7,7 @@
     <meta name="author" content="Noel Rie N. Deliña">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     
-    <!-- Added Google Identity Services (GIS) Library -->
+    <!-- 🔑 Added Google Identity Services Client Script -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     
     <style>
@@ -77,29 +77,6 @@
         .login-btn:hover {
             background-color: #4688c2;
         }
-        
-        /* Added a divider for Google Sign In */
-        .login-divider {
-            margin: 20px 0;
-            display: flex;
-            align-items: center;
-            text-align: center;
-            color: #94a3b8;
-            font-size: 14px;
-        }
-        .login-divider::before,
-        .login-divider::after {
-            content: '';
-            flex: 1;
-            border-bottom: 1px solid #cbd5e1;
-        }
-        .login-divider:not(:empty)::before {
-            margin-right: .25em;
-        }
-        .login-divider:not(:empty)::after {
-            margin-left: .25em;
-        }
-
         .error-msg {
             color: #dc3545;
             margin-top: 15px;
@@ -443,7 +420,7 @@
 </head>
 <body>
 
-    <!-- LOGIN SCREEN -->
+    <!-- 🔑 MODIFIED LOGIN SCREEN (GIS) -->
     <div id="loginScreen">
         <div class="login-box">
             <div class="logo-container">
@@ -452,20 +429,14 @@
             </div>
             <h2>REAL ESTATE INVENTORY<br><span style="font-size: 16px; color: #64748b; margin-top: 8px; display: block;">System Login</span></h2>
             
-            <input type="text" id="usernameIn" class="login-input" placeholder="Username">
-            <input type="password" id="passwordIn" class="login-input" placeholder="Password">
-            <button id="loginBtn" class="login-btn">Secure Login</button>
+            <!-- GIS Integration Elements -->
+            <div id="g_id_onload"
+                 data-client_id="84591548482-rfv15nf99g7nsdtlr3i57ms0fuln28s3.apps.googleusercontent.com"
+                 data-callback="handleCredentialResponse"
+                 data-auto_prompt="false">
+            </div>
             
-            <!-- Google Identity Services Divider -->
-            <div class="login-divider">OR</div>
-
-            <!-- Google Identity Services Sign-in Button integration -->
-            <div style="display: flex; justify-content: center; width: 100%;">
-                <div id="g_id_onload"
-                     data-client_id="84591548482-rfv15nf99g7nsdtlr3i57ms0fuln28s3.apps.googleusercontent.com"
-                     data-callback="handleCredentialResponse"
-                     data-auto_prompt="false">
-                </div>
+            <div style="display: flex; justify-content: center; margin-top: 15px; margin-bottom: 15px;">
                 <div class="g_id_signin"
                      data-type="standard"
                      data-size="large"
