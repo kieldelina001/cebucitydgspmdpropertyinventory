@@ -792,7 +792,7 @@ function renderModalPhotoViewer() {
 
     const downloadBtn = document.createElement('button');
     downloadBtn.className = 'photo-action-btn';
-    downloadBtn.innerHTML = `View Photo`;
+    downloadBtn.innerHTML = `Download Photo`;
     downloadBtn.onclick = async () => {
         // Fetch to ensure they get the raw file download reliably
         const objectUrl = await fetchAuthorizedImage(currentImg.url);
