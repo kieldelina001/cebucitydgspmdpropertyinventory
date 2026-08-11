@@ -481,9 +481,7 @@ function renderTable(data, page = 1) {
             } else {
                 td.textContent = resolvedKey ? (row[resolvedKey] || '') : '';
             }
-            } else {
-                td.textContent = resolvedKey ? (row[resolvedKey] || '') : '';
-            }
+        
             
             tr.appendChild(td);
         });
@@ -1000,13 +998,7 @@ function downloadSearchedHTML(data) {
                 }
                 tableRowsHTML += `<td${styleAttr}>${escapeHtml(val)}</td>`;
             }
-            } else {
-                let styleAttr = "";
-                if (tKey === "description") {
-                    styleAttr = ' style="width: 200px; min-width: 190px;"';
-                }
-                tableRowsHTML += `<td${styleAttr}>${escapeHtml(val)}</td>`;
-            }
+        
         });
         tableRowsHTML += '</tr>';
     });
