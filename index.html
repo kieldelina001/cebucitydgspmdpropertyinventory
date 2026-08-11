@@ -7,7 +7,7 @@
     <meta name="author" content="Noel Rie N. Deliña">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     
-    <!-- 🔑 Added Google Identity Services Client Script -->
+    <!-- Google Identity Services Client Script -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     
     <style>
@@ -53,29 +53,26 @@
             text-transform: uppercase;
             letter-spacing: 1px;
         }
-        .login-input {
-            width: 100%;
-            padding: 12px;
-            margin-bottom: 15px;
-            border: 1px solid #cbd5e1;
-            border-radius: 4px;
-            box-sizing: border-box;
-            font-size: 16px; 
-        }
         .login-btn {
             width: 100%;
             padding: 12px;
-            background-color: #57a1e0;
-            color: white;
-            border: none;
+            background-color: #ffffff;
+            color: #3c4043;
+            border: 1px solid #dadce0;
             border-radius: 4px;
             font-size: 16px;
-            font-weight: bold;
+            font-weight: 500;
             cursor: pointer;
-            transition: background-color 0.2s;
+            transition: background-color 0.2s, box-shadow 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
         }
         .login-btn:hover {
-            background-color: #4688c2;
+            background-color: #f8f9fa;
+            box-shadow: 0 1px 3px 0 rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15);
         }
         .error-msg {
             color: #dc3545;
@@ -148,7 +145,7 @@
         
         .site-footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 14px; color: #64748b; }
         
-        /* --- Modals & Split Layout (EXPANDED PHOTO VIEWER) --- */
+        /* --- Modals & Split Layout --- */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); z-index: 100000; justify-content: center; align-items: center; }
         .modal-box { background-color: white; padding: 25px; border-radius: 8px; width: 1200px; max-width: 95%; box-shadow: 0 10px 30px rgba(0,0,0,0.4); border: 2px solid #57a1e0; box-sizing: border-box; max-height: 92vh; overflow-y: auto; position: relative; }
         .modal-header { font-size: 24px; font-weight: bold; margin-bottom: 20px; color: #333; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; text-align: center; }
@@ -176,7 +173,7 @@
         .modal-flex-layout { display: flex; gap: 25px; align-items: stretch; }
         .modal-fields-side { flex: 1; max-height: 75vh; overflow-y: auto; padding-right: 10px; }
         
-        /* --- Photo Side & Navigation Arrows (MUCH LARGER PHOTO AREA) --- */
+        /* --- Photo Side & Navigation Arrows --- */
         .modal-photo-side { 
             flex: 1.6; 
             display: flex; 
@@ -420,7 +417,7 @@
 </head>
 <body>
 
-    <!-- 🔑 MODIFIED LOGIN SCREEN (GIS) -->
+    <!-- 🔑 MODIFIED LOGIN SCREEN FOR OAUTH TOKEN (GIS) -->
     <div id="loginScreen">
         <div class="login-box">
             <div class="logo-container">
@@ -429,22 +426,16 @@
             </div>
             <h2>REAL ESTATE INVENTORY<br><span style="font-size: 16px; color: #64748b; margin-top: 8px; display: block;">System Login</span></h2>
             
-            <!-- GIS Integration Elements -->
-            <div id="g_id_onload"
-                 data-client_id="84591548482-rfv15nf99g7nsdtlr3i57ms0fuln28s3.apps.googleusercontent.com"
-                 data-callback="handleCredentialResponse"
-                 data-auto_prompt="false">
-            </div>
-            
-            <div style="display: flex; justify-content: center; margin-top: 15px; margin-bottom: 15px;">
-                <div class="g_id_signin"
-                     data-type="standard"
-                     data-size="large"
-                     data-theme="outline"
-                     data-text="sign_in_with"
-                     data-shape="rectangular"
-                     data-logo_alignment="left">
-                </div>
+            <div style="display: flex; justify-content: center; margin-top: 20px; margin-bottom: 15px;">
+                <button id="customLoginBtn" class="login-btn">
+                    <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" style="width: 20px; height: 20px;">
+                        <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
+                        <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
+                        <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
+                        <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
+                    </svg>
+                    Sign in with Google
+                </button>
             </div>
 
             <div id="loginError" class="error-msg"></div>
