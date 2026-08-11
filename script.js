@@ -1,18 +1,3 @@
-// 🔑 Google Identity Services App Gateway Callback (NEW GIS INTEGRATION)
-window.handleCredentialResponse = function(response) {
-    if (response.credential) {
-        // If GIS login returns a valid JWT, clear any previous error and log in the user
-        const loginErr = document.getElementById('loginError');
-        if (loginErr) loginErr.textContent = '';
-        
-        document.getElementById('loginScreen').style.display = 'none';
-        document.getElementById('mainApp').style.display = 'block';
-        
-        setupSystemEventHandlers();
-        loadInventoryFromGoogleSheets();
-    }
-};
-
 // 🔑 Google Sheets Cloud Gateway Architecture
 const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzu78LrVMEzgsn8amccnXdLq8z5MG2zU7BiCwdOOs1J0jI2ulUn4Kdv1eIk6VvcPa55AA/exec";
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
@@ -148,7 +133,7 @@ function initUIReferences() {
         customNameModal.innerHTML = `
             <div style="background: #ffffff !important; padding: 30px !important; border-radius: 8px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important; width: 90% !important; max-width: 400px !important; box-sizing: border-box !important; text-align: center !important; font-family: Arial, sans-serif !important;">
                 <label style="font-size: 18px !important; font-weight: bold !important; color: #333333 !important; display: block !important; margin-bottom: 15px !important;">Enter Your Name to Log This Change:</label>
-                <input type="text" id="custom-operator-input" value="Noel Rie N. Deliña" placeholder="Your Name" style="width: 100% !important; padding: 12px !important; font-size: 16px !important; border: 1px solid #ccc !important; border-radius: 4px !important; margin-bottom: 20px !important; box-sizing: border-box !important;" />
+                <input type="text" id="custom-operator-input" value="" placeholder="Your Name" style="width: 100% !important; padding: 12px !important; font-size: 16px !important; border: 1px solid #ccc !important; border-radius: 4px !important; margin-bottom: 20px !important; box-sizing: border-box !important;" />
                 <div style="display: flex !important; gap: 10px !important; justify-content: center !important;">
                     <button id="customCancelNameBtn" style="background: #6c757d !important; color: white !important; border: none !important; padding: 10px 20px !important; border-radius: 4px !important; cursor: pointer !important; font-weight: bold !important; font-size: 14px !important;">Cancel</button>
                     <button id="customConfirmNameBtn" style="background: #28a745 !important; color: white !important; border: none !important; padding: 10px 20px !important; border-radius: 4px !important; cursor: pointer !important; font-weight: bold !important; font-size: 14px !important;">Confirm & Publish</button>
@@ -188,41 +173,45 @@ window.addEventListener('scroll', () => {
     }
 });
 
-// 🔐 SECURE INITIALIZER & LOGIN HANDLER
+// 🔑 GOOGLE IDENTITY SERVICES AUTH HANDLER
+function decodeJwtResponse(token) {
+    let base64Url = token.split('.')[1];
+    let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    let jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    return JSON.parse(jsonPayload);
+}
+
+function handleCredentialResponse(response) {
+    if (response.credential) {
+        // Automatically pre-fill the operator's name from their Google Account
+        try {
+            const payload = decodeJwtResponse(response.credential);
+            const operatorInput = document.getElementById('custom-operator-input');
+            if (operatorInput && payload.name) {
+                operatorInput.value = payload.name;
+            }
+        } catch (e) {
+            console.error("Error decoding JWT profile", e);
+        }
+
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('mainApp').style.display = 'block';
+        
+        setupSystemEventHandlers();
+        loadInventoryFromGoogleSheets();
+    } else {
+        const loginErr = document.getElementById('loginError');
+        if (loginErr) loginErr.textContent = 'Google Sign-In verification failed.';
+    }
+}
+
+// 🔐 SECURE INITIALIZER
 function initApp() {
     initUIReferences();
 
-    const loginBtn = document.getElementById('loginBtn');
-    const userIn = document.getElementById('usernameIn');
-    const passIn = document.getElementById('passwordIn');
-    const loginErr = document.getElementById('loginError');
     const backToTopBtn = document.getElementById('backToTopBtn');
-
-    const executeLogin = () => {
-        if (userIn && passIn && userIn.value.trim() === 'ADMIN' && passIn.value.trim() === '1234567890') {
-            document.getElementById('loginScreen').style.display = 'none';
-            document.getElementById('mainApp').style.display = 'block';
-            
-            setupSystemEventHandlers();
-            loadInventoryFromGoogleSheets();
-        } else {
-            if (loginErr) loginErr.textContent = 'Invalid Username or Password';
-        }
-    };
-
-    if (loginBtn) loginBtn.addEventListener('click', executeLogin);
-    
-    if (passIn) {
-        passIn.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') executeLogin();
-        });
-    }
-
-    if (userIn) {
-        userIn.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') executeLogin();
-        });
-    }
 
     if (backToTopBtn) {
         backToTopBtn.addEventListener('click', () => {
@@ -809,8 +798,7 @@ function enableEditMode() {
 }
 
 function triggerSaveProcess() {
-    const operatorInput = document.getElementById('custom-operator-input');
-    if (operatorInput) operatorInput.value = 'Noel Rie N. Deliña';
+    // Note: The hardcoded override has been removed so the pre-filled Google Profile name persists.
     if (customNameModal) customNameModal.style.display = 'flex';
 }
 
