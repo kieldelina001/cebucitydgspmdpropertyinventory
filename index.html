@@ -6,6 +6,8 @@
     <title>Real Estate Inventory DGS PMD (Google Sheets Live Stream)</title>
     <meta name="author" content="Noel Rie N. Deliña">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- Google Identity Services Library -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 0; background-color: #f8fafc; }
         
@@ -424,9 +426,23 @@
                 <img src="dgs_logo.png" alt="DGS Logo" class="login-logo" onerror="this.style.display='none'">
             </div>
             <h2>REAL ESTATE INVENTORY<br><span style="font-size: 16px; color: #64748b; margin-top: 8px; display: block;">System Login</span></h2>
-            <input type="text" id="usernameIn" class="login-input" placeholder="Username">
-            <input type="password" id="passwordIn" class="login-input" placeholder="Password">
-            <button id="loginBtn" class="login-btn">Secure Login</button>
+            
+            <!-- Google Identity Services Button Container -->
+            <div id="g_id_onload"
+                 data-client_id="84591548482-rfv15nf99g7nsdtlr3i57ms0fuln28s3.apps.googleusercontent.com"
+                 data-callback="handleCredentialResponse"
+                 data-auto_prompt="false">
+            </div>
+            <div class="g_id_signin"
+                 data-type="standard"
+                 data-shape="rectangular"
+                 data-theme="outline"
+                 data-text="sign_in_with"
+                 data-size="large"
+                 data-logo_alignment="left"
+                 style="display: flex; justify-content: center; margin-bottom: 15px;">
+            </div>
+
             <div id="loginError" class="error-msg"></div>
         </div>
     </div>
