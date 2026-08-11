@@ -1,7 +1,8 @@
 // 🔑 Google Sheets Cloud Gateway Architecture
 const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzu78LrVMEzgsn8amccnXdLq8z5MG2zU7BiCwdOOs1J0jI2ulUn4Kdv1eIk6VvcPa55AA/exec";
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
-const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
+// Update: Changed to the official Google Drive Export endpoint to prevent CORS & redirect issues
+const GOOGLE_SHEET_CSV_URL = `https://www.googleapis.com/drive/v3/files/${SPREADSHEET_ID}/export?mimeType=text/csv`;
 
 // =========================================================================
 // 🛠️ MANUAL EXPORT TABLE ADJUSTMENT CONFIGURATION 🛠️
@@ -329,7 +330,14 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
     showLoading("Syncing live spreadsheet grid...");
 
     try {
-        const response = await fetch(GOOGLE_SHEET_CSV_URL);
+        // Update: We now pass the 'Authorization' Bearer token inside the fetch request.
+        // This validates your connection so Papa.parse doesn't hit a login screen.
+        const response = await fetch(GOOGLE_SHEET_CSV_URL, {
+            headers: accessToken ? {
+                'Authorization': `Bearer ${accessToken}`
+            } : {}
+        });
+        
         if (!response.ok) throw new Error("Could not connect to online Sheet feed.");
         const rawCsvText = await response.text(); 
 
