@@ -457,8 +457,7 @@ function renderTable(data, page = 1) {
             const td = document.createElement('td');
             const resolvedKey = headerMapping[tKey];
             
-           // Removed 'tax declaration' from the image rendering condition
-            if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('transfer_cert')) {
+            if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration') || tKey.includes('transfer_cert')) {
                 const url = resolvedKey ? (row[resolvedKey] || '') : '';
                 if (url.trim() !== '') {
                     const viewUrl = getDirectImageUrl(url, 'view') || url;
@@ -468,20 +467,9 @@ function renderTable(data, page = 1) {
                 } else {
                     td.textContent = 'No Photo';
                 }
-            } else if (tKey.includes('tax declaration')) {
-                // This specifically handles the Tax Declaration column
-                let val = resolvedKey ? String(row[resolvedKey] || '') : '';
-                
-                // Optional: If your cells contain letters (e.g., "TD-1234") and you want 
-                // to strictly strip out everything except digits to ONLY show numbers, 
-                // uncomment the line below:
-                // val = val.replace(/[^0-9]/g, ''); 
-                
-                td.textContent = val;
             } else {
                 td.textContent = resolvedKey ? (row[resolvedKey] || '') : '';
             }
-        
             
             tr.appendChild(td);
         });
@@ -522,7 +510,7 @@ function calculateStaticDashboardTotals(items) {
         if(rem.includes('FOR VERIFICATION')) verify++;
         
         if((row[pKey1] && row[pKey1].trim()!=='') || (row[pKey2] && row[pKey2].trim()!=='')) photos++;
-        if((row[pKey4] && row[pKey4].trim()!=='') || (row[pKey5] && row[pKey5].trim()!=='') || (row[pKey6] && row[pKey6].trim()!=='')) taxdec++;
+        if(row[pKey4] && row[pKey4].trim()!=='') taxdec++;
         
         const typeStr = String(row[tKey] || '').toUpperCase().trim();
         
@@ -974,8 +962,7 @@ function downloadSearchedHTML(data) {
             const resolvedKey = headerMapping[tKey];
             const val = resolvedKey ? (row[resolvedKey] || '') : '';
             
-            // Removed 'tax declaration' from the HTML export image rendering condition
-            if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('transfer_cert')) {
+            if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration') || tKey.includes('transfer_cert')) {
                 if (val.trim() !== '') {
                     const viewUrl = getDirectImageUrl(val, 'view') || val;
                     const thumbUrl = getDirectImageUrl(val, 'thumbnail') || val;
@@ -983,14 +970,6 @@ function downloadSearchedHTML(data) {
                 } else {
                     tableRowsHTML += `<td style="text-align: center; color: #64748b; font-style: italic;">No Photo</td>`;
                 }
-            } else if (tKey.includes('tax declaration')) {
-                // This correctly exports the Tax Declaration as text/numbers
-                let textVal = String(val);
-                
-                // Optional: Uncomment the line below to strip out non-numbers for the export
-                // textVal = textVal.replace(/[^0-9]/g, '');
-                
-                tableRowsHTML += `<td>${escapeHtml(textVal)}</td>`;
             } else {
                 let styleAttr = "";
                 if (tKey === "description") {
@@ -998,7 +977,6 @@ function downloadSearchedHTML(data) {
                 }
                 tableRowsHTML += `<td${styleAttr}>${escapeHtml(val)}</td>`;
             }
-        
         });
         tableRowsHTML += '</tr>';
     });
