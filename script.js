@@ -1,1075 +1,537 @@
-// 🔑 Google Sheets Cloud Gateway Architecture
-const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzu78LrVMEzgsn8amccnXdLq8z5MG2zU7BiCwdOOs1J0jI2ulUn4Kdv1eIk6VvcPa55AA/exec";
-const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
-const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=0`;
+// ==========================================
+// CONFIGURATION & GLOBAL STATE
+// ==========================================
+// Google Sheet CSV export link for the DGS Real Estate Inventory
+const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8/gviz/tq?tqx=out:csv';
 
-// =========================================================================
-// 🛠️ MANUAL EXPORT TABLE ADJUSTMENT CONFIGURATION 🛠️
-// Adjust the items below to change which columns appear in the "Export Searched" HTML file.
-// 'display' is the column header text shown in the generated export table.
-// 'key' is the internal lowercase identifier matching your spreadsheet columns.
-// Simply delete or comment out a line to remove that column from the export.
-// =========================================================================
-const EXPORT_TABLE_CONFIG = [
-    { display: "Article no./ TCT no.", key: "article/item" },
-    { display: "Description", key: "description" },
-    { display: "Remarks", key: "remarks" },
-    { display: "Type", key: "type" },
-    { display: "Photo 1", key: "photo 1" },
-    { display: "Photo 2", key: "photo 2" },
-    { display: "Map Coordinates", key: "map coordinates" },
-    { display: "Tax Declaration", key: "tax declaration" },
-    { display: "Transfer Certificate of Title Page 1", key: "transfer_cert1" },
-    { display: "Transfer Certificate of Title Page 2", key: "transfer_cert2" },
-];
-// =========================================================================
-
-const displayHeaders = ["Article no./ TCT no.", "Description", "Acquisition Date", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Coordinates", "Tax Declaration", "Transfer Certificate of Title Page 1", "Transfer Certificate of Title Page 2", "UPDATED BY", "LAST UPDATE"];
-const targetHeadersLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "transfer_cert1", "transfer_cert2", "updated by", "last update"];
-const popupOrderLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type"]; 
-
-let inventoryData = []; 
-let currentFilteredData = []; 
-let rawHeaders = [];       
-let headerMapping = {}; 
-let activeEditIndex = null; 
-let parsedUniqueRemarks = []; 
-let isAppInitialized = false; 
-let modalModified = false;
-
-// Modal Photo Gallery State
-let modalPhotos = [];
+let allInventoryData = [];
+let filteredInventoryData = [];
+let currentViewingItem = null;
 let currentPhotoIndex = 0;
+let currentPhotosList = [];
 
-// Pagination Variables
 let currentPage = 1;
-const itemsPerPage = 50;
+const rowsPerPage = 25;
 
-let searchInput, searchButton, exportButton, exportFilteredButton, remarksFilter, typeFilter, photoFilter, tableHeaderRow, tableBody, statusBanner, foundCountDisplay;
-let paginationContainer, prevPageBtn, nextPageBtn, pageIndicator;
-let countTotal, countExisting, countNotFound, countVerification, countWithPhotos, countTaxDec;
-let countBuilding, countAssetMod, countFlood, countHospital, countLand, countMarket, countOtherInfra, countOtherLand, countOtherStruct, countPark, countRoad, countSchool, countSlaughterhouse, countWater;
-let editModal, modalFormContainer, modalEditBtn, modalSaveBtn, modalCloseBtn, modalCloseX, uploadPhotoBtn;
-let tooltip, tooltipImg;
-let loadingOverlay, customNameModal;
+// ==========================================
+// GOOGLE AUTHENTICATION (GIS) HANDLERS
+// ==========================================
 
-// ⏳ LOADING OVERLAY GENERATOR
-function initUIReferences() {
-    searchInput = document.getElementById('searchInput');
-    searchButton = document.getElementById('searchButton');
-    exportButton = document.getElementById('exportButton');
-    exportFilteredButton = document.getElementById('exportFilteredButton');
-    remarksFilter = document.getElementById('remarksFilter');
-    typeFilter = document.getElementById('typeFilter');
-    photoFilter = document.getElementById('photoFilter');
-    tableHeaderRow = document.getElementById('tableHeaderRow');
-    tableBody = document.getElementById('tableBody');
-    statusBanner = document.getElementById('statusBanner');
-    foundCountDisplay = document.getElementById('foundCountDisplay'); 
+// Handles the secure token response from Google Sign-In
+function handleCredentialResponse(response) {
+    try {
+        const responsePayload = parseJwt(response.credential);
+        const userEmail = responsePayload.email;
+        const userName = responsePayload.name;
 
-    paginationContainer = document.getElementById('paginationContainer');
-    prevPageBtn = document.getElementById('prevPageBtn');
-    nextPageBtn = document.getElementById('nextPageBtn');
-    pageIndicator = document.getElementById('pageIndicator');
+        console.log("Successfully authenticated as:", userEmail);
 
-    countTotal = document.getElementById('countTotal');
-    countExisting = document.getElementById('countExisting');
-    countNotFound = document.getElementById('countNotFound');
-    countVerification = document.getElementById('countVerification');
-    countWithPhotos = document.getElementById('countWithPhotos');
-    countTaxDec = document.getElementById('countTaxDec'); 
+        // Hide login screen and reveal main application container
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('mainApp').style.display = 'block';
 
-    countBuilding = document.getElementById('countBuilding');
-    countAssetMod = document.getElementById('countAssetMod'); 
-    countFlood = document.getElementById('countFlood');
-    countHospital = document.getElementById('countHospital');
-    countLand = document.getElementById('countLand');
-    countMarket = document.getElementById('countMarket');
-    countOtherInfra = document.getElementById('countOtherInfra');
-    countOtherLand = document.getElementById('countOtherLand');
-    countOtherStruct = document.getElementById('countOtherStruct');
-    countPark = document.getElementById('countPark');
-    countRoad = document.getElementById('countRoad');
-    countSchool = document.getElementById('countSchool');
-    countSlaughterhouse = document.getElementById('countSlaughterhouse');
-    countWater = document.getElementById('countWater');
+        // Initialize application listeners and fetch live data
+        setupSystemEventHandlers();
+        loadInventoryFromGoogleSheets();
 
-    editModal = document.getElementById('editModal');
-    modalFormContainer = document.getElementById('modalFormContainer');
-    modalEditBtn = document.getElementById('modalEditBtn');
-    modalSaveBtn = document.getElementById('modalSaveBtn');
-    modalCloseBtn = document.getElementById('modalCloseBtn');
-    modalCloseX = document.getElementById('modalCloseX'); 
-    uploadPhotoBtn = document.getElementById('uploadPhotoBtn'); 
-
-    tooltip = document.getElementById('imagePreviewTooltip');
-    tooltipImg = document.getElementById('imagePreviewTooltipImg');
-
-    loadingOverlay = document.getElementById('dynamicLoadingOverlay');
-    if (!loadingOverlay) {
-        loadingOverlay = document.createElement('div');
-        loadingOverlay.id = 'dynamicLoadingOverlay';
-        loadingOverlay.innerHTML = `
-        <div style="text-align: center; color: #ffffff !important; font-family: Arial, sans-serif !important; z-index: 100000 !important;">
-            <div style="width: 80px !important; height: 80px !important; border: 8px solid rgba(255,255,255,0.2) !important; border-radius: 50% !important; border-top-color: #28a745 !important; animation: spin 0.4s linear infinite !important; margin: 0 auto 20px auto !important; box-shadow: 0 0 20px rgba(40, 167, 69, 0.6) !important;"></div>
-            <div id="loadingOverlayText" style="font-size: 20px !important; font-weight: bold !important; color: #ffffff !important; text-shadow: 1px 1px 5px rgba(0,0,0,0.5) !important;">Connecting...</div>
-        </div>
-    `;
-        Object.assign(loadingOverlay.style, {
-            position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
-            backgroundColor: 'rgba(0, 0, 0, 0.85)', display: 'none', justifyContent: 'center',
-            alignItems: 'center', zIndex: '99999', transition: 'opacity 0.2s ease'
-        });
-        const styleSheet = document.createElement("style");
-        styleSheet.innerText = "@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }";
-        document.head.appendChild(styleSheet);
-        document.body.appendChild(loadingOverlay);
-    }
-
-    customNameModal = document.getElementById('customNameModal');
-    if (!customNameModal) {
-        customNameModal = document.createElement('div');
-        customNameModal.id = 'customNameModal';
-        customNameModal.innerHTML = `
-            <div style="background: #ffffff !important; padding: 30px !important; border-radius: 8px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important; width: 90% !important; max-width: 400px !important; box-sizing: border-box !important; text-align: center !important; font-family: Arial, sans-serif !important;">
-                <label style="font-size: 18px !important; font-weight: bold !important; color: #333333 !important; display: block !important; margin-bottom: 15px !important;">Enter Your Name to Log This Change:</label>
-                <input type="text" id="custom-operator-input" value="Noel Rie N. Deliña" placeholder="Your Name" style="width: 100% !important; padding: 12px !important; font-size: 16px !important; border: 1px solid #ccc !important; border-radius: 4px !important; margin-bottom: 20px !important; box-sizing: border-box !important;" />
-                <div style="display: flex !important; gap: 10px !important; justify-content: center !important;">
-                    <button id="customCancelNameBtn" style="background: #6c757d !important; color: white !important; border: none !important; padding: 10px 20px !important; border-radius: 4px !important; cursor: pointer !important; font-weight: bold !important; font-size: 14px !important;">Cancel</button>
-                    <button id="customConfirmNameBtn" style="background: #28a745 !important; color: white !important; border: none !important; padding: 10px 20px !important; border-radius: 4px !important; cursor: pointer !important; font-weight: bold !important; font-size: 14px !important;">Confirm & Publish</button>
-                </div>
-            </div>
-        `;
-        Object.assign(customNameModal.style, {
-            position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
-            backgroundColor: 'rgba(0, 0, 0, 0.6)', display: 'none', justifyContent: 'center',
-            alignItems: 'center', zIndex: '200000'
-        });
-        document.body.appendChild(customNameModal);
+    } catch (error) {
+        console.error("Authentication parsing error:", error);
+        document.getElementById('loginError').textContent = "Failed to authenticate Google credentials.";
     }
 }
 
-function showLoading(msg) {
-    const textEl = document.getElementById('loadingOverlayText');
-    if (textEl) textEl.textContent = msg;
-    if (loadingOverlay) loadingOverlay.style.setProperty('display', 'flex', 'important');
+// Helper function to securely decode the Google ID JWT token
+function parseJwt(token) {
+    var base64Url = token.split('.')[1];
+    var base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    var jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+        var code = ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        return '%' + code;
+    }).join(''));
+    return JSON.parse(jsonPayload);
 }
 
-function hideLoading() {
-    if (loadingOverlay) loadingOverlay.style.setProperty('display', 'none', 'important');
-}
+// ==========================================
+// DATA LOADING & PARSING
+// ==========================================
 
-// --- BACK TO TOP SCROLL LISTENER ---
-window.addEventListener('scroll', () => {
-    const backToTopBtn = document.getElementById('backToTopBtn');
-    if (backToTopBtn) {
-        if (document.body.scrollTop > 300 || document.documentElement.scrollTop > 300) {
-            backToTopBtn.style.visibility = "visible";
-            backToTopBtn.style.opacity = "1";
-        } else {
-            backToTopBtn.style.visibility = "hidden";
-            backToTopBtn.style.opacity = "0";
+function loadInventoryFromGoogleSheets() {
+    const statusBanner = document.getElementById('statusBanner');
+    statusBanner.innerHTML = '<span class="live-animated-text">🟢 Connecting to Google Sheets Live Stream...</span>';
+
+    Papa.parse(SHEET_CSV_URL, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+            if (results.data && results.data.length > 0) {
+                allInventoryData = results.data;
+                filteredInventoryData = [...allInventoryData];
+                
+                statusBanner.innerHTML = `<span style="color: #28a745;">✅ Live Connection Active. Loaded ${allInventoryData.length} property records.</span>`;
+                
+                populateFilterDropdowns();
+                updateDashboardMetrics();
+                renderTableHeaders();
+                renderTableData();
+            } else {
+                statusBanner.innerHTML = '<span style="color: #dc3545;">⚠️ Connected, but no records were found in the sheet.</span>';
+            }
+        },
+        error: function(error) {
+            console.error('CSV Parsing Error:', error);
+            statusBanner.innerHTML = '<span style="color: #dc3545;">❌ Error connecting to live data stream. Please check network connection.</span>';
         }
-    }
-});
+    });
+}
 
-// 🔐 SECURE INITIALIZER & LOGIN HANDLER
-function initApp() {
-    initUIReferences();
+// ==========================================
+// DASHBOARD & METRICS
+// ==========================================
 
-    const loginBtn = document.getElementById('loginBtn');
-    const userIn = document.getElementById('usernameIn');
-    const passIn = document.getElementById('passwordIn');
-    const loginErr = document.getElementById('loginError');
-    const backToTopBtn = document.getElementById('backToTopBtn');
+function updateDashboardMetrics() {
+    const total = allInventoryData.length;
+    let existing = 0;
+    let notFound = 0;
+    let verification = 0;
+    let withPhotos = 0;
+    let taxDec = 0;
 
-    const executeLogin = () => {
-        if (userIn && passIn && userIn.value.trim() === 'ADMIN' && passIn.value.trim() === '1234567890') {
-            document.getElementById('loginScreen').style.display = 'none';
-            document.getElementById('mainApp').style.display = 'block';
-            
-            setupSystemEventHandlers();
-            loadInventoryFromGoogleSheets();
-        } else {
-            if (loginErr) loginErr.textContent = 'Invalid Username or Password';
-        }
+    let typesCount = {
+        building: 0,
+        assetmod: 0,
+        school: 0,
+        hospital: 0,
+        market: 0,
+        otherInfra: 0,
+        otherStruct: 0,
+        park: 0,
+        land: 0,
+        otherLand: 0,
+        flood: 0,
+        water: 0,
+        road: 0,
+        slaughterhouse: 0
     };
 
-    if (loginBtn) loginBtn.addEventListener('click', executeLogin);
-    
-    if (passIn) {
-        passIn.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') executeLogin();
-        });
-    }
+    allInventoryData.forEach(row => {
+        // Normalize column checks (handles variations in naming)
+        const remarks = (row['Remarks'] || row['REMARKS'] || '').toUpperCase();
+        const photos = (row['Photos'] || row['PHOTOS'] || row['Image'] || '').trim();
+        const tdec = (row['Tax Dec'] || row['TAX DEC'] || row['Tax Declaration'] || '').trim();
+        const type = (row['Type'] || row['TYPE'] || row['Property Type'] || '').toLowerCase();
 
-    if (userIn) {
-        userIn.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') executeLogin();
-        });
-    }
+        if (remarks.includes('EXISTING')) existing++;
+        if (remarks.includes('NOT FOUND')) notFound++;
+        if (remarks.includes('VERIFICATION') || remarks.includes('FOR VERIFICATION')) verification++;
+        
+        if (photos !== '' && photos.toLowerCase() !== 'n/a') withPhotos++;
+        if (tdec !== '' && tdec.toLowerCase() !== 'n/a') taxDec++;
 
-    if (backToTopBtn) {
-        backToTopBtn.addEventListener('click', () => {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        });
-    }
+        // Type categorization matching card IDs
+        if (type.includes('building modification')) typesCount.assetmod++;
+        else if (type.includes('school')) typesCount.school++;
+        else if (type.includes('hospital')) typesCount.hospital++;
+        else if (type.includes('market')) typesCount.market++;
+        else if (type.includes('park') || type.includes('plaza')) typesCount.park++;
+        else if (type.includes('flood')) typesCount.flood++;
+        else if (type.includes('water')) typesCount.water++;
+        else if (type.includes('road')) typesCount.road++;
+        else if (type.includes('slaughterhouse')) typesCount.slaughterhouse++;
+        else if (type.includes('building')) typesCount.building++;
+        else if (type.includes('land improvement')) typesCount.otherLand++;
+        else if (type.includes('land')) typesCount.land++;
+        else if (type.includes('infrastructure')) typesCount.otherInfra++;
+        else typesCount.otherStruct++;
+    });
 
-    // Pagination Listeners
-    if (prevPageBtn) {
-        prevPageBtn.addEventListener('click', () => {
-            if (currentPage > 1) {
-                renderTable(currentFilteredData, currentPage - 1);
-                window.scrollTo({ top: document.querySelector('.table-section').offsetTop - 20, behavior: 'smooth' });
-            }
-        });
-    }
+    document.getElementById('countTotal').textContent = total;
+    document.getElementById('countExisting').textContent = existing;
+    document.getElementById('countNotFound').textContent = notFound;
+    document.getElementById('countVerification').textContent = verification;
+    document.getElementById('countWithPhotos').textContent = withPhotos;
+    document.getElementById('countTaxDec').textContent = taxDec;
 
-    if (nextPageBtn) {
-        nextPageBtn.addEventListener('click', () => {
-            const totalPages = Math.ceil(currentFilteredData.length / itemsPerPage);
-            if (currentPage < totalPages) {
-                renderTable(currentFilteredData, currentPage + 1);
-                window.scrollTo({ top: document.querySelector('.table-section').offsetTop - 20, behavior: 'smooth' });
-            }
-        });
-    }
-    
-    // --- HOVER PREVIEW EVENT LISTENERS ---
-    document.addEventListener('mouseover', function(e) {
-        if (e.target && e.target.classList.contains('hover-preview-img')) {
-            const srcToUse = e.target.src;
-            if (srcToUse && tooltip && tooltipImg) {
-                tooltipImg.src = srcToUse;
-                tooltip.style.display = 'block';
-            }
+    document.getElementById('countBuilding').textContent = typesCount.building;
+    document.getElementById('countAssetMod').textContent = typesCount.assetmod;
+    document.getElementById('countSchool').textContent = typesCount.school;
+    document.getElementById('countHospital').textContent = typesCount.hospital;
+    document.getElementById('countMarket').textContent = typesCount.market;
+    document.getElementById('countOtherInfra').textContent = typesCount.otherInfra;
+    document.getElementById('countOtherStruct').textContent = typesCount.otherStruct;
+    document.getElementById('countPark').textContent = typesCount.park;
+    document.getElementById('countLand').textContent = typesCount.land;
+    document.getElementById('countOtherLand').textContent = typesCount.otherLand;
+    document.getElementById('countFlood').textContent = typesCount.flood;
+    document.getElementById('countWater').textContent = typesCount.water;
+    document.getElementById('countRoad').textContent = typesCount.road;
+    document.getElementById('countSlaughterhouse').textContent = typesCount.slaughterhouse;
+}
+
+// ==========================================
+// FILTERS & DROPDOWNS
+// ==========================================
+
+function populateFilterDropdowns() {
+    const remarksSet = new Set();
+    const typeSet = new Set();
+
+    allInventoryData.forEach(row => {
+        for (let key in row) {
+            const upperKey = key.toUpperCase();
+            if (upperKey.includes('REMARK') && row[key]) remarksSet.add(row[key].trim());
+            if (upperKey.includes('TYPE') && row[key]) typeSet.add(row[key].trim());
         }
     });
 
-    document.addEventListener('mousemove', function(e) {
-        if (e.target && e.target.classList.contains('hover-preview-img') && tooltip && tooltip.style.display === 'block') {
-            let x = e.clientX + 15;
-            let y = e.clientY + 15;
-            
-            const tooltipRect = tooltip.getBoundingClientRect();
-            if (x + tooltipRect.width > window.innerWidth) {
-                x = e.clientX - tooltipRect.width - 15;
-            }
-            if (y + tooltipRect.height > window.innerHeight) {
-                y = e.clientY - tooltipRect.height - 15;
-            }
-            
-            tooltip.style.left = x + 'px';
-            tooltip.style.top = y + 'px';
-        }
-    });
-
-    document.addEventListener('mouseout', function(e) {
-        if (e.target && e.target.classList.contains('hover-preview-img')) {
-            if (tooltip && tooltipImg) {
-                tooltip.style.display = 'none';
-                tooltipImg.src = '';
-            }
-        }
-    });
-}
-
-if (document.readyState === 'loading') {
-    window.addEventListener('DOMContentLoaded', initApp);
-} else {
-    initApp();
-}
-
-async function loadInventoryFromGoogleSheets(retainPage = false) {
-    if (statusBanner) {
-        statusBanner.style.backgroundColor = "#fff3cd";
-        statusBanner.style.color = "#856404";
-        statusBanner.textContent = "Connecting to Google Sheets Live Datastream...";
-    }
-    showLoading("Syncing live spreadsheet grid...");
-
-    try {
-        const response = await fetch(GOOGLE_SHEET_CSV_URL);
-        if (!response.ok) throw new Error("Could not connect to online Sheet feed.");
-        const rawCsvText = await response.text(); 
-
-        Papa.parse(rawCsvText, {
-            header: true,
-            skipEmptyLines: true,
-            complete: function(results) {
-                if (results.data && results.data.length > 0) {
-                    rawHeaders = Object.keys(results.data[0]);
-                    headerMapping = {};
-                    
-                    targetHeadersLowercase.forEach(target => {
-                        const actualKey = rawHeaders.find(h => {
-                            const normH = h.toLowerCase().trim();
-                            const normT = target.toLowerCase().trim();
-                            
-                            if (normT === 'transfer_cert1' && (normH.includes('transfer') && normH.includes('1'))) return true;
-                            if (normT === 'transfer_cert2' && (normH.includes('transfer') && normH.includes('2'))) return true;
-                            if (normT === 'article/item' && (normH.includes('article') || normH.includes('tct') || normH.includes('item'))) return true;
-                            
-                            return normH.includes(normT) || normT.includes(normH);
-                        });
-                        headerMapping[target] = actualKey || target; 
-                    });
-                    
-                    inventoryData = results.data.map((row, idx) => {
-                        row._rowId = idx;
-                        return row;
-                    });
-                    initializeSystemUI(retainPage);
-                } else {
-                    throw new Error("Target dataset sheet contains no metrics.");
-                }
-                hideLoading();
-            }
-        });
-    } catch (err) {
-        hideLoading();
-        if (statusBanner) {
-            statusBanner.style.backgroundColor = "#f8d7da";
-            statusBanner.style.color = "#721c24";
-            statusBanner.textContent = "Connection Error: Check Sheet spreadsheet access permission configuration.";
-        }
-        console.error(err);
-    }
-}
-
-function initializeSystemUI(retainPage = false) {
-    if (statusBanner) {
-        statusBanner.style.backgroundColor = "#d4edda";
-        statusBanner.style.color = "#155724";
-        statusBanner.innerHTML = `<span class="live-animated-text">✅ Connected to Google Sheets: Live View Active.</span>`;
-    }
-
-    if (searchInput) searchInput.disabled = false;
-    if (searchButton) searchButton.disabled = false;
-    if (exportButton) exportButton.disabled = false;
-    if (exportFilteredButton) exportFilteredButton.disabled = false;
-    if (remarksFilter) remarksFilter.disabled = false;
-    if (typeFilter) typeFilter.disabled = false;
-    if (photoFilter) photoFilter.disabled = false;
-    if (searchInput) searchInput.placeholder = "Type keywords...";
-
-    populateDropdown('remarks', remarksFilter, '-- All Remarks --');
-    populateDropdown('type', typeFilter, '-- All Types --');
-    renderHeaders(displayHeaders);
-    calculateStaticDashboardTotals(inventoryData);
-    
-    if (!isAppInitialized) {
-        currentFilteredData = []; 
-        if(tableBody) {
-            tableBody.innerHTML = `<tr><td colspan="${displayHeaders.length}" class="no-data">Data loaded successfully. Apply a filter or search to view records.</td></tr>`;
-        }
-        if (foundCountDisplay) {
-            foundCountDisplay.textContent = `(0 items displayed)`;
-        }
-        updatePaginationUI(0);
-        isAppInitialized = true;
-    } else {
-        executeSearch(!retainPage);
-    }
-}
-
-function populateDropdown(type, selectEl, placeholderText) {
-    if(!selectEl) return;
-    const previousSelection = selectEl.value;
-    selectEl.innerHTML = `<option value="ALL">${placeholderText}</option>`;
-    const sheetKey = headerMapping[type];
-    if(!sheetKey) return;
-    
-    let elements = new Set();
-    inventoryData.forEach(row => {
-        const val = String(row[sheetKey] || '').trim();
-        if(val) elements.add(val);
-    });
-    
-    const sorted = Array.from(elements).sort();
-    if(type === 'remarks') parsedUniqueRemarks = sorted;
-    
-    sorted.forEach(val => {
+    const remarksFilter = document.getElementById('remarksFilter');
+    remarksFilter.innerHTML = '<option value="ALL">-- All Remarks --</option>';
+    Array.from(remarksSet).sort().forEach(rem => {
         const opt = document.createElement('option');
-        opt.value = val; opt.textContent = val;
-        selectEl.appendChild(opt);
+        opt.value = rem;
+        opt.textContent = rem;
+        remarksFilter.appendChild(opt);
     });
 
-    if(previousSelection && Array.from(selectEl.options).some(opt => opt.value === previousSelection)) {
-        selectEl.value = previousSelection;
-    }
-}
-
-function renderHeaders(headers) {
-    if(!tableHeaderRow) return; tableHeaderRow.innerHTML = '';
-    headers.forEach(h => {
-        const th = document.createElement('th');
-        th.textContent = h;
-        tableHeaderRow.appendChild(th);
+    const typeFilter = document.getElementById('typeFilter');
+    typeFilter.innerHTML = '<option value="ALL">-- All Types --</option>';
+    Array.from(typeSet).sort().forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t;
+        typeFilter.appendChild(opt);
     });
 }
 
-function getDirectImageUrl(driveLink, requestType = 'view') {
-    if (!driveLink || typeof driveLink !== 'string') return null;
-    const match = driveLink.match(/[-\w]{25,}/); 
-    if (match) {
-        if (requestType === 'thumbnail') {
-            return `https://drive.google.com/thumbnail?id=${match[0]}&sz=w1600`;
+function applyFilters() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+    const selectedRemark = document.getElementById('remarksFilter').value;
+    const selectedType = document.getElementById('typeFilter').value;
+    const selectedMedia = document.getElementById('photoFilter').value;
+
+    filteredInventoryData = allInventoryData.filter(row => {
+        // Keyword Search across all row values
+        let matchesSearch = false;
+        if (!searchTerm) {
+            matchesSearch = true;
+        } else {
+            for (let key in row) {
+                if (row[key] && row[key].toString().toLowerCase().includes(searchTerm)) {
+                    matchesSearch = true;
+                    break;
+                }
+            }
         }
-        return `https://lh3.googleusercontent.com/d/${match[0]}`;
-    }
-    return null;
+
+        // Remarks Filter
+        let matchesRemark = true;
+        if (selectedRemark !== 'ALL') {
+            matchesRemark = false;
+            for (let key in row) {
+                if (key.toUpperCase().includes('REMARK') && row[key] && row[key].trim() === selectedRemark) {
+                    matchesRemark = true;
+                    break;
+                }
+            }
+        }
+
+        // Type Filter
+        let matchesType = true;
+        if (selectedType !== 'ALL') {
+            matchesType = false;
+            for (let key in row) {
+                if (key.toUpperCase().includes('TYPE') && row[key] && row[key].trim() === selectedType) {
+                    matchesType = true;
+                    break;
+                }
+            }
+        }
+
+        // Media Filter
+        let matchesMedia = true;
+        const photoVal = (row['Photos'] || row['PHOTOS'] || '').trim();
+        const taxDecVal = (row['Tax Dec'] || row['TAX DEC'] || '').trim();
+        
+        if (selectedMedia === 'WITH_PHOTO') {
+            matchesMedia = (photoVal !== '' && photoVal.toLowerCase() !== 'n/a');
+        } else if (selectedMedia === 'NO_PHOTO') {
+            matchesMedia = (photoVal === '' || photoVal.toLowerCase() === 'n/a');
+        } else if (selectedMedia === 'WITH_TAX_DEC') {
+            matchesMedia = (taxDecVal !== '' && taxDecVal.toLowerCase() !== 'n/a');
+        }
+
+        return matchesSearch && matchesRemark && matchesType && matchesMedia;
+    });
+
+    currentPage = 1;
+    renderTableData();
 }
 
-function updatePaginationUI(totalPages) {
-    if (totalPages <= 1) {
-        if (paginationContainer) paginationContainer.style.display = 'none';
-    } else {
-        if (paginationContainer) paginationContainer.style.display = 'flex';
-        if (pageIndicator) pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
-        if (prevPageBtn) prevPageBtn.disabled = currentPage === 1;
-        if (nextPageBtn) nextPageBtn.disabled = currentPage === totalPages;
-    }
+// ==========================================
+// TABLE RENDERING & PAGINATION
+// ==========================================
+
+function renderTableHeaders() {
+    const headerRow = document.getElementById('tableHeaderRow');
+    headerRow.innerHTML = '';
+
+    if (allInventoryData.length === 0) return;
+
+    // Add Action column header
+    const actionTh = document.createElement('th');
+    actionTh.textContent = 'Action';
+    headerRow.appendChild(actionTh);
+
+    const firstRow = allInventoryData[0];
+    Object.keys(firstRow).forEach(key => {
+        const th = document.createElement('th');
+        th.textContent = key;
+        headerRow.appendChild(th);
+    });
 }
 
-function renderTable(data, page = 1) {
-    if(!tableBody) return; tableBody.innerHTML = '';
-    
-    const totalPages = Math.ceil(data.length / itemsPerPage);
-    if (page > totalPages) page = totalPages;
-    if (page < 1) page = 1;
-    currentPage = page;
+function renderTableData() {
+    const tableBody = document.getElementById('tableBody');
+    tableBody.innerHTML = '';
 
-    if(data.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="${displayHeaders.length}" class="no-data">No records match the active matrix search filters.</td></tr>`;
-        updatePaginationUI(0);
+    const foundCountDisplay = document.getElementById('foundCountDisplay');
+    foundCountDisplay.textContent = `(Showing ${filteredInventoryData.length} of ${allInventoryData.length} records)`;
+
+    if (filteredInventoryData.length === 0) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="100" class="no-data">No matching property records found.</td>`;
+        tableBody.appendChild(tr);
+        document.getElementById('paginationContainer').style.display = 'none';
         return;
     }
 
-    const startIndex = (page - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const paginatedData = data.slice(startIndex, endIndex);
+    // Pagination calculations
+    const totalPages = Math.ceil(filteredInventoryData.length / rowsPerPage);
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
 
-    paginatedData.forEach(row => {
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    const paginatedData = filteredInventoryData.slice(startIndex, endIndex);
+
+    paginatedData.forEach((row, index) => {
         const tr = document.createElement('tr');
-        tr.setAttribute('data-id', row._rowId);
-        targetHeadersLowercase.forEach(tKey => {
+
+        // Action Button Cell (Opens modal details)
+        const actionTd = document.createElement('td');
+        const viewBtn = document.createElement('button');
+        viewBtn.textContent = 'View';
+        viewBtn.className = 'export-btn';
+        viewBtn.style.padding = '4px 8px';
+        viewBtn.style.fontSize = '12px';
+        viewBtn.style.marginBottom = '0';
+        viewBtn.onclick = () => openPropertyModal(startIndex + index);
+        actionTd.appendChild(viewBtn);
+        tr.appendChild(actionTd);
+
+        Object.keys(row).forEach(key => {
             const td = document.createElement('td');
-            const resolvedKey = headerMapping[tKey];
-            
-            if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration') || tKey.includes('transfer_cert')) {
-                const url = resolvedKey ? (row[resolvedKey] || '') : '';
-                if (url.trim() !== '') {
-                    const viewUrl = getDirectImageUrl(url, 'view') || url;
-                    const thumbUrl = getDirectImageUrl(url, 'thumbnail') || url;
-                    
-                    td.innerHTML = `<img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" class="hover-preview-img" alt="Preview" style="height:50px; max-width:80px; object-fit:cover; border:1px solid #ccc; border-radius:4px; cursor:zoom-in;" onclick="event.stopPropagation(); openPopUp(${row._rowId}, '${tKey}');">`;
-                } else {
-                    td.textContent = 'No Photo';
-                }
-            } else {
-                td.textContent = resolvedKey ? (row[resolvedKey] || '') : '';
-            }
-            
+            td.textContent = row[key];
             tr.appendChild(td);
         });
-        tr.addEventListener('click', () => openPopUp(row._rowId));
+
         tableBody.appendChild(tr);
     });
 
-    updatePaginationUI(totalPages);
+    // Update Pagination UI
+    const paginationContainer = document.getElementById('paginationContainer');
+    if (totalPages > 1) {
+        paginationContainer.style.display = 'flex';
+        document.getElementById('pageIndicator').textContent = `Page ${currentPage} of ${totalPages}`;
+        document.getElementById('prevPageBtn').disabled = (currentPage === 1);
+        document.getElementById('nextPageBtn').disabled = (currentPage === totalPages);
+    } else {
+        paginationContainer.style.display = 'none';
+    }
 }
 
-function calculateStaticDashboardTotals(items) {
-    if(!countTotal) return;
-    countTotal.textContent = items.length;
-    
-    const rKey = headerMapping['remarks'];
-    const tKey = headerMapping['type'];
-    const pKey1 = headerMapping['photo 1'];
-    const pKey2 = headerMapping['photo 2'];
-    const pKey3 = headerMapping['map coordinates'];
-    const pKey4 = headerMapping['tax declaration']; 
-    
-    let existing = 0, notfound = 0, verify = 0, photos = 0, taxdec = 0;
-    
-    let stats = {
-        'Building': 0, 'Building Modifications': 0, 'Flood Control': 0, 
-        'Hospital': 0, 'Land': 0, 'Markets': 0, 'Other Infrastructures': 0, 
-        'Other Land Improvements': 0, 'Other Structures': 0, 
-        'PARKS PLAZAS AND MONUMENTS': 0, 'Roads': 0, 'School Building': 0, 
-        'Slaughterhouse': 0, 'Water Supplies': 0
-    };
+// ==========================================
+// MODAL & PROPERTY DETAILS VIEWER
+// ==========================================
 
-    items.forEach(row => {
-        const rem = String(row[rKey] || '').toUpperCase();
-        if(rem.includes('EXISTING')) existing++;
-        if(rem.includes('NOT FOUND')) notfound++;
-        if(rem.includes('FOR VERIFICATION')) verify++;
-        
-        if((row[pKey1] && row[pKey1].trim()!=='') || (row[pKey2] && row[pKey2].trim()!=='')) photos++;
-        if(row[pKey4] && row[pKey4].trim()!=='') taxdec++;
-        
-        const typeStr = String(row[tKey] || '').toUpperCase().trim();
-        
-        if (typeStr.includes('BUILDING MOD') || typeStr.includes('ASSET MOD')) stats['Building Modifications']++;
-        else if (typeStr.includes('SCHOOL')) stats['School Building']++;
-        else if (typeStr.includes('HOSPITAL')) stats['Hospital']++;
-        else if (typeStr.includes('MARKET')) stats['Markets']++;
-        else if (typeStr.includes('OTHER INFRA')) stats['Other Infrastructures']++;
-        else if (typeStr.includes('OTHER STRUCT')) stats['Other Structures']++;
-        else if (typeStr.includes('PARK') || typeStr.includes('PLAZA') || typeStr.includes('MONUMENT')) stats['PARKS PLAZAS AND MONUMENTS']++;
-        else if (typeStr.includes('OTHER LAND')) stats['Other Land Improvements']++;
-        else if (typeStr.includes('LAND') || typeStr === 'LOT') stats['Land']++;
-        else if (typeStr.includes('FLOOD')) stats['Flood Control']++;
-        else if (typeStr.includes('WATER')) stats['Water Supplies']++;
-        else if (typeStr.includes('ROAD')) stats['Roads']++;
-        else if (typeStr.includes('SLAUGHTERHOUSE')) stats['Slaughterhouse']++;
-        else if (typeStr.includes('BUILDING')) stats['Building']++;
-    });
-
-    if(countExisting) countExisting.textContent = existing;
-    if(countNotFound) countNotFound.textContent = notfound;
-    if(countVerification) countVerification.textContent = verify;
-    if(countWithPhotos) countWithPhotos.textContent = photos;
-    if(countTaxDec) countTaxDec.textContent = taxdec;
-    
-    if(countBuilding) countBuilding.textContent = stats['Building'];
-    if(countAssetMod) countAssetMod.textContent = stats['Building Modifications'];
-    if(countFlood) countFlood.textContent = stats['Flood Control'];
-    if(countHospital) countHospital.textContent = stats['Hospital'];
-    if(countLand) countLand.textContent = stats['Land'];
-    if(countMarket) countMarket.textContent = stats['Markets'];
-    if(countOtherInfra) countOtherInfra.textContent = stats['Other Infrastructures'];
-    if(countOtherLand) countOtherLand.textContent = stats['Other Land Improvements'];
-    if(countOtherStruct) countOtherStruct.textContent = stats['Other Structures'];
-    if(countPark) countPark.textContent = stats['PARKS PLAZAS AND MONUMENTS'];
-    if(countRoad) countRoad.textContent = stats['Roads'];
-    if(countSchool) countSchool.textContent = stats['School Building'];
-    if(countSlaughterhouse) countSlaughterhouse.textContent = stats['Slaughterhouse'];
-    if(countWater) countWater.textContent = stats['Water Supplies'];
-}
-
-function executeSearch(resetPage = true) {
-    const term = searchInput ? searchInput.value.toLowerCase().trim() : '';
-    const remF = remarksFilter ? remarksFilter.value : 'ALL';
-    const typF = typeFilter ? typeFilter.value : 'ALL';
-    const phoF = photoFilter ? photoFilter.value : 'ALL';
-    
-    const rKey = headerMapping['remarks'];
-    const tKey = headerMapping['type'];
-    const pKey1 = headerMapping['photo 1'];
-    const pKey2 = headerMapping['photo 2'];
-    const pKey4 = headerMapping['tax declaration'];
-    
-    const photo1Or2Keys = [pKey1, pKey2];
-
-    currentFilteredData = inventoryData.filter(row => {
-        let matchText = true, matchRem = true, matchType = true, matchPhoto = true;
-        
-        if (term) {
-            matchText = targetHeadersLowercase.some(k => {
-                const mk = headerMapping[k];
-                return mk && String(row[mk] || '').toLowerCase().includes(term);
-            });
-        }
-        
-        if (remF !== 'ALL') {
-            matchRem = (String(row[rKey] || '') === remF);
-        }
-        
-        if (typF !== 'ALL') {
-            matchType = (String(row[tKey] || '') === typF);
-        }
-        
-        if (phoF !== 'ALL') {
-            const hasPhoto1Or2 = photo1Or2Keys.some(k => k && row[k] && row[k].trim() !== '');
-            const hasTaxDec = pKey4 ? (row[pKey4] && row[pKey4].trim() !== '') : false;
-            if (phoF === 'WITH_PHOTO') matchPhoto = hasPhoto1Or2;
-            if (phoF === 'NO_PHOTO') matchPhoto = !hasPhoto1Or2;
-            if (phoF === 'WITH_TAX_DEC') matchPhoto = hasTaxDec;
-        }
-        
-        return matchText && matchRem && matchType && matchPhoto;
-    });
-
-    if (foundCountDisplay) foundCountDisplay.textContent = `(${currentFilteredData.length} records active)`;
-    
-    if (resetPage) currentPage = 1;
-    renderTable(currentFilteredData, currentPage);
-}
-
-// 🖼️ MODAL HANDLING & EDIT
-function openPopUp(rowId, clickedPhotoKey = null) {
-    activeEditIndex = rowId;
-    const itemData = inventoryData.find(r => r._rowId === rowId);
-    if (!itemData) return;
-
+function openPropertyModal(dataIndex) {
+    currentViewingItem = filteredInventoryData[dataIndex];
+    const modalFormContainer = document.getElementById('modalFormContainer');
     modalFormContainer.innerHTML = '';
-    
-    const flexWrapper = document.createElement('div');
-    flexWrapper.className = 'modal-flex-layout';
-    
+
+    const modalLayout = document.createElement('div');
+    modalLayout.className = 'modal-flex-layout';
+
+    // Fields Side
     const fieldsSide = document.createElement('div');
     fieldsSide.className = 'modal-fields-side';
-    
+
+    Object.keys(currentViewingItem).forEach(key => {
+        const fieldDiv = document.createElement('div');
+        fieldDiv.className = 'modal-field';
+
+        const label = document.createElement('label');
+        label.textContent = key;
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = currentViewingItem[key] || '';
+        input.readOnly = true;
+        input.dataset.key = key;
+
+        fieldDiv.appendChild(label);
+        fieldDiv.appendChild(input);
+        fieldsSide.appendChild(fieldDiv);
+    });
+
+    // Photo Side
     const photoSide = document.createElement('div');
     photoSide.className = 'modal-photo-side';
-    photoSide.id = 'modalPhotoSide'; 
 
-    popupOrderLowercase.forEach(tKey => {
-        const mappedKey = headerMapping[tKey];
-        const val = mappedKey ? (itemData[mappedKey] || '') : '';
-        
-        const fDiv = document.createElement('div');
-        fDiv.className = 'modal-field';
-        
-        const lbl = document.createElement('label');
-        lbl.textContent = mappedKey || tKey;
-        
-        let inp;
-        if(tKey === 'remarks') {
-            inp = document.createElement('select');
-            inp.id = 'modal_' + tKey;
-            inp.disabled = true;
-            let found = false;
-            parsedUniqueRemarks.forEach(r => {
-                const opt = document.createElement('option');
-                opt.value = r; opt.textContent = r;
-                if(r === val) { opt.selected = true; found = true; }
-                inp.appendChild(opt);
-            });
-            if(val && !found) {
-                const opt = document.createElement('option');
-                opt.value = val; opt.textContent = val;
-                opt.selected = true;
-                inp.appendChild(opt);
-            }
-        } else if(tKey === 'description') {
-            inp = document.createElement('textarea');
-            inp.id = 'modal_' + tKey;
-            inp.value = val;
-            inp.rows = 8;
-            inp.disabled = true;
-        } else {
-            inp = document.createElement('input');
-            inp.type = 'text';
-            inp.id = 'modal_' + tKey;
-            inp.value = val;
-            inp.disabled = true;
-        }
-        
-        fDiv.appendChild(lbl);
-        fDiv.appendChild(inp);
-        fieldsSide.appendChild(fDiv);
-    });
-
-    modalPhotos = [];
-    const photoKeysDef = [
-        { key: 'photo 1', label: 'Photo 1' },
-        { key: 'photo 2', label: 'Photo 2' },
-        { key: 'map coordinates', label: 'Map Coordinates' },
-        { key: 'tax declaration', label: 'Tax Declaration' },
-        { key: 'transfer_cert1', label: 'Transfer Certificate of Title Page 1' },
-        { key: 'transfer_cert2', label: 'Transfer Certificate of Title Page 2' }
-    ];
-
-    photoKeysDef.forEach(p => {
-        const mappedKey = headerMapping[p.key];
-        if (mappedKey && itemData[mappedKey] && itemData[mappedKey].trim() !== '') {
-            const val = itemData[mappedKey].trim();
-            if (val.startsWith('http') || val.length > 0) {
-                modalPhotos.push({ label: p.label, url: val, key: p.key });
-            }
-        }
-    });
-
-    currentPhotoIndex = 0;
-    if (clickedPhotoKey) {
-        const foundIndex = modalPhotos.findIndex(mp => mp.key === clickedPhotoKey);
-        if (foundIndex !== -1) {
-            currentPhotoIndex = foundIndex;
-        }
-    }
-    
-    flexWrapper.appendChild(fieldsSide);
-    flexWrapper.appendChild(photoSide);
-    modalFormContainer.appendChild(flexWrapper);
-    
-    renderModalPhotoViewer();
-
-    modalModified = false;
-    modalEditBtn.style.display = 'inline-block';
-    modalSaveBtn.style.display = 'none';
-    uploadPhotoBtn.style.display = 'inline-block';
-    editModal.style.display = 'flex';
-}
-
-function renderModalPhotoViewer() {
-    const photoSide = document.getElementById('modalPhotoSide');
-    if (!photoSide) return;
-    photoSide.innerHTML = ''; 
-
-    if (modalPhotos.length === 0) {
-        photoSide.innerHTML = `<div style="color: #64748b; font-style: italic; display: flex; height: 100%; align-items: center; justify-content: center;">No visual media documented for this asset.</div>`;
-        return;
-    }
-
-    const currentImg = modalPhotos[currentPhotoIndex];
-    const viewUrl = getDirectImageUrl(currentImg.url, 'view') || currentImg.url;
-    const thumbUrl = getDirectImageUrl(currentImg.url, 'thumbnail') || currentImg.url;
-    
     const photoContainer = document.createElement('div');
     photoContainer.className = 'modal-photo-container';
 
-    const actionsContainer = document.createElement('div');
-    actionsContainer.className = 'photo-actions-container';
+    // Extract photos (comma separated or single link)
+    const rawPhotos = currentViewingItem['Photos'] || currentViewingItem['PHOTOS'] || currentViewingItem['Image'] || '';
+    currentPhotosList = rawPhotos.split(',').map(p => p.trim()).filter(p => p !== '' && p.toLowerCase() !== 'n/a');
+    currentPhotoIndex = 0;
 
-    const downloadBtn = document.createElement('button');
-    downloadBtn.className = 'photo-action-btn';
-    downloadBtn.innerHTML = `View Photo`;
-    downloadBtn.onclick = () => {
-        const a = document.createElement('a');
-        a.href = viewUrl;
-        a.download = `property_photo_${currentPhotoIndex + 1}.jpg`;
-        a.target = '_blank';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-    };
-    actionsContainer.appendChild(downloadBtn);
+    const imgElem = document.createElement('img');
+    imgElem.id = 'modalActivePhoto';
+    imgElem.alt = 'Property Image Preview';
 
-    photoContainer.appendChild(actionsContainer);
+    const captionElem = document.createElement('div');
+    captionElem.className = 'photo-caption';
+    captionElem.id = 'photoCaption';
 
-    if (modalPhotos.length > 1) {
+    if (currentPhotosList.length > 0) {
+        imgElem.src = currentPhotosList[0];
+        captionElem.textContent = `Photo 1 of ${currentPhotosList.length}`;
+    } else {
+        imgElem.src = '';
+        captionElem.textContent = 'No photos available';
+        imgElem.style.display = 'none';
+    }
+
+    photoContainer.appendChild(imgElem);
+
+    // Navigation arrows if multiple photos
+    if (currentPhotosList.length > 1) {
         const prevBtn = document.createElement('button');
         prevBtn.className = 'photo-nav-btn photo-prev-btn';
-        prevBtn.innerHTML = '&#10094;'; 
-        prevBtn.onclick = (e) => { e.stopPropagation(); navigatePhoto(-1); };
-        
+        prevBtn.innerHTML = '&#10094;';
+        prevBtn.onclick = () => changeModalPhoto(-1);
+
         const nextBtn = document.createElement('button');
         nextBtn.className = 'photo-nav-btn photo-next-btn';
-        nextBtn.innerHTML = '&#10095;'; 
-        nextBtn.onclick = (e) => { e.stopPropagation(); navigatePhoto(1); };
-        
+        nextBtn.innerHTML = '&#10095;';
+        nextBtn.onclick = () => changeModalPhoto(1);
+
         photoContainer.appendChild(prevBtn);
         photoContainer.appendChild(nextBtn);
     }
 
-    const imgEl = document.createElement('img');
-    imgEl.src = viewUrl;
-    imgEl.alt = currentImg.label;
-    imgEl.onerror = function() {
-        this.onerror = function() {
-            this.src = currentImg.url;
-        };
-        this.src = thumbUrl;
-    };
-
-    photoContainer.appendChild(imgEl);
     photoSide.appendChild(photoContainer);
+    photoSide.appendChild(captionElem);
 
-    const caption = document.createElement('div');
-    caption.className = 'photo-caption';
-    caption.textContent = `${currentImg.label} (${currentPhotoIndex + 1} of ${modalPhotos.length})`;
-    photoSide.appendChild(caption);
+    modalLayout.appendChild(fieldsSide);
+    modalLayout.appendChild(photoSide);
+    modalFormContainer.appendChild(modalLayout);
+
+    document.getElementById('editModal').style.display = 'flex';
 }
 
-function navigatePhoto(dir) {
-    if (modalPhotos.length <= 1) return;
-    currentPhotoIndex += dir;
-    if (currentPhotoIndex < 0) currentPhotoIndex = modalPhotos.length - 1;
-    if (currentPhotoIndex >= modalPhotos.length) currentPhotoIndex = 0;
-    renderModalPhotoViewer();
+function changeModalPhoto(direction) {
+    if (currentPhotosList.length === 0) return;
+    currentPhotoIndex += direction;
+    if (currentPhotoIndex < 0) currentPhotoIndex = currentPhotosList.length - 1;
+    if (currentPhotoIndex >= currentPhotosList.length) currentPhotoIndex = 0;
+
+    const imgElem = document.getElementById('modalActivePhoto');
+    const captionElem = document.getElementById('photoCaption');
+    imgElem.style.display = 'block';
+    imgElem.src = currentPhotosList[currentPhotoIndex];
+    captionElem.textContent = `Photo ${currentPhotoIndex + 1} of ${currentPhotosList.length}`;
 }
 
-function enableEditMode() {
-    popupOrderLowercase.forEach(tKey => {
-        const el = document.getElementById('modal_' + tKey);
-        if (el && tKey !== 'article/item') el.disabled = false;
-    });
-    modalModified = true;
-    modalEditBtn.style.display = 'none';
-    modalSaveBtn.style.display = 'inline-block';
-}
+// ==========================================
+// EXPORT FUNCTIONS
+// ==========================================
 
-function triggerSaveProcess() {
-    const operatorInput = document.getElementById('custom-operator-input');
-    if (operatorInput) operatorInput.value = 'Noel Rie N. Deliña';
-    if (customNameModal) customNameModal.style.display = 'flex';
-}
-
-// 🌐 MODIFIED TO USE URL-ENCODED POST (NO JSON)
-function finalizeSaveData(operatorName) {
-    if (activeEditIndex === null) return;
-    const itemData = inventoryData.find(r => r._rowId === activeEditIndex);
-    if (!itemData) return;
-    
-    const articleKey = headerMapping['article/item'];
-    const articleNo = itemData[articleKey] || '';
-    const formattedTimestamp = new Date().toLocaleString();
-
-    const params = new URLSearchParams();
-    params.append('article', articleNo);
-    params.append('updatedby', operatorName);
-    params.append('timestamp', formattedTimestamp);
-    
-    let hasChanges = false;
-    popupOrderLowercase.forEach(tKey => {
-        if(tKey === 'article/item') return;
-        const el = document.getElementById('modal_' + tKey);
-        const mappedKey = headerMapping[tKey];
-        if (el && mappedKey) {
-            const newVal = el.value.trim();
-            if (newVal !== (itemData[mappedKey] || '').trim()) {
-                params.append(tKey, newVal);
-                itemData[mappedKey] = newVal; 
-                hasChanges = true;
-            }
-        }
-    });
-
-    if (hasChanges) {
-        showLoading("Transmitting modified datasets to Google Cloud...");
-        const updateMappedKey = headerMapping['updated by'];
-        const dateMappedKey = headerMapping['last update'];
-        if(updateMappedKey) itemData[updateMappedKey] = operatorName;
-        if(dateMappedKey) itemData[dateMappedKey] = formattedTimestamp;
-
-        fetch(GOOGLE_APPS_SCRIPT_URL, {
-            method: 'POST',
-            body: params.toString(),
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-        })
-        .then(res => res.text())
-        .then(resText => {
-            hideLoading();
-            if(resText.includes("Success")) {
-                alert("Cloud Sync Successful: Data modifications permanently applied.");
-                closeModal();
-            } else {
-                alert("Sync Failure: " + resText);
-            }
-        });
-    } else {
-        alert("Integrity Check: No changes detected in the matrix.");
-        closeModal();
+function exportTableData(dataToExport, filename) {
+    if (!dataToExport || dataToExport.length === 0) {
+        alert("No data available to export.");
+        return;
     }
+    const csv = Papa.unparse(dataToExport);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 
-function openUploadWindow() {
-    if (activeEditIndex === null) return;
-    const itemData = inventoryData.find(r => r._rowId === activeEditIndex);
-    if (!itemData) return;
-
-    const articleKey = headerMapping['article/item'];
-    const itemCode = itemData[articleKey] || 'Unknown';
-    const uploadUrl = GOOGLE_APPS_SCRIPT_URL + "?itemCode=" + encodeURIComponent(itemCode);
-    
-    window.open(uploadUrl, '_blank');
-    modalModified = true;
-}
-
-function closeModal() {
-    if (editModal) editModal.style.display = 'none';
-    
-    if (modalModified) {
-        loadInventoryFromGoogleSheets(true);
-    }
-    
-    activeEditIndex = null;
-    modalModified = false;
-}
+// ==========================================
+// EVENT LISTENERS & SETUP
+// ==========================================
 
 function setupSystemEventHandlers() {
-    if(searchButton) searchButton.addEventListener('click', () => executeSearch(true));
-    if(searchInput) searchInput.addEventListener('keypress', e => { if(e.key === 'Enter') executeSearch(true); });
-    
-    if(remarksFilter) remarksFilter.addEventListener('change', () => executeSearch(true));
-    if(typeFilter) typeFilter.addEventListener('change', () => executeSearch(true));
-    if(photoFilter) photoFilter.addEventListener('change', () => executeSearch(true));
-    
-    if(exportButton) exportButton.addEventListener('click', () => downloadDatasetCSV(inventoryData, 'Full_Inventory'));
-    if(exportFilteredButton) exportFilteredButton.addEventListener('click', () => downloadSearchedHTML(currentFilteredData));
-    
-    if(uploadPhotoBtn) uploadPhotoBtn.addEventListener('click', openUploadWindow); 
-    
-    if(modalEditBtn) modalEditBtn.addEventListener('click', enableEditMode);
-    if(modalSaveBtn) modalSaveBtn.addEventListener('click', triggerSaveProcess);
-    if(modalCloseBtn) modalCloseBtn.addEventListener('click', closeModal);
-    if(modalCloseX) modalCloseX.addEventListener('click', closeModal); 
-    
-    const cancelNameBtn = document.getElementById('customCancelNameBtn');
-    if (cancelNameBtn) {
-        cancelNameBtn.addEventListener('click', () => {
-            if (customNameModal) customNameModal.style.display = 'none';
-        });
-    }
-    
-    const confirmNameBtn = document.getElementById('customConfirmNameBtn');
-    if (confirmNameBtn) {
-        confirmNameBtn.addEventListener('click', () => {
-            const operatorInput = document.getElementById('custom-operator-input');
-            const nameVal = operatorInput ? operatorInput.value.trim() : '';
-            if(!nameVal) { alert("Authorization Denied: Operator name required."); return; }
-            if (customNameModal) customNameModal.style.display = 'none';
-            finalizeSaveData(nameVal);
-        });
-    }
-}
+    // Search input & button
+    document.getElementById('searchButton').onclick = applyFilters;
+    document.getElementById('searchInput').onkeyup = function(e) {
+        if (e.key === 'Enter') applyFilters();
+    };
 
-function downloadDatasetCSV(data, filenamePrefix) {
-    if(!data || data.length === 0) {
-        alert("Export Nullified: No dataset active for export.");
-        return;
-    }
-    const headerRow = rawHeaders.join(",");
-    const rows = data.map(r => rawHeaders.map(h => `"${(r[h] || '').replace(/"/g, '""')}"`).join(","));
-    const csvContent = [headerRow, ...rows].join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `${filenamePrefix}_${new Date().toISOString().slice(0,10)}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
+    // Filter change events
+    document.getElementById('remarksFilter').onchange = applyFilters;
+    document.getElementById('typeFilter').onchange = applyFilters;
+    document.getElementById('photoFilter').onchange = applyFilters;
 
-function downloadSearchedHTML(data) {
-    if(!data || data.length === 0) {
-        alert("Export Nullified: No dataset active for export.");
-        return;
-    }
+    // Export buttons
+    document.getElementById('exportButton').onclick = () => exportTableData(allInventoryData, 'real_estate_inventory_all.csv');
+    document.getElementById('exportFilteredButton').onclick = () => exportTableData(filteredInventoryData, 'real_estate_inventory_searched.csv');
 
-    let tableRowsHTML = '';
-    data.forEach(row => {
-        tableRowsHTML += '<tr>';
-        EXPORT_TABLE_CONFIG.forEach(col => {
-            const tKey = col.key;
-            const resolvedKey = headerMapping[tKey];
-            const val = resolvedKey ? (row[resolvedKey] || '') : '';
-            
-            if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration') || tKey.includes('transfer_cert')) {
-                if (val.trim() !== '') {
-                    const viewUrl = getDirectImageUrl(val, 'view') || val;
-                    const thumbUrl = getDirectImageUrl(val, 'thumbnail') || val;
-                    tableRowsHTML += `<td style="text-align: center;"><img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" style="height: 250px; max-width: 250px; width: auto; object-fit: contain; border: 1px solid #94a3b8; border-radius: 4px; display: block; margin: 0 auto;" /></td>`;
-                } else {
-                    tableRowsHTML += `<td style="text-align: center; color: #64748b; font-style: italic;">No Photo</td>`;
-                }
-            } else {
-                let styleAttr = "";
-                if (tKey === "description") {
-                    styleAttr = ' style="width: 200px; min-width: 190px;"';
-                }
-                tableRowsHTML += `<td${styleAttr}>${escapeHtml(val)}</td>`;
-            }
-        });
-        tableRowsHTML += '</tr>';
-    });
+    // Modal Close handlers
+    const closeModal = () => { document.getElementById('editModal').style.display = 'none'; };
+    document.getElementById('modalCloseBtn').onclick = closeModal;
+    document.getElementById('modalCloseX').onclick = closeModal;
+    document.getElementById('editModal').onclick = (e) => {
+        if (e.target === document.getElementById('editModal')) closeModal();
+    };
 
-    let headersHTML = '';
-    EXPORT_TABLE_CONFIG.forEach(col => {
-        headersHTML += `<th>${col.display}</th>`;
-    });
+    // Pagination buttons
+    document.getElementById('prevPageBtn').onclick = () => {
+        if (currentPage > 1) {
+            currentPage--;
+            renderTableData();
+            window.scrollTo({ top: 400, behavior: 'smooth' });
+        }
+    };
+    document.getElementById('nextPageBtn').onclick = () => {
+        const totalPages = Math.ceil(filteredInventoryData.length / rowsPerPage);
+        if (currentPage < totalPages) {
+            currentPage++;
+            renderTableData();
+            window.scrollTo({ top: 400, behavior: 'smooth' });
+        }
+    };
 
-    const htmlContent = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Searched Inventory Report</title>
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            margin: 20px; 
-            color: #0f172a; 
-            background: #ffffff; 
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
+    // Back to top & scroll visibility
+    const backToTopBtn = document.getElementById('backToTopBtn');
+    window.onscroll = () => {
+        if (document.body.scrollTop > 300 || document.documentElement.scrollTop > 300) {
+            backToTopBtn.style.visibility = 'visible';
+            backToTopBtn.style.opacity = '1';
+        } else {
+            backToTopBtn.style.visibility = 'hidden';
+            backToTopBtn.style.opacity = '0';
         }
-        h1 { 
-            text-align: center; 
-            color: #0f172a; 
-            text-transform: uppercase; 
-            font-size: 24px;
-            margin-bottom: 5px;
-        }
-        .report-meta {
-            text-align: center;
-            font-size: 14px;
-            color: #334155;
-            margin-bottom: 25px;
-            font-weight: bold;
-        }
-        table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            margin-top: 10px; 
-            background: white; 
-        }
-        th, td { 
-            border: 1px solid #64748b; 
-            padding: 10px 12px; 
-            text-align: left; 
-            font-size: 16px; 
-            line-height: 1.4;
-            word-break: break-word; 
-            color: #0f172a;
-            vertical-align: middle;
-        }
-        th { 
-            background-color: #cbd5e1 !important; 
-            color: #0f172a;
-            font-weight: bold;
-            text-transform: uppercase;
-            font-size: 12px;
-            letter-spacing: 0.5px;
-        }
-        tr:nth-child(even) {
-            background-color: #f8fafc;
-        }
-        @media print {
-            body { margin: 10px; }
-            table { page-break-inside: auto; }
-            tr { page-break-inside: avoid; page-break-after: auto; }
-            th { background-color: #cbd5e1 !important; }
-        }
-    </style>
-</head>
-<body>
-    <h1>Real Estate Inventory Report</h1>
-    <div class="report-meta">
-        Exported On: ${new Date().toLocaleString()} &bull; Total Records: ${data.length}
-    </div>
-    <table>
-        <thead>
-            <tr>${headersHTML}</tr>
-        </thead>
-        <tbody>
-            ${tableRowsHTML}
-        </tbody>
-    </table>
-</body>
-</html>`;
-
-    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Searched_Inventory_Report_${new Date().toISOString().slice(0,10)}.html`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-
-function escapeHtml(str) {
-    return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+    };
+    backToTopBtn.onclick = () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
 }
