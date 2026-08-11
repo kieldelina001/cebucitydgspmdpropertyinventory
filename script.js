@@ -6,9 +6,6 @@ const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHE
 // =========================================================================
 // 🛠️ MANUAL EXPORT TABLE ADJUSTMENT CONFIGURATION 🛠️
 // Adjust the items below to change which columns appear in the "Export Searched" HTML file.
-// 'display' is the column header text shown in the generated export table.
-// 'key' is the internal lowercase identifier matching your spreadsheet columns.
-// Simply delete or comment out a line to remove that column from the export.
 // =========================================================================
 const EXPORT_TABLE_CONFIG = [
     { display: "Article no./ TCT no.", key: "article/item" },
@@ -36,6 +33,11 @@ let activeEditIndex = null;
 let parsedUniqueRemarks = []; 
 let isAppInitialized = false; 
 let modalModified = false;
+
+// 🔐 GIS Auth Architecture
+let tokenClient;
+let accessToken = null;
+const imageCache = {}; // Cache image blobs to avoid repeat fetches
 
 // Modal Photo Gallery State
 let modalPhotos = [];
@@ -173,46 +175,50 @@ window.addEventListener('scroll', () => {
     }
 });
 
-// 🔑 GOOGLE IDENTITY SERVICES AUTH HANDLER
-function decodeJwtResponse(token) {
-    let base64Url = token.split('.')[1];
-    let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    let jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-    }).join(''));
-    return JSON.parse(jsonPayload);
-}
-
-function handleCredentialResponse(response) {
-    if (response.credential) {
-        // Automatically pre-fill the operator's name from their Google Account
-        try {
-            const payload = decodeJwtResponse(response.credential);
-            const operatorInput = document.getElementById('custom-operator-input');
-            if (operatorInput && payload.name) {
-                operatorInput.value = payload.name;
-            }
-        } catch (e) {
-            console.error("Error decoding JWT profile", e);
-        }
-
-        document.getElementById('loginScreen').style.display = 'none';
-        document.getElementById('mainApp').style.display = 'block';
-        
-        setupSystemEventHandlers();
-        loadInventoryFromGoogleSheets();
-    } else {
-        const loginErr = document.getElementById('loginError');
-        if (loginErr) loginErr.textContent = 'Google Sign-In verification failed.';
-    }
-}
-
-// 🔐 SECURE INITIALIZER
+// 🔐 SECURE INITIALIZER & GOOGLE IDENTITY TOKEN INTEGRATION
 function initApp() {
     initUIReferences();
 
-    const backToTopBtn = document.getElementById('backToTopBtn');
+    // 1. Initialize Google Token Client for Drive read scopes + Userinfo
+    if (window.google && google.accounts && google.accounts.oauth2) {
+        tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: '84591548482-rfv15nf99g7nsdtlr3i57ms0fuln28s3.apps.googleusercontent.com',
+            scope: 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.profile',
+            callback: (tokenResponse) => {
+                if (tokenResponse && tokenResponse.access_token) {
+                    accessToken = tokenResponse.access_token;
+                    
+                    // Fetch User Profile for Operator Name
+                    fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                        headers: { 'Authorization': `Bearer ${accessToken}` }
+                    })
+                    .then(res => res.json())
+                    .then(profile => {
+                        const operatorInput = document.getElementById('custom-operator-input');
+                        if (operatorInput && profile.name) operatorInput.value = profile.name;
+                    }).catch(console.error);
 
+                    document.getElementById('loginScreen').style.display = 'none';
+                    document.getElementById('mainApp').style.display = 'block';
+                    
+                    setupSystemEventHandlers();
+                    loadInventoryFromGoogleSheets();
+                } else {
+                    const loginErr = document.getElementById('loginError');
+                    if (loginErr) loginErr.textContent = 'Google Sign-In authorization failed.';
+                }
+            }
+        });
+    }
+
+    const loginBtn = document.getElementById('customLoginBtn');
+    if (loginBtn) {
+        loginBtn.addEventListener('click', () => {
+            if (tokenClient) tokenClient.requestAccessToken();
+        });
+    }
+
+    const backToTopBtn = document.getElementById('backToTopBtn');
     if (backToTopBtn) {
         backToTopBtn.addEventListener('click', () => {
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -243,7 +249,8 @@ function initApp() {
     document.addEventListener('mouseover', function(e) {
         if (e.target && e.target.classList.contains('hover-preview-img')) {
             const srcToUse = e.target.src;
-            if (srcToUse && tooltip && tooltipImg) {
+            // Prevent showing placeholder spinner in tooltip
+            if (srcToUse && !srcToUse.includes('svg+xml') && tooltip && tooltipImg) {
                 tooltipImg.src = srcToUse;
                 tooltip.style.display = 'block';
             }
@@ -282,6 +289,35 @@ if (document.readyState === 'loading') {
     window.addEventListener('DOMContentLoaded', initApp);
 } else {
     initApp();
+}
+
+// 🌐 Secure Image Fetcher (Bypasses Google Drive Blocks)
+async function fetchAuthorizedImage(driveUrl) {
+    if (!driveUrl || typeof driveUrl !== 'string') return null;
+    const match = driveUrl.match(/[-\w]{25,}/);
+    if (!match) return driveUrl; 
+
+    const fileId = match[0];
+    if (imageCache[fileId]) return imageCache[fileId];
+
+    if (!accessToken) return getDirectImageUrl(driveUrl, 'thumbnail'); 
+
+    try {
+        const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`
+            }
+        });
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+        
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        imageCache[fileId] = objectUrl; 
+        return objectUrl;
+    } catch (e) {
+        console.warn("Failed to fetch image securely, falling back to thumbnail", e);
+        return getDirectImageUrl(driveUrl, 'thumbnail');
+    }
 }
 
 async function loadInventoryFromGoogleSheets(retainPage = false) {
@@ -457,6 +493,7 @@ function renderTable(data, page = 1) {
     paginatedData.forEach(row => {
         const tr = document.createElement('tr');
         tr.setAttribute('data-id', row._rowId);
+        
         targetHeadersLowercase.forEach(tKey => {
             const td = document.createElement('td');
             const resolvedKey = headerMapping[tKey];
@@ -464,17 +501,35 @@ function renderTable(data, page = 1) {
             if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration') || tKey.includes('transfer_cert')) {
                 const url = resolvedKey ? (row[resolvedKey] || '') : '';
                 if (url.trim() !== '') {
-                    const viewUrl = getDirectImageUrl(url, 'view') || url;
-                    const thumbUrl = getDirectImageUrl(url, 'thumbnail') || url;
+                    // Create image element dynamically for async fetching
+                    const imgEl = document.createElement('img');
+                    imgEl.className = "hover-preview-img";
+                    imgEl.style.height = "50px";
+                    imgEl.style.maxWidth = "80px";
+                    imgEl.style.objectFit = "cover";
+                    imgEl.style.border = "1px solid #ccc";
+                    imgEl.style.borderRadius = "4px";
+                    imgEl.style.cursor = "zoom-in";
+                    imgEl.alt = "Loading...";
+                    // Loading Spinner SVG Base64 while fetching the image
+                    imgEl.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'%3E%3Ccircle cx='25' cy='25' r='20' fill='none' stroke='%23ccc' stroke-width='4' stroke-dasharray='31.4 31.4'%3E%3CanimateTransform attributeName='transform' type='rotate' from='0 25 25' to='360 25 25' dur='1s' repeatCount='indefinite'/%3E%3C/circle%3E%3C/svg%3E";
                     
-                    td.innerHTML = `<img src="${viewUrl}" onerror="this.onerror=null; this.src='${thumbUrl}';" class="hover-preview-img" alt="Preview" style="height:50px; max-width:80px; object-fit:cover; border:1px solid #ccc; border-radius:4px; cursor:zoom-in;" onclick="event.stopPropagation(); openPopUp(${row._rowId}, '${tKey}');">`;
+                    imgEl.onclick = (event) => { event.stopPropagation(); openPopUp(row._rowId, tKey); };
+                    td.appendChild(imgEl);
+
+                    // Fetch securely behind the scenes and update SRC
+                    fetchAuthorizedImage(url).then(objectUrl => {
+                        if(objectUrl) {
+                            imgEl.src = objectUrl;
+                            imgEl.alt = "Preview";
+                        }
+                    });
                 } else {
                     td.textContent = 'No Photo';
                 }
             } else {
                 td.textContent = resolvedKey ? (row[resolvedKey] || '') : '';
             }
-            
             tr.appendChild(td);
         });
         tr.addEventListener('click', () => openPopUp(row._rowId));
@@ -720,8 +775,6 @@ function renderModalPhotoViewer() {
     }
 
     const currentImg = modalPhotos[currentPhotoIndex];
-    const viewUrl = getDirectImageUrl(currentImg.url, 'view') || currentImg.url;
-    const thumbUrl = getDirectImageUrl(currentImg.url, 'thumbnail') || currentImg.url;
     
     const photoContainer = document.createElement('div');
     photoContainer.className = 'modal-photo-container';
@@ -732,9 +785,11 @@ function renderModalPhotoViewer() {
     const downloadBtn = document.createElement('button');
     downloadBtn.className = 'photo-action-btn';
     downloadBtn.innerHTML = `View Photo`;
-    downloadBtn.onclick = () => {
+    downloadBtn.onclick = async () => {
+        // Fetch to ensure they get the raw file download reliably
+        const objectUrl = await fetchAuthorizedImage(currentImg.url);
         const a = document.createElement('a');
-        a.href = viewUrl;
+        a.href = objectUrl || currentImg.url;
         a.download = `property_photo_${currentPhotoIndex + 1}.jpg`;
         a.target = '_blank';
         document.body.appendChild(a);
@@ -742,7 +797,6 @@ function renderModalPhotoViewer() {
         document.body.removeChild(a);
     };
     actionsContainer.appendChild(downloadBtn);
-
     photoContainer.appendChild(actionsContainer);
 
     if (modalPhotos.length > 1) {
@@ -761,14 +815,13 @@ function renderModalPhotoViewer() {
     }
 
     const imgEl = document.createElement('img');
-    imgEl.src = viewUrl;
     imgEl.alt = currentImg.label;
-    imgEl.onerror = function() {
-        this.onerror = function() {
-            this.src = currentImg.url;
-        };
-        this.src = thumbUrl;
-    };
+    imgEl.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'%3E%3Ccircle cx='25' cy='25' r='20' fill='none' stroke='%23ccc' stroke-width='4' stroke-dasharray='31.4 31.4'%3E%3CanimateTransform attributeName='transform' type='rotate' from='0 25 25' to='360 25 25' dur='1s' repeatCount='indefinite'/%3E%3C/circle%3E%3C/svg%3E";
+    
+    // Secure background load
+    fetchAuthorizedImage(currentImg.url).then(objectUrl => {
+        if(objectUrl) imgEl.src = objectUrl;
+    });
 
     photoContainer.appendChild(imgEl);
     photoSide.appendChild(photoContainer);
@@ -798,7 +851,6 @@ function enableEditMode() {
 }
 
 function triggerSaveProcess() {
-    // Note: The hardcoded override has been removed so the pre-filled Google Profile name persists.
     if (customNameModal) customNameModal.style.display = 'flex';
 }
 
@@ -940,6 +992,7 @@ function downloadDatasetCSV(data, filenamePrefix) {
     document.body.removeChild(link);
 }
 
+// ⚠️ Note: Offline HTML export relies on standard Google links as Blob Object URLs expire instantly once the page closes.
 function downloadSearchedHTML(data) {
     if(!data || data.length === 0) {
         alert("Export Nullified: No dataset active for export.");
