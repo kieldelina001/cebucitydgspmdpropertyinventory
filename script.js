@@ -23,8 +23,8 @@ const EXPORT_TABLE_CONFIG = [
 // =========================================================================
 
 const displayHeaders = ["Article no./ TCT no.", "Description", "Notes", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Coordinates", "Tax Declaration", "Transfer Certificate of Title Page 1", "Transfer Certificate of Title Page 2", "UPDATED BY", "LAST UPDATE"];
-const targetHeadersLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "transfer_cert1", "transfer_cert2", "updated by", "last update"];
-const popupOrderLowercase = ["article/item", "description", "acquisition date", "unit value", "remarks", "type"]; 
+const targetHeadersLowercase = ["article/item", "description", "note", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "transfer_cert1", "transfer_cert2", "updated by", "last update"];
+const popupOrderLowercase = ["article/item", "description", "note", "unit value", "remarks", "type"]; 
 
 let inventoryData = []; 
 let currentFilteredData = []; 
