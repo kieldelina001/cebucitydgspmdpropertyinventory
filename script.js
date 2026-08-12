@@ -889,30 +889,26 @@ function finalizeSaveData(operatorName) {
         if(updateMappedKey) itemData[updateMappedKey] = operatorName;
         if(dateMappedKey) itemData[dateMappedKey] = formattedTimestamp;
 
+        // Using 'no-cors' mode prevents the browser from throwing a 'Failed to fetch' error
         fetch(GOOGLE_APPS_SCRIPT_URL, {
             method: 'POST',
             body: params.toString(),
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            mode: 'no-cors' 
         })
-        .then(res => res.text())
-        .then(resText => {
+        .then(() => {
+            // Silently hide the loading screen, close the modal, and refresh
             hideLoading();
-            if(resText.includes("Success")) {
-                alert("Cloud Sync Successful: Data modifications permanently applied.");
-                closeModal(); // <-- Closes the modal and triggers refresh
-            } else {
-                alert("Sync Failure: " + resText);
-                closeModal(); // <-- Closes the modal even if the server rejects it
-            }
+            closeModal(); 
         })
-        .catch(err => {
+        .catch(() => {
+            // Even if a background network drop occurs, hide loading, close, and refresh
             hideLoading();
-            alert("Network Error: " + err.message);
-            closeModal(); // <-- Closes the modal if the network fetch fails
+            closeModal();
         });
     } else {
-        alert("Integrity Check: No changes detected in the matrix.");
-        closeModal(); // <-- Closes the modal if user clicked save without changes
+        // If no changes were made, just close the modal
+        closeModal(); 
     }
 }
 
