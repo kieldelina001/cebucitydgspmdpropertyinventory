@@ -758,6 +758,8 @@ function openPopUp(rowId, clickedPhotoKey = null) {
     modalEditBtn.style.display = 'inline-block';
     modalSaveBtn.style.display = 'none';
     uploadPhotoBtn.style.display = 'inline-block';
+    modalCloseBtn.disabled = false;
+    modalCloseX.disabled = false;
     editModal.style.display = 'flex';
 }
 
@@ -843,6 +845,8 @@ function enableEditMode() {
     modalModified = true;
     modalEditBtn.style.display = 'none';
     modalSaveBtn.style.display = 'inline-block';
+    modalCloseBtn.disabled = true;
+    modalCloseX.disabled = true;
 }
 
 function triggerSaveProcess() {
@@ -895,14 +899,16 @@ function finalizeSaveData(operatorName) {
             hideLoading();
             if(resText.includes("Success")) {
                 alert("Cloud Sync Successful: Data modifications permanently applied.");
-                closeModal();
+                odalCloseBtn.disabled = false;
+                modalCloseX.disabled = false;
             } else {
                 alert("Sync Failure: " + resText);
             }
         });
     } else {
         alert("Integrity Check: No changes detected in the matrix.");
-        closeModal();
+        modalCloseBtn.disabled = false;
+        modalCloseX.disabled = false;
     }
 }
 
