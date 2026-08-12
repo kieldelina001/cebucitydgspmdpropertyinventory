@@ -899,16 +899,16 @@ function finalizeSaveData(operatorName) {
             hideLoading();
             if(resText.includes("Success")) {
                 alert("Cloud Sync Successful: Data modifications permanently applied.");
-                odalCloseBtn.disabled = false;
-                modalCloseX.disabled = false;
+               closeModal();
+        
             } else {
                 alert("Sync Failure: " + resText);
             }
         });
     } else {
         alert("Integrity Check: No changes detected in the matrix.");
-        modalCloseBtn.disabled = false;
-        modalCloseX.disabled = false;
+        closeModal();
+    
     }
 }
 
