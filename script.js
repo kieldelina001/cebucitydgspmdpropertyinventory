@@ -899,16 +899,20 @@ function finalizeSaveData(operatorName) {
             hideLoading();
             if(resText.includes("Success")) {
                 alert("Cloud Sync Successful: Data modifications permanently applied.");
-               closeModal();
-        
+                closeModal(); // <-- Closes the modal and triggers refresh
             } else {
                 alert("Sync Failure: " + resText);
+                closeModal(); // <-- Closes the modal even if the server rejects it
             }
+        })
+        .catch(err => {
+            hideLoading();
+            alert("Network Error: " + err.message);
+            closeModal(); // <-- Closes the modal if the network fetch fails
         });
     } else {
         alert("Integrity Check: No changes detected in the matrix.");
-        closeModal();
-    
+        closeModal(); // <-- Closes the modal if user clicked save without changes
     }
 }
 
