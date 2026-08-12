@@ -11,7 +11,7 @@ const GOOGLE_SHEET_CSV_URL = `https://www.googleapis.com/drive/v3/files/${SPREAD
 const EXPORT_TABLE_CONFIG = [
     { display: "Article no./ TCT no.", key: "article/item" },
     { display: "Description", key: "description" },
-    { display: "Remarks", key: "notes" }, /// add notes
+    { display: "Notes", key: "notes" }, /// add notes
     { display: "Remarks", key: "remarks" },
     { display: "Type", key: "type" },
     { display: "Photo 1", key: "photo 1" },
