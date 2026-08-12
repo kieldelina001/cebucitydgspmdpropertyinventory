@@ -176,11 +176,9 @@ window.addEventListener('scroll', () => {
     }
 });
 
-// 🔐 SECURE INITIALIZER & GOOGLE IDENTITY TOKEN INTEGRATION
-function initApp() {
-    initUIReferences();
-
-    if (window.google && google.accounts && google.accounts.oauth2) {
+// 🔐 SECURE INITIALIZER & GOOGLE IDENTITY TOKEN INTEGRATION (ROBUST 1-CLICK FIX)
+function getOrCreateTokenClient() {
+    if (!tokenClient && window.google && google.accounts && google.accounts.oauth2) {
         tokenClient = google.accounts.oauth2.initTokenClient({
             client_id: '84591548482-rfv15nf99g7nsdtlr3i57ms0fuln28s3.apps.googleusercontent.com',
             scope: 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.profile',
@@ -197,8 +195,10 @@ function initApp() {
                         if (operatorInput && profile.name) operatorInput.value = profile.name;
                     }).catch(console.error);
 
-                    document.getElementById('loginScreen').style.display = 'none';
-                    document.getElementById('mainApp').style.display = 'block';
+                    const loginScreen = document.getElementById('loginScreen');
+                    const mainApp = document.getElementById('mainApp');
+                    if (loginScreen) loginScreen.style.display = 'none';
+                    if (mainApp) mainApp.style.display = 'block';
                     
                     setupSystemEventHandlers();
                     loadInventoryFromGoogleSheets();
@@ -209,11 +209,38 @@ function initApp() {
             }
         });
     }
+    return tokenClient;
+}
+
+function initApp() {
+    initUIReferences();
+
+    // Try initializing immediately if the script is already loaded
+    getOrCreateTokenClient();
 
     const loginBtn = document.getElementById('customLoginBtn');
     if (loginBtn) {
         loginBtn.addEventListener('click', () => {
-            if (tokenClient) tokenClient.requestAccessToken();
+            let client = getOrCreateTokenClient();
+            if (client) {
+                const loginErr = document.getElementById('loginError');
+                if (loginErr) loginErr.textContent = '';
+                client.requestAccessToken();
+            } else {
+                // Fallback: If Google GSI script is still loading, retry after 500ms automatically
+                const loginErr = document.getElementById('loginError');
+                if (loginErr) loginErr.textContent = 'Connecting to Google Sign-In, please wait...';
+                
+                setTimeout(() => {
+                    client = getOrCreateTokenClient();
+                    if (client) {
+                        if (loginErr) loginErr.textContent = '';
+                        client.requestAccessToken();
+                    } else {
+                        if (loginErr) loginErr.textContent = 'Google Sign-In failed to load. Please check your network connection or refresh.';
+                    }
+                }, 600);
+            }
         });
     }
 
