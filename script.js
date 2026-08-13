@@ -1208,3 +1208,86 @@ function escapeHtml(str) {
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
 }
+
+// =========================================================================
+// 🚪 LOGOUT & IDLE TIMEOUT MODULE
+// =========================================================================
+let idleTimer;
+const IDLE_TIME_LIMIT = 30 * 60 * 1000; // 30 minutes in milliseconds
+
+function performLogout() {
+    // 1. Clear the access token to revoke privileges
+    accessToken = null; 
+    
+    // 2. Transition back to the login screen
+    const loginScreen = document.getElementById('loginScreen');
+    const mainApp = document.getElementById('mainApp');
+    
+    if (loginScreen) loginScreen.style.display = 'block';
+    if (mainApp) mainApp.style.display = 'none';
+    
+    // 3. Stop the timer
+    clearTimeout(idleTimer);
+    
+    // Optional: Alert the user they were logged out safely
+    // alert("Session ended. You have been securely logged out."); 
+}
+
+function resetIdleTimer() {
+    clearTimeout(idleTimer);
+    // Only run the idle countdown if the user is currently logged in
+    if (accessToken) {
+        idleTimer = setTimeout(performLogout, IDLE_TIME_LIMIT);
+    }
+}
+
+// Initialize everything once the page loads
+window.addEventListener('DOMContentLoaded', () => {
+    // --- Create the Floating Logout Button ---
+    const logoutBtn = document.createElement('button');
+    logoutBtn.innerHTML = 'Log Out';
+    logoutBtn.id = 'floatingLogoutBtn';
+    
+    // Style the button so it floats in the upper right
+    Object.assign(logoutBtn.style, {
+        position: 'fixed',
+        top: '20px',
+        right: '20px',
+        backgroundColor: '#dc3545',
+        color: 'white',
+        border: 'none',
+        padding: '10px 20px',
+        borderRadius: '5px',
+        fontWeight: 'bold',
+        cursor: 'pointer',
+        boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+        zIndex: '999999',
+        display: 'none', // Hidden by default on the login screen
+        transition: 'background-color 0.2s'
+    });
+
+    // Add a slight hover effect for better UI
+    logoutBtn.onmouseover = () => logoutBtn.style.backgroundColor = '#c82333';
+    logoutBtn.onmouseout = () => logoutBtn.style.backgroundColor = '#dc3545';
+    
+    logoutBtn.addEventListener('click', performLogout);
+    document.body.appendChild(logoutBtn);
+
+    // --- Setup the Idle Activity Trackers ---
+    // Any of these actions will reset the 30-minute timer
+    const userActivityEvents = ['mousemove', 'keydown', 'scroll', 'click', 'touchstart'];
+    userActivityEvents.forEach(event => {
+        document.addEventListener(event, resetIdleTimer);
+    });
+
+    // --- Monitor Login State ---
+    // Checks every 1 second if the user logged in to display the button, 
+    // ensuring we don't have to alter your existing login functions.
+    setInterval(() => {
+        const btn = document.getElementById('floatingLogoutBtn');
+        if (btn) {
+            btn.style.display = accessToken ? 'block' : 'none';
+        }
+    }, 1000);
+});
+// =========================================================================
