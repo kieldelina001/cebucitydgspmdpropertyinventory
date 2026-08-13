@@ -787,6 +787,7 @@ function openPopUp(rowId, clickedPhotoKey = null) {
     modalSaveBtn.style.display = 'none';
     uploadPhotoBtn.style.display = 'inline-block';
     modalCloseBtn.disabled = false;
+    modalCloseBtn.textContent = 'Close'; // <--- ADD THIS LINE
     modalCloseX.disabled = false;
     editModal.style.display = 'flex';
 }
@@ -873,8 +874,11 @@ function enableEditMode() {
     modalModified = true;
     modalEditBtn.style.display = 'none';
     modalSaveBtn.style.display = 'inline-block';
-    modalCloseBtn.disabled = true;
-    modalCloseX.disabled = true;
+    
+    // MODIFY THE LINES BELOW:
+    modalCloseBtn.disabled = false;        // Keep it clickable
+    modalCloseBtn.textContent = 'Cancel';  // Change text to Cancel
+    // modalCloseX.disabled = true;        // REMOVE or COMMENT OUT this line so X stays active
 }
 
 function triggerSaveProcess() {
@@ -979,7 +983,15 @@ function setupSystemEventHandlers() {
     
     if(modalEditBtn) modalEditBtn.addEventListener('click', enableEditMode);
     if(modalSaveBtn) modalSaveBtn.addEventListener('click', triggerSaveProcess);
-    if(modalCloseBtn) modalCloseBtn.addEventListener('click', closeModal);
+    
+    if(modalCloseBtn) modalCloseBtn.addEventListener('click', () => {
+        if (modalCloseBtn.textContent === 'Cancel') {
+            modalModified = false; // Prevents unnecessary data reload
+            openPopUp(activeEditIndex); // Re-opens the current item in View Mode
+        } else {
+            closeModal();
+        }
+    });
     if(modalCloseX) modalCloseX.addEventListener('click', closeModal); 
     
     const cancelNameBtn = document.getElementById('customCancelNameBtn');
