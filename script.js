@@ -1223,7 +1223,7 @@ function performLogout() {
     const loginScreen = document.getElementById('loginScreen');
     const mainApp = document.getElementById('mainApp');
     
-    if (loginScreen) loginScreen.style.display = 'block';
+    if (loginScreen) loginScreen.style.display = '';
     if (mainApp) mainApp.style.display = 'none';
     
     // 3. Stop the timer
