@@ -182,7 +182,7 @@ function getOrCreateTokenClient() {
     if (!tokenClient && window.google && google.accounts && google.accounts.oauth2) {
         tokenClient = google.accounts.oauth2.initTokenClient({
             client_id: '84591548482-rfv15nf99g7nsdtlr3i57ms0fuln28s3.apps.googleusercontent.com',
-            scope: 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.profile',
+            scope: 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
             callback: (tokenResponse) => {
                 if (tokenResponse && tokenResponse.access_token) {
                     accessToken = tokenResponse.access_token;
@@ -193,7 +193,10 @@ function getOrCreateTokenClient() {
                     .then(res => res.json())
                     .then(profile => {
                         const operatorInput = document.getElementById('custom-operator-input');
-                        if (operatorInput && profile.name) operatorInput.value = profile.name;
+                       if (operatorInput && profile.email) {
+    operatorInput.value = profile.email;
+    operatorInput.disabled = true;
+}
                     }).catch(console.error);
 
                     const loginScreen = document.getElementById('loginScreen');
