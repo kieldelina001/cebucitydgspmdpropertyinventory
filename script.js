@@ -35,6 +35,7 @@ let activeEditIndex = null;
 let parsedUniqueRemarks = []; 
 let isAppInitialized = false; 
 let modalModified = false;
+let loggedInUser = "System User";
 
 // 🔐 GIS Auth Architecture
 let tokenClient;
@@ -187,16 +188,19 @@ function getOrCreateTokenClient() {
                 if (tokenResponse && tokenResponse.access_token) {
                     accessToken = tokenResponse.access_token;
                     
-                    fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                   fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
                         headers: { 'Authorization': `Bearer ${accessToken}` }
                     })
                     .then(res => res.json())
                     .then(profile => {
+                        if (profile.email) {
+                            loggedInUser = profile.email; // <--- ADDED: Saves email globally
+                        }
                         const operatorInput = document.getElementById('custom-operator-input');
-                       if (operatorInput && profile.email) {
-    operatorInput.value = profile.email;
-    operatorInput.disabled = true;
-}
+                        if (operatorInput && profile.email) {
+                            operatorInput.value = profile.email;
+                            operatorInput.disabled = true;
+                        }
                     }).catch(console.error);
 
                     const loginScreen = document.getElementById('loginScreen');
@@ -885,7 +889,7 @@ function enableEditMode() {
 }
 
 function triggerSaveProcess() {
-    if (customNameModal) customNameModal.style.display = 'flex';
+    finalizeSaveData(loggedInUser); // <--- MODIFIED: Bypasses popup and goes straight to save & refresh
 }
 
 function finalizeSaveData(operatorName) {
