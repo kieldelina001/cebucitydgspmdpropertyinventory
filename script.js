@@ -876,16 +876,17 @@ function navigatePhoto(dir) {
 function enableEditMode() {
     popupOrderLowercase.forEach(tKey => {
         const el = document.getElementById('modal_' + tKey);
-        if (el && tKey !== 'article/item') el.disabled = false;
+        // <--- MODIFIED: Excludes both 'article/item' and 'description' from being enabled
+        if (el && tKey !== 'article/item' && tKey !== 'description') {
+            el.disabled = false;
+        }
     });
     modalModified = true;
     modalEditBtn.style.display = 'none';
     modalSaveBtn.style.display = 'inline-block';
     
-    // MODIFY THE LINES BELOW:
-    modalCloseBtn.disabled = false;        // Keep it clickable
-    modalCloseBtn.textContent = 'Cancel';  // Change text to Cancel
-    // modalCloseX.disabled = true;        // REMOVE or COMMENT OUT this line so X stays active
+    modalCloseBtn.disabled = false;        
+    modalCloseBtn.textContent = 'Cancel';  
 }
 
 function triggerSaveProcess() {
