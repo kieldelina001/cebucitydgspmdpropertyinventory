@@ -376,7 +376,7 @@ function setupDashboardClickHandlers() {
         { id: 'countRoad', keyword: 'ROAD' },
         { id: 'countSchool', keyword: 'SCHOOL' },
         { id: 'countSlaughterhouse', keyword: 'SLAUGHTERHOUSE' },
-        { id: 'countWater', keyword: 'WATER' }
+        { id: 'countWater', keyword: 'WATER' },
 		{ id: 'countTaxDeclaration', keyword: 'TAX DECLARATION' }
     ];
 
