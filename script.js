@@ -60,6 +60,31 @@ let loadingOverlay, customNameModal;
 let countInsured, countNotInsured, countExpiring;
 let activeInsuranceFilter = 'ALL'; // Tracks which card is currently clicked
 
+function resetAndFilterByItem(filterCategory, clickedValue) {
+    // 1. Reset all filters and search inputs to default
+    if (searchInput) searchInput.value = "";
+    
+    // Assuming the default value for your dropdowns is an empty string "" 
+    // If your default value is something else, use that (e.g., "-- All Types --")
+    if (remarksFilter) remarksFilter.value = ""; 
+    if (typeFilter) typeFilter.value = "";
+    if (photoFilter) photoFilter.value = "";
+
+    // 2. Set the specific filter to the value of the item clicked
+    if (filterCategory === 'type' && typeFilter) {
+        typeFilter.value = clickedValue;
+    } else if (filterCategory === 'remarks' && remarksFilter) {
+        remarksFilter.value = clickedValue;
+    }
+
+    // Optional: Reset pagination to page 1 if you have a pagination variable
+    // currentPage = 1; 
+
+    // 3. Trigger your search function to update the table based on the new filter
+    // Passing 'true' based on your executeSearch(!retainPage) logic
+    executeSearch(true); 
+}
+
 // ⏳ LOADING OVERLAY GENERATOR
 function initUIReferences() {
     searchInput = document.getElementById('searchInput');
@@ -226,21 +251,26 @@ function getOrCreateTokenClient() {
 }
 // 🖱️ DASHBOARD CARD CLICK HANDLERS
 function setupDashboardClickHandlers() {
-    // Helper function to set dropdown value by matching option text or value
-    function setDropdownByText(selectEl, keyword) {
-        if (!selectEl) return false;
-        const keyUpper = keyword.toUpperCase();
-        for (let i = 0; i < selectEl.options.length; i++) {
-            const optVal = selectEl.options[i].value.toUpperCase();
-            const optText = selectEl.options[i].text.toUpperCase();
-            if (optVal.includes(keyUpper) || optText.includes(keyUpper)) {
-                selectEl.selectedIndex = i;
-                return true;
-            }
-        }
-        return false;
+    // Example: You have a dashboard card for "Defective" items
+    const defectiveCard = document.getElementById('dashboard-defective-card');
+    
+    if (defectiveCard) {
+        defectiveCard.addEventListener('click', function() {
+            // When clicked, clear everything else and show only 'Defective' remarks
+            resetAndFilterByItem('remarks', 'Defective');
+        });
     }
 
+    // Example: Clicking a specific item type like "Laptops"
+    const laptopsCard = document.getElementById('dashboard-laptops-card');
+    
+    if (laptopsCard) {
+        laptopsCard.addEventListener('click', function() {
+            // When clicked, clear everything else and show only 'Laptop' types
+            resetAndFilterByItem('type', 'Laptop');
+        });
+    }
+}
     // Helper function to smoothly scroll to the data table
     function scrollToTable() {
         const tableSec = document.querySelector('.table-section');
