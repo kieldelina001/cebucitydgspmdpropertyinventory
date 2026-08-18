@@ -349,6 +349,18 @@ function setupDashboardClickHandlers() {
         };
     }
 
+const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card');
+    if (cardTaxDec) {
+        cardTaxDec.onclick = () => {
+            resetAllFilters(); // Reset everything first!
+            if (photoFilter && photoFilter.options.length > 3) {
+                photoFilter.selectedIndex = 3; // Index 3 is "With Tax Declaration"
+            }
+            executeSearch(true);
+            scrollToTable();
+        };
+    }
+	
     const cardPhotos = document.getElementById('countWithPhotos')?.closest('.dash-card');
     if (cardPhotos) {
         cardPhotos.onclick = () => {
@@ -376,8 +388,8 @@ function setupDashboardClickHandlers() {
         { id: 'countRoad', keyword: 'ROAD' },
         { id: 'countSchool', keyword: 'SCHOOL' },
         { id: 'countSlaughterhouse', keyword: 'SLAUGHTERHOUSE' },
-        { id: 'countWater', keyword: 'WATER' },
-		{ id: 'countTaxDeclaration', keyword: 'TAX DECLARATION' }
+        { id: 'countWater', keyword: 'WATER' }
+		
     ];
 
     typeMappings.forEach(item => {
