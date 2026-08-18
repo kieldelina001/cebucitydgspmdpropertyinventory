@@ -250,27 +250,44 @@ function getOrCreateTokenClient() {
     return tokenClient;
 }
 // 🖱️ DASHBOARD CARD CLICK HANDLERS
+// 🖱️ DASHBOARD CARD CLICK HANDLERS
 function setupDashboardClickHandlers() {
-    // Example: You have a dashboard card for "Defective" items
-    const defectiveCard = document.getElementById('dashboard-defective-card');
     
-    if (defectiveCard) {
-        defectiveCard.addEventListener('click', function() {
-            // When clicked, clear everything else and show only 'Defective' remarks
-            resetAndFilterByItem('remarks', 'Defective');
-        });
+    // 🧹 NEW: Helper function to clear search and dropdowns
+    function resetAllFilters() {
+        if (searchInput) searchInput.value = '';
+        if (remarksFilter) remarksFilter.value = 'ALL';
+        if (typeFilter) typeFilter.value = 'ALL';
+        if (photoFilter) photoFilter.value = 'ALL';
+        
+        // Clear insurance UI filter if active
+        if (typeof activeInsuranceFilter !== 'undefined') {
+            activeInsuranceFilter = 'ALL';
+            document.querySelectorAll('.ins-card').forEach(c => {
+                c.style.transform = 'scale(1)';
+                c.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
+                c.style.backgroundColor = '#f8f9fa';
+            });
+            const clearBtn = document.getElementById('clearInsFilterBtn');
+            if (clearBtn) clearBtn.style.display = 'none';
+        }
     }
 
-    // Example: Clicking a specific item type like "Laptops"
-    const laptopsCard = document.getElementById('dashboard-laptops-card');
-    
-    if (laptopsCard) {
-        laptopsCard.addEventListener('click', function() {
-            // When clicked, clear everything else and show only 'Laptop' types
-            resetAndFilterByItem('type', 'Laptop');
-        });
+    // Helper function to set dropdown value by matching option text or value
+    function setDropdownByText(selectEl, keyword) {
+        if (!selectEl) return false;
+        const keyUpper = keyword.toUpperCase();
+        for (let i = 0; i < selectEl.options.length; i++) {
+            const optVal = selectEl.options[i].value.toUpperCase();
+            const optText = selectEl.options[i].text.toUpperCase();
+            if (optVal.includes(keyUpper) || optText.includes(keyUpper)) {
+                selectEl.selectedIndex = i;
+                return true;
+            }
+        }
+        return false;
     }
-}
+
     // Helper function to smoothly scroll to the data table
     function scrollToTable() {
         const tableSec = document.querySelector('.table-section');
@@ -283,12 +300,8 @@ function setupDashboardClickHandlers() {
     const cardTotal = document.getElementById('countTotal')?.closest('.dash-card');
     if (cardTotal) {
         cardTotal.onclick = () => {
-            if (searchInput) searchInput.value = '';
-            if (remarksFilter) remarksFilter.value = 'ALL';
-            if (typeFilter) typeFilter.value = 'ALL';
-            if (photoFilter) photoFilter.value = 'ALL';
-            if (typeof activeInsuranceFilter !== 'undefined') activeInsuranceFilter = 'ALL';
-            executeSearch();
+            resetAllFilters(); // Just clear everything
+            executeSearch(true);
             scrollToTable();
         };
     }
@@ -297,8 +310,9 @@ function setupDashboardClickHandlers() {
     const cardExisting = document.getElementById('countExisting')?.closest('.dash-card');
     if (cardExisting) {
         cardExisting.onclick = () => {
+            resetAllFilters(); // Reset everything first!
             if (remarksFilter) setDropdownByText(remarksFilter, 'EXISTING');
-            executeSearch();
+            executeSearch(true);
             scrollToTable();
         };
     }
@@ -306,8 +320,9 @@ function setupDashboardClickHandlers() {
     const cardNotFound = document.getElementById('countNotFound')?.closest('.dash-card');
     if (cardNotFound) {
         cardNotFound.onclick = () => {
+            resetAllFilters(); // Reset everything first!
             if (remarksFilter) setDropdownByText(remarksFilter, 'NOT FOUND');
-            executeSearch();
+            executeSearch(true);
             scrollToTable();
         };
     }
@@ -315,8 +330,9 @@ function setupDashboardClickHandlers() {
     const cardVerification = document.getElementById('countVerification')?.closest('.dash-card');
     if (cardVerification) {
         cardVerification.onclick = () => {
+            resetAllFilters(); // Reset everything first!
             if (remarksFilter) setDropdownByText(remarksFilter, 'VERIFICATION');
-            executeSearch();
+            executeSearch(true);
             scrollToTable();
         };
     }
@@ -324,10 +340,11 @@ function setupDashboardClickHandlers() {
     const cardPhotos = document.getElementById('countWithPhotos')?.closest('.dash-card');
     if (cardPhotos) {
         cardPhotos.onclick = () => {
+            resetAllFilters(); // Reset everything first!
             if (photoFilter && photoFilter.options.length > 1) {
-                photoFilter.selectedIndex = 1; // Selects first non-ALL photo filter option
+                photoFilter.selectedIndex = 1; 
             }
-            executeSearch();
+            executeSearch(true);
             scrollToTable();
         };
     }
@@ -356,13 +373,14 @@ function setupDashboardClickHandlers() {
             const card = countEl.closest('.type-card');
             if (card) {
                 card.onclick = () => {
+                    resetAllFilters(); // Reset everything first!
                     if (typeFilter) {
                         const found = setDropdownByText(typeFilter, item.keyword);
                         if (!found && searchInput) {
-                            searchInput.value = item.keyword; // Fallback if exact type string differs
+                            searchInput.value = item.keyword; 
                         }
                     }
-                    executeSearch();
+                    executeSearch(true);
                     scrollToTable();
                 };
             }
@@ -1213,6 +1231,13 @@ function closeModal() {
 
 // --- DASHBOARD CLICK-TO-FILTER FUNCTION ---
 function setInsuranceFilter(filterMode, cardId) {
+    
+    // 🧹 Reset other text and dropdown filters so they don't block the results
+    if (searchInput) searchInput.value = '';
+    if (remarksFilter) remarksFilter.value = 'ALL';
+    if (typeFilter) typeFilter.value = 'ALL';
+    if (photoFilter) photoFilter.value = 'ALL';
+
     // Toggle off if clicking the already active filter
     if (activeInsuranceFilter === filterMode) {
         activeInsuranceFilter = 'ALL';
@@ -1244,6 +1269,10 @@ function setInsuranceFilter(filterMode, cardId) {
 
     // Trigger the table update
     executeSearch(true); 
+    
+    // Smooth scroll down
+    const tableSec = document.querySelector('.table-section');
+    if (tableSec) tableSec.scrollIntoView({ behavior: 'smooth' });
 }
 
 function setupSystemEventHandlers() {
@@ -1577,5 +1606,5 @@ window.addEventListener('DOMContentLoaded', () => {
             btn.style.display = accessToken ? 'block' : 'none';
         }
     }, 1000);
-});
+);
 // =========================================================================
