@@ -53,6 +53,7 @@ const itemsPerPage = 50;
 let searchInput, searchButton, exportButton, exportFilteredButton, remarksFilter, typeFilter, photoFilter, tableHeaderRow, tableBody, statusBanner, foundCountDisplay;
 let paginationContainer, prevPageBtn, nextPageBtn, pageIndicator;
 let countTotal, countExisting, countNotFound, countVerification, countWithPhotos, countTaxDec;
+let countInsured, countNotInsured; // <-- Added for Building Insurance
 let countBuilding, countAssetMod, countFlood, countHospital, countLand, countMarket, countOtherInfra, countOtherLand, countOtherStruct, countPark, countRoad, countSchool, countSlaughterhouse, countWater;
 let editModal, modalFormContainer, modalEditBtn, modalSaveBtn, modalCloseBtn, modalCloseX, uploadPhotoBtn;
 let tooltip, tooltipImg;
@@ -83,6 +84,8 @@ function initUIReferences() {
     countVerification = document.getElementById('countVerification');
     countWithPhotos = document.getElementById('countWithPhotos');
     countTaxDec = document.getElementById('countTaxDec'); 
+    countInsured = document.getElementById('countInsured');
+    countNotInsured = document.getElementById('countNotInsured');
 
     countBuilding = document.getElementById('countBuilding');
     countAssetMod = document.getElementById('countAssetMod'); 
@@ -586,9 +589,12 @@ function calculateStaticDashboardTotals(items) {
     const tKey = headerMapping['type'];
     const pKey1 = headerMapping['photo 1'];
     const pKey2 = headerMapping['photo 2'];
-    const pKey4 = headerMapping['tax declaration']; 
+    const pKey4 = headerMapping['tax declaration'];
+    const aKey = headerMapping['article/item'];
+    const nKey = headerMapping['notes'];
     
     let existing = 0, notfound = 0, verify = 0, photos = 0, taxdec = 0;
+    let insuredCount = 0, notInsuredCount = 0; // Added for Building Insurance
     
     let stats = {
         'Building': 0, 'Building Modifications': 0, 'Flood Control': 0, 
@@ -623,6 +629,43 @@ function calculateStaticDashboardTotals(items) {
         else if (typeStr.includes('ROAD')) stats['Roads']++;
         else if (typeStr.includes('SLAUGHTERHOUSE')) stats['Slaughterhouse']++;
         else if (typeStr.includes('BUILDING')) stats['Building']++;
+
+        // --- BUILDING INSURANCE LOGIC ---
+        const articleVal = String(row[aKey] || '').toUpperCase();
+        const notesVal = String(row[nKey] || '');
+        const notesUpper = notesVal.toUpperCase();
+
+        if (articleVal.includes('BUILDING INSURANCE')) {
+            if (notesUpper.includes('NOT INSURED')) {
+                notInsuredCount++;
+            } else if (notesUpper.includes('BUILDING INSURED')) {
+                // Regex looks for "Coverage [Date] - [Date]" and extracts the second date
+                const dateMatch = notesVal.match(/Coverage\s+.*?\s+-\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})/i);
+                
+                if (dateMatch && dateMatch[1]) {
+                    const endDate = new Date(dateMatch[1]);
+                    const currentDate = new Date(); 
+                    
+                    // Verify the extracted date is valid
+                    if (!isNaN(endDate.getTime())) {
+                        const timeDiff = endDate.getTime() - currentDate.getTime();
+                        const daysDiff = timeDiff / (1000 * 3600 * 24);
+                        
+                        // 30 days is the threshold for "Almost Expire"
+                        if (daysDiff <= 30) {
+                            notInsuredCount++; // Expired or expiring within 30 days
+                        } else {
+                            insuredCount++; // Active
+                        }
+                    } else {
+                        insuredCount++; // Fallback if date is invalid but says insured
+                    }
+                } else {
+                     insuredCount++; // Fallback if no date format is found but says insured
+                }
+            }
+        }
+        // --------------------------------
     });
 
     if(countExisting) countExisting.textContent = existing;
@@ -645,6 +688,9 @@ function calculateStaticDashboardTotals(items) {
     if(countSchool) countSchool.textContent = stats['School Building'];
     if(countSlaughterhouse) countSlaughterhouse.textContent = stats['Slaughterhouse'];
     if(countWater) countWater.textContent = stats['Water Supplies'];
+
+    if(countInsured) countInsured.textContent = insuredCount;
+    if(countNotInsured) countNotInsured.textContent = notInsuredCount;
 }
 
 function executeSearch(resetPage = true) {
@@ -848,12 +894,12 @@ function renderModalPhotoViewer() {
     if (modalPhotos.length > 1) {
         const prevBtn = document.createElement('button');
         prevBtn.className = 'photo-nav-btn photo-prev-btn';
-        prevBtn.innerHTML = '&#10094;'; 
+        prevBtn.innerHTML = '❮'; 
         prevBtn.onclick = (e) => { e.stopPropagation(); navigatePhoto(-1); };
         
         const nextBtn = document.createElement('button');
         nextBtn.className = 'photo-nav-btn photo-next-btn';
-        nextBtn.innerHTML = '&#10095;'; 
+        nextBtn.innerHTML = '❯'; 
         nextBtn.onclick = (e) => { e.stopPropagation(); navigatePhoto(1); };
         
         photoContainer.appendChild(prevBtn);
@@ -1196,7 +1242,7 @@ async function downloadSearchedHTML(data) {
 <body>
     <h1>Real Estate Inventory Report</h1>
     <div class="report-meta">
-        Exported On: ${new Date().toLocaleString()} &bull; Total Records: ${data.length}
+        Exported On: ${new Date().toLocaleString()} • Total Records: ${data.length}
     </div>
     <table>
         <thead>
@@ -1222,11 +1268,11 @@ async function downloadSearchedHTML(data) {
 
 function escapeHtml(str) {
     return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+        .replace(/&/g, "&")
+        .replace(/</g, "<")
+        .replace(/>/g, ">")
+        .replace(/"/g, """)
+        .replace(/'/g, "'");
 }
 
 // =========================================================================
