@@ -7,6 +7,7 @@
     <meta name="author" content="Noel Rie N. Deliña">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     
+    <!-- Google Identity Services Client Script -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     
     <style>
@@ -416,6 +417,7 @@
 </head>
 <body>
 
+    <!-- 🔑 MODIFIED LOGIN SCREEN FOR OAUTH TOKEN (GIS) -->
     <div id="loginScreen">
         <div class="login-box">
             <div class="logo-container">
@@ -440,6 +442,7 @@
         </div>
     </div>
 
+    <!-- MAIN APPLICATION -->
     <div id="mainApp" style="display: none;">
         <div class="main-container">
             <div class="header-container">
@@ -482,7 +485,7 @@
                 </div>
             </div>
 
-            <h3 class="dash-section-title" style="margin-top: 10px;">Building Insurance Overview</h3>
+<h3 class="dash-section-title" style="margin-top: 10px;">Building Insurance Overview</h3>
             <div class="dashboard-row">
                 <div class="dash-card" style="border-left-color: #28a745;">
                     <div class="dash-title">Insured (Active)</div>
@@ -493,6 +496,13 @@
                     <div id="countNotInsured" class="dash-value">0</div>
                 </div>
             </div>
+
+
+
+
+
+
+
             <h3 class="dash-section-title">Property Types Overview</h3>
             <div class="types-dashboard-wrapper">
                 <div class="types-dashboard">
@@ -576,6 +586,7 @@
         </div>
     </div>
 
+    <!-- MODALS -->
     <div id="editModal" class="modal-overlay">
         <div class="modal-box">
             <button id="modalCloseX" class="close-x-btn">&times;</button>
@@ -590,10 +601,12 @@
         </div>
     </div>
     
+    <!-- HOVER PREVIEW TOOLTIP -->
     <div id="imagePreviewTooltip">
         <img id="imagePreviewTooltipImg" src="" alt="Enlarged Preview">
     </div>
 
+    <!-- FLOATING CONTROLS -->
     <div class="floating-controls">
         <div id="paginationContainer">
             <button id="prevPageBtn" class="page-btn" title="Previous Page">◀</button>
