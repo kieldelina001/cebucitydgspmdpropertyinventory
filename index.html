@@ -12,7 +12,17 @@
     
     <style>
         body { font-family: Arial, sans-serif; margin: 0; background-color: #f8fafc; }
-        
+        /* Make dashboard cards visually interactive */
+.dash-card, .type-card {
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dash-card:hover, .type-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+		
         /* --- Login Screen Styles --- */
         #loginScreen {
             display: flex;
