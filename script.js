@@ -808,41 +808,38 @@ const aKey = headerMapping['article/item'];
         
         const typeStr = String(row[tKey] || '').toUpperCase().trim();
 // --- BUILDING INSURANCE LOGIC ---
-        const articleVal = String(row[aKey] || '').toUpperCase();
         const notesVal = String(row[nKey] || '');
         const notesUpper = notesVal.toUpperCase();
 
-        if (articleVal.includes('BUILDING INSURANCE')) {
-            if (notesUpper.includes('NOT INSURED')) {
-                notInsuredCount++;
-            } else if (notesUpper.includes('BUILDING INSURED')) {
-                // Regex looks for "Coverage [Date] - [Date]" and extracts the second date
-                const dateMatch = notesVal.match(/Coverage\s+.*?\s+-\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})/i);
+        if (notesUpper.includes('NOT INSURED')) {
+            notInsuredCount++;
+        } else if (notesUpper.includes('BUILDING INSURED')) {
+            // Regex looks for "Coverage [Date] - [Date]" and extracts the second date
+            const dateMatch = notesVal.match(/Coverage\s+.*?\s+-\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})/i);
+            
+            if (dateMatch && dateMatch[1]) {
+                const endDate = new Date(dateMatch[1]);
+                const currentDate = new Date(); 
                 
-                if (dateMatch && dateMatch[1]) {
-                    const endDate = new Date(dateMatch[1]);
-                    const currentDate = new Date(); 
+                // Verify the extracted date is valid
+                if (!isNaN(endDate.getTime())) {
+                    const timeDiff = endDate.getTime() - currentDate.getTime();
+                    const daysDiff = timeDiff / (1000 * 3600 * 24);
                     
-                    // Verify the extracted date is valid
-                    if (!isNaN(endDate.getTime())) {
-                        const timeDiff = endDate.getTime() - currentDate.getTime();
-                        const daysDiff = timeDiff / (1000 * 3600 * 24);
-                        
-                       // 30 days is the threshold for "Almost Expire"
-                        if (daysDiff <= 30) {
-                            expiringCount++; // Correctly count as Expiring
-                        } else {
-                            insuredCount++; // Active
-                        }
+                   // 30 days is the threshold for "Almost Expire"
+                    if (daysDiff <= 30) {
+                        expiringCount++; // Correctly count as Expiring
                     } else {
-                        insuredCount++; // Fallback if date is invalid but says insured
+                        insuredCount++; // Active
                     }
                 } else {
-                     insuredCount++; // Fallback if no date format is found but says insured
+                    insuredCount++; // Fallback if date is invalid but says insured
                 }
+            } else {
+                 insuredCount++; // Fallback if no date format is found but says insured
             }
         }
-        // --------------------------------
+// --------------------------------
 
 
 
@@ -929,26 +926,23 @@ function executeSearch(resetPage = true) {
             if (phoF === 'NO_PHOTO') matchPhoto = !hasPhoto1Or2;
             if (phoF === 'WITH_TAX_DEC') matchPhoto = hasTaxDec;
         }
-        // --- INSURANCE CLICK FILTER LOGIC ---
+       // --- INSURANCE CLICK FILTER LOGIC ---
         if (activeInsuranceFilter !== 'ALL') {
-            const articleVal = String(row[aKey] || '').toUpperCase();
             const notesVal = String(row[nKey] || '');
             const notesUpper = notesVal.toUpperCase();
             let status = 'NONE';
             
-            if (articleVal.includes('BUILDING INSURANCE')) {
-                if (notesUpper.includes('NOT INSURED')) {
-                    status = 'NOT_INSURED';
-                } else if (notesUpper.includes('BUILDING INSURED')) {
-                    const dateMatch = notesVal.match(/Coverage\s+.*?\s+-\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})/i);
-                    if (dateMatch && dateMatch[1]) {
-                        const endDate = new Date(dateMatch[1]);
-                        if (!isNaN(endDate.getTime())) {
-                            const daysDiff = (endDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24);
-                            status = daysDiff <= 30 ? 'EXPIRING' : 'INSURED';
-                        } else { status = 'INSURED'; }
+            if (notesUpper.includes('NOT INSURED')) {
+                status = 'NOT_INSURED';
+            } else if (notesUpper.includes('BUILDING INSURED')) {
+                const dateMatch = notesVal.match(/Coverage\s+.*?\s+-\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})/i);
+                if (dateMatch && dateMatch[1]) {
+                    const endDate = new Date(dateMatch[1]);
+                    if (!isNaN(endDate.getTime())) {
+                        const daysDiff = (endDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24);
+                        status = daysDiff <= 30 ? 'EXPIRING' : 'INSURED';
                     } else { status = 'INSURED'; }
-                }
+                } else { status = 'INSURED'; }
             }
             matchInsurance = (status === activeInsuranceFilter);
         }
