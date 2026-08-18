@@ -718,37 +718,43 @@ function openPopUp(rowId, clickedPhotoKey = null) {
         const lbl = document.createElement('label');
         lbl.textContent = mappedKey || tKey;
         
-        let inp;
-        if(tKey === 'remarks') {
-            inp = document.createElement('select');
-            inp.id = 'modal_' + tKey;
-            inp.disabled = true;
-            let found = false;
-            parsedUniqueRemarks.forEach(r => {
-                const opt = document.createElement('option');
-                opt.value = r; opt.textContent = r;
-                if(r === val) { opt.selected = true; found = true; }
-                inp.appendChild(opt);
-            });
-            if(val && !found) {
-                const opt = document.createElement('option');
-                opt.value = val; opt.textContent = val;
-                opt.selected = true;
-                inp.appendChild(opt);
-            }
-        } else if(tKey === 'description') {
-            inp = document.createElement('textarea');
-            inp.id = 'modal_' + tKey;
-            inp.value = val;
-            inp.rows = 8;
-            inp.disabled = true;
-        } else {
-            inp = document.createElement('input');
-            inp.type = 'text';
-            inp.id = 'modal_' + tKey;
-            inp.value = val;
-            inp.disabled = true;
+       let inp;
+    if(tKey === 'remarks') {
+        inp = document.createElement('select');
+        inp.id = 'modal_' + tKey;
+        inp.disabled = true;
+        let found = false;
+        parsedUniqueRemarks.forEach(r => {
+            const opt = document.createElement('option');
+            opt.value = r; opt.textContent = r;
+            if(r === val) { opt.selected = true; found = true; }
+            inp.appendChild(opt);
+        });
+        if(val && !found) {
+            const opt = document.createElement('option');
+            opt.value = val; opt.textContent = val;
+            opt.selected = true;
+            inp.appendChild(opt);
         }
+    } else if(tKey === 'description') {
+        inp = document.createElement('textarea');
+        inp.id = 'modal_' + tKey;
+        inp.value = val;
+        inp.rows = 7; // <--- CHANGED FROM 8 TO 7 (less 1 line)
+        inp.disabled = true;
+    } else if(tKey === 'notes') {
+        inp = document.createElement('textarea');
+        inp.id = 'modal_' + tKey;
+        inp.value = val;
+        inp.rows = 3; // <--- ADDED: Sets notes field height to 3 lines
+        inp.disabled = true;
+    } else {
+        inp = document.createElement('input');
+        inp.type = 'text';
+        inp.id = 'modal_' + tKey;
+        inp.value = val;
+        inp.disabled = true;
+    }
         
         fDiv.appendChild(lbl);
         fDiv.appendChild(inp);
