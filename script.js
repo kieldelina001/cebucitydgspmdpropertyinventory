@@ -53,11 +53,11 @@ const itemsPerPage = 50;
 let searchInput, searchButton, exportButton, exportFilteredButton, remarksFilter, typeFilter, photoFilter, tableHeaderRow, tableBody, statusBanner, foundCountDisplay;
 let paginationContainer, prevPageBtn, nextPageBtn, pageIndicator;
 let countTotal, countExisting, countNotFound, countVerification, countWithPhotos, countTaxDec;
-let countInsured, countNotInsured; // <-- Added for Building Insurance
 let countBuilding, countAssetMod, countFlood, countHospital, countLand, countMarket, countOtherInfra, countOtherLand, countOtherStruct, countPark, countRoad, countSchool, countSlaughterhouse, countWater;
 let editModal, modalFormContainer, modalEditBtn, modalSaveBtn, modalCloseBtn, modalCloseX, uploadPhotoBtn;
 let tooltip, tooltipImg;
 let loadingOverlay, customNameModal;
+let countInsured, countNotInsured;
 
 // ⏳ LOADING OVERLAY GENERATOR
 function initUIReferences() {
@@ -83,8 +83,8 @@ function initUIReferences() {
     countNotFound = document.getElementById('countNotFound');
     countVerification = document.getElementById('countVerification');
     countWithPhotos = document.getElementById('countWithPhotos');
-    countTaxDec = document.getElementById('countTaxDec'); 
-    countInsured = document.getElementById('countInsured');
+    countTaxDec = document.getElementById('countTaxDec');
+countInsured = document.getElementById('countInsured');
     countNotInsured = document.getElementById('countNotInsured');
 
     countBuilding = document.getElementById('countBuilding');
@@ -590,11 +590,12 @@ function calculateStaticDashboardTotals(items) {
     const pKey1 = headerMapping['photo 1'];
     const pKey2 = headerMapping['photo 2'];
     const pKey4 = headerMapping['tax declaration'];
-    const aKey = headerMapping['article/item'];
+const aKey = headerMapping['article/item'];
     const nKey = headerMapping['notes'];
     
+    let insuredCount = 0, notInsuredCount = 0;
+    
     let existing = 0, notfound = 0, verify = 0, photos = 0, taxdec = 0;
-    let insuredCount = 0, notInsuredCount = 0; // Added for Building Insurance
     
     let stats = {
         'Building': 0, 'Building Modifications': 0, 'Flood Control': 0, 
@@ -614,23 +615,7 @@ function calculateStaticDashboardTotals(items) {
         if(row[pKey4] && row[pKey4].trim()!=='') taxdec++;
         
         const typeStr = String(row[tKey] || '').toUpperCase().trim();
-        
-        if (typeStr.includes('BUILDING MOD') || typeStr.includes('ASSET MOD')) stats['Building Modifications']++;
-        else if (typeStr.includes('SCHOOL')) stats['School Building']++;
-        else if (typeStr.includes('HOSPITAL')) stats['Hospital']++;
-        else if (typeStr.includes('MARKET')) stats['Markets']++;
-        else if (typeStr.includes('OTHER INFRA')) stats['Other Infrastructures']++;
-        else if (typeStr.includes('OTHER STRUCT')) stats['Other Structures']++;
-        else if (typeStr.includes('PARK') || typeStr.includes('PLAZA') || typeStr.includes('MONUMENT')) stats['PARKS PLAZAS AND MONUMENTS']++;
-        else if (typeStr.includes('OTHER LAND')) stats['Other Land Improvements']++;
-        else if (typeStr.includes('LAND') || typeStr === 'LOT') stats['Land']++;
-        else if (typeStr.includes('FLOOD')) stats['Flood Control']++;
-        else if (typeStr.includes('WATER')) stats['Water Supplies']++;
-        else if (typeStr.includes('ROAD')) stats['Roads']++;
-        else if (typeStr.includes('SLAUGHTERHOUSE')) stats['Slaughterhouse']++;
-        else if (typeStr.includes('BUILDING')) stats['Building']++;
-
-        // --- BUILDING INSURANCE LOGIC ---
+// --- BUILDING INSURANCE LOGIC ---
         const articleVal = String(row[aKey] || '').toUpperCase();
         const notesVal = String(row[nKey] || '');
         const notesUpper = notesVal.toUpperCase();
@@ -666,6 +651,24 @@ function calculateStaticDashboardTotals(items) {
             }
         }
         // --------------------------------
+
+
+
+        
+        if (typeStr.includes('BUILDING MOD') || typeStr.includes('ASSET MOD')) stats['Building Modifications']++;
+        else if (typeStr.includes('SCHOOL')) stats['School Building']++;
+        else if (typeStr.includes('HOSPITAL')) stats['Hospital']++;
+        else if (typeStr.includes('MARKET')) stats['Markets']++;
+        else if (typeStr.includes('OTHER INFRA')) stats['Other Infrastructures']++;
+        else if (typeStr.includes('OTHER STRUCT')) stats['Other Structures']++;
+        else if (typeStr.includes('PARK') || typeStr.includes('PLAZA') || typeStr.includes('MONUMENT')) stats['PARKS PLAZAS AND MONUMENTS']++;
+        else if (typeStr.includes('OTHER LAND')) stats['Other Land Improvements']++;
+        else if (typeStr.includes('LAND') || typeStr === 'LOT') stats['Land']++;
+        else if (typeStr.includes('FLOOD')) stats['Flood Control']++;
+        else if (typeStr.includes('WATER')) stats['Water Supplies']++;
+        else if (typeStr.includes('ROAD')) stats['Roads']++;
+        else if (typeStr.includes('SLAUGHTERHOUSE')) stats['Slaughterhouse']++;
+        else if (typeStr.includes('BUILDING')) stats['Building']++;
     });
 
     if(countExisting) countExisting.textContent = existing;
@@ -688,8 +691,7 @@ function calculateStaticDashboardTotals(items) {
     if(countSchool) countSchool.textContent = stats['School Building'];
     if(countSlaughterhouse) countSlaughterhouse.textContent = stats['Slaughterhouse'];
     if(countWater) countWater.textContent = stats['Water Supplies'];
-
-    if(countInsured) countInsured.textContent = insuredCount;
+if(countInsured) countInsured.textContent = insuredCount;
     if(countNotInsured) countNotInsured.textContent = notInsuredCount;
 }
 
@@ -894,12 +896,12 @@ function renderModalPhotoViewer() {
     if (modalPhotos.length > 1) {
         const prevBtn = document.createElement('button');
         prevBtn.className = 'photo-nav-btn photo-prev-btn';
-        prevBtn.innerHTML = '❮'; 
+        prevBtn.innerHTML = '&#10094;'; 
         prevBtn.onclick = (e) => { e.stopPropagation(); navigatePhoto(-1); };
         
         const nextBtn = document.createElement('button');
         nextBtn.className = 'photo-nav-btn photo-next-btn';
-        nextBtn.innerHTML = '❯'; 
+        nextBtn.innerHTML = '&#10095;'; 
         nextBtn.onclick = (e) => { e.stopPropagation(); navigatePhoto(1); };
         
         photoContainer.appendChild(prevBtn);
@@ -1242,7 +1244,7 @@ async function downloadSearchedHTML(data) {
 <body>
     <h1>Real Estate Inventory Report</h1>
     <div class="report-meta">
-        Exported On: ${new Date().toLocaleString()} • Total Records: ${data.length}
+        Exported On: ${new Date().toLocaleString()} &bull; Total Records: ${data.length}
     </div>
     <table>
         <thead>
@@ -1268,11 +1270,11 @@ async function downloadSearchedHTML(data) {
 
 function escapeHtml(str) {
     return String(str)
-        .replace(/&/g, "&")
-        .replace(/</g, "<")
-        .replace(/>/g, ">")
-        .replace(/"/g, """)
-        .replace(/'/g, "'");
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 // =========================================================================
