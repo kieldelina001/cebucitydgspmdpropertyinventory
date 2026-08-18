@@ -1606,5 +1606,5 @@ window.addEventListener('DOMContentLoaded', () => {
             btn.style.display = accessToken ? 'block' : 'none';
         }
     }, 1000);
-);
+});
 // =========================================================================
