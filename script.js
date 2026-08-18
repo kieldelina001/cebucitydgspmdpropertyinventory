@@ -224,6 +224,121 @@ function getOrCreateTokenClient() {
     }
     return tokenClient;
 }
+// 🖱️ DASHBOARD CARD CLICK HANDLERS
+function setupDashboardClickHandlers() {
+    // Helper function to set dropdown value by matching option text or value
+    function setDropdownByText(selectEl, keyword) {
+        if (!selectEl) return false;
+        const keyUpper = keyword.toUpperCase();
+        for (let i = 0; i < selectEl.options.length; i++) {
+            const optVal = selectEl.options[i].value.toUpperCase();
+            const optText = selectEl.options[i].text.toUpperCase();
+            if (optVal.includes(keyUpper) || optText.includes(keyUpper)) {
+                selectEl.selectedIndex = i;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Helper function to smoothly scroll to the data table
+    function scrollToTable() {
+        const tableSec = document.querySelector('.table-section');
+        if (tableSec) {
+            tableSec.scrollIntoView({ behavior: 'smooth' });
+        }
+    }
+
+    // --- 1. TOTAL PROPERTIES CARD (Reset all filters) ---
+    const cardTotal = document.getElementById('countTotal')?.closest('.dash-card');
+    if (cardTotal) {
+        cardTotal.onclick = () => {
+            if (searchInput) searchInput.value = '';
+            if (remarksFilter) remarksFilter.value = 'ALL';
+            if (typeFilter) typeFilter.value = 'ALL';
+            if (photoFilter) photoFilter.value = 'ALL';
+            if (typeof activeInsuranceFilter !== 'undefined') activeInsuranceFilter = 'ALL';
+            executeSearch();
+            scrollToTable();
+        };
+    }
+
+    // --- 2. STATUS DASHBOARD CARDS ---
+    const cardExisting = document.getElementById('countExisting')?.closest('.dash-card');
+    if (cardExisting) {
+        cardExisting.onclick = () => {
+            if (remarksFilter) setDropdownByText(remarksFilter, 'EXISTING');
+            executeSearch();
+            scrollToTable();
+        };
+    }
+
+    const cardNotFound = document.getElementById('countNotFound')?.closest('.dash-card');
+    if (cardNotFound) {
+        cardNotFound.onclick = () => {
+            if (remarksFilter) setDropdownByText(remarksFilter, 'NOT FOUND');
+            executeSearch();
+            scrollToTable();
+        };
+    }
+
+    const cardVerification = document.getElementById('countVerification')?.closest('.dash-card');
+    if (cardVerification) {
+        cardVerification.onclick = () => {
+            if (remarksFilter) setDropdownByText(remarksFilter, 'VERIFICATION');
+            executeSearch();
+            scrollToTable();
+        };
+    }
+
+    const cardPhotos = document.getElementById('countWithPhotos')?.closest('.dash-card');
+    if (cardPhotos) {
+        cardPhotos.onclick = () => {
+            if (photoFilter && photoFilter.options.length > 1) {
+                photoFilter.selectedIndex = 1; // Selects first non-ALL photo filter option
+            }
+            executeSearch();
+            scrollToTable();
+        };
+    }
+
+    // --- 3. PROPERTY TYPE CARDS ---
+    const typeMappings = [
+        { id: 'countBuilding', keyword: 'BUILDING' },
+        { id: 'countAssetMod', keyword: 'ASSET' },
+        { id: 'countFlood', keyword: 'FLOOD' },
+        { id: 'countHospital', keyword: 'HOSPITAL' },
+        { id: 'countLand', keyword: 'LAND' },
+        { id: 'countMarket', keyword: 'MARKET' },
+        { id: 'countOtherInfra', keyword: 'INFRASTRUCTURE' },
+        { id: 'countOtherLand', keyword: 'OTHER LAND' },
+        { id: 'countOtherStruct', keyword: 'STRUCTURE' },
+        { id: 'countPark', keyword: 'PARK' },
+        { id: 'countRoad', keyword: 'ROAD' },
+        { id: 'countSchool', keyword: 'SCHOOL' },
+        { id: 'countSlaughterhouse', keyword: 'SLAUGHTERHOUSE' },
+        { id: 'countWater', keyword: 'WATER' }
+    ];
+
+    typeMappings.forEach(item => {
+        const countEl = document.getElementById(item.id);
+        if (countEl) {
+            const card = countEl.closest('.type-card');
+            if (card) {
+                card.onclick = () => {
+                    if (typeFilter) {
+                        const found = setDropdownByText(typeFilter, item.keyword);
+                        if (!found && searchInput) {
+                            searchInput.value = item.keyword; // Fallback if exact type string differs
+                        }
+                    }
+                    executeSearch();
+                    scrollToTable();
+                };
+            }
+        }
+    });
+}
 
 function initApp() {
     initUIReferences();
@@ -444,6 +559,22 @@ function initializeSystemUI(retainPage = false) {
     populateDropdown('type', typeFilter, '-- All Types --');
     renderHeaders(displayHeaders);
     calculateStaticDashboardTotals(inventoryData);
+	setupDashboardClickHandlers();
+
+    if (!isAppInitialized) {
+        currentFilteredData = []; 
+        if(tableBody) {
+            tableBody.innerHTML = `<tr><td colspan="${displayHeaders.length}" class="no-data">Data loaded successfully. Apply a filter or search to view records.</td></tr>`;
+        }
+        if (foundCountDisplay) {
+            foundCountDisplay.textContent = `(0 items displayed)`;
+        }
+        updatePaginationUI(0);
+        isAppInitialized = true;
+    } else {
+        executeSearch(!retainPage);
+    }
+}
     
     if (!isAppInitialized) {
         currentFilteredData = []; 
