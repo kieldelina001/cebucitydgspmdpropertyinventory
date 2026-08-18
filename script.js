@@ -57,7 +57,8 @@ let countBuilding, countAssetMod, countFlood, countHospital, countLand, countMar
 let editModal, modalFormContainer, modalEditBtn, modalSaveBtn, modalCloseBtn, modalCloseX, uploadPhotoBtn;
 let tooltip, tooltipImg;
 let loadingOverlay, customNameModal;
-let countInsured, countNotInsured;
+let countInsured, countNotInsured, countExpiring;
+let activeInsuranceFilter = 'ALL'; // Tracks which card is currently clicked
 
 // ⏳ LOADING OVERLAY GENERATOR
 function initUIReferences() {
@@ -86,6 +87,7 @@ function initUIReferences() {
     countTaxDec = document.getElementById('countTaxDec');
 countInsured = document.getElementById('countInsured');
     countNotInsured = document.getElementById('countNotInsured');
+	countExpiring = document.getElementById('countExpiring');
 
     countBuilding = document.getElementById('countBuilding');
     countAssetMod = document.getElementById('countAssetMod'); 
@@ -593,7 +595,7 @@ function calculateStaticDashboardTotals(items) {
 const aKey = headerMapping['article/item'];
     const nKey = headerMapping['notes'];
     
-    let insuredCount = 0, notInsuredCount = 0;
+    let insuredCount = 0, notInsuredCount = 0, expiringCount = 0;
     
     let existing = 0, notfound = 0, verify = 0, photos = 0, taxdec = 0;
     
@@ -636,9 +638,9 @@ const aKey = headerMapping['article/item'];
                         const timeDiff = endDate.getTime() - currentDate.getTime();
                         const daysDiff = timeDiff / (1000 * 3600 * 24);
                         
-                        // 30 days is the threshold for "Almost Expire"
+                       // 30 days is the threshold for "Almost Expire"
                         if (daysDiff <= 30) {
-                            notInsuredCount++; // Expired or expiring within 30 days
+                            expiringCount++; // Correctly count as Expiring
                         } else {
                             insuredCount++; // Active
                         }
@@ -693,6 +695,7 @@ const aKey = headerMapping['article/item'];
     if(countWater) countWater.textContent = stats['Water Supplies'];
 if(countInsured) countInsured.textContent = insuredCount;
     if(countNotInsured) countNotInsured.textContent = notInsuredCount;
+	if(countExpiring) countExpiring.textContent = expiringCount;
 }
 
 function executeSearch(resetPage = true) {
@@ -706,11 +709,13 @@ function executeSearch(resetPage = true) {
     const pKey1 = headerMapping['photo 1'];
     const pKey2 = headerMapping['photo 2'];
     const pKey4 = headerMapping['tax declaration'];
-    
+    const aKey = headerMapping['article/item'];
+    const nKey = headerMapping['notes'];
+	
     const photo1Or2Keys = [pKey1, pKey2];
 
     currentFilteredData = inventoryData.filter(row => {
-        let matchText = true, matchRem = true, matchType = true, matchPhoto = true;
+        let matchText = true, matchRem = true, matchType = true, matchPhoto = true, matchInsurance = true;
         
         if (term) {
             matchText = targetHeadersLowercase.some(k => {
@@ -734,8 +739,31 @@ function executeSearch(resetPage = true) {
             if (phoF === 'NO_PHOTO') matchPhoto = !hasPhoto1Or2;
             if (phoF === 'WITH_TAX_DEC') matchPhoto = hasTaxDec;
         }
-        
-        return matchText && matchRem && matchType && matchPhoto;
+        // --- INSURANCE CLICK FILTER LOGIC ---
+        if (activeInsuranceFilter !== 'ALL') {
+            const articleVal = String(row[aKey] || '').toUpperCase();
+            const notesVal = String(row[nKey] || '');
+            const notesUpper = notesVal.toUpperCase();
+            let status = 'NONE';
+            
+            if (articleVal.includes('BUILDING INSURANCE')) {
+                if (notesUpper.includes('NOT INSURED')) {
+                    status = 'NOT_INSURED';
+                } else if (notesUpper.includes('BUILDING INSURED')) {
+                    const dateMatch = notesVal.match(/Coverage\s+.*?\s+-\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})/i);
+                    if (dateMatch && dateMatch[1]) {
+                        const endDate = new Date(dateMatch[1]);
+                        if (!isNaN(endDate.getTime())) {
+                            const daysDiff = (endDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24);
+                            status = daysDiff <= 30 ? 'EXPIRING' : 'INSURED';
+                        } else { status = 'INSURED'; }
+                    } else { status = 'INSURED'; }
+                }
+            }
+            matchInsurance = (status === activeInsuranceFilter);
+        }
+        // ------------------------------------
+        return matchText && matchRem && matchType && matchPhoto && matchInsurance;
     });
 
     if (foundCountDisplay) foundCountDisplay.textContent = `(${currentFilteredData.length} records active)`;
@@ -1036,7 +1064,52 @@ function closeModal() {
     modalModified = false;
 }
 
+// --- DASHBOARD CLICK-TO-FILTER FUNCTION ---
+function setInsuranceFilter(filterMode, cardId) {
+    // Toggle off if clicking the already active filter
+    if (activeInsuranceFilter === filterMode) {
+        activeInsuranceFilter = 'ALL';
+    } else {
+        activeInsuranceFilter = filterMode;
+    }
+
+    // Reset styles for all 3 cards
+    document.querySelectorAll('.ins-card').forEach(card => {
+        card.style.transform = 'scale(1)';
+        card.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
+        card.style.backgroundColor = '#f8f9fa';
+    });
+
+    const clearBtn = document.getElementById('clearInsFilterBtn');
+
+    // Highlight the active card
+    if (activeInsuranceFilter !== 'ALL') {
+        const activeCard = document.getElementById(cardId);
+        if (activeCard) {
+            activeCard.style.transform = 'scale(1.05)';
+            activeCard.style.boxShadow = '0 4px 10px rgba(0,0,0,0.15)';
+            activeCard.style.backgroundColor = '#ffffff'; // highlight color
+        }
+        if (clearBtn) clearBtn.style.display = 'inline';
+    } else {
+        if (clearBtn) clearBtn.style.display = 'none';
+    }
+
+    // Trigger the table update
+    executeSearch(true); 
+}
+
 function setupSystemEventHandlers() {
+	// Dashboard Filter Click Events
+    const cardInsured = document.getElementById('cardInsured');
+    const cardNotInsured = document.getElementById('cardNotInsured');
+    const cardExpiring = document.getElementById('cardExpiring');
+    const clearInsFilterBtn = document.getElementById('clearInsFilterBtn');
+
+    if(cardInsured) cardInsured.addEventListener('click', () => setInsuranceFilter('INSURED', 'cardInsured'));
+    if(cardNotInsured) cardNotInsured.addEventListener('click', () => setInsuranceFilter('NOT_INSURED', 'cardNotInsured'));
+    if(cardExpiring) cardExpiring.addEventListener('click', () => setInsuranceFilter('EXPIRING', 'cardExpiring'));
+    if(clearInsFilterBtn) clearInsFilterBtn.addEventListener('click', () => setInsuranceFilter('ALL', ''));
     if(searchButton) searchButton.addEventListener('click', () => executeSearch(true));
     if(searchInput) searchInput.addEventListener('keypress', e => { if(e.key === 'Enter') executeSearch(true); });
     
