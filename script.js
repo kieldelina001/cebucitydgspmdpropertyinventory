@@ -575,23 +575,9 @@ function initializeSystemUI(retainPage = false) {
         executeSearch(!retainPage);
     }
 }
-    
-    if (!isAppInitialized) {
-        currentFilteredData = []; 
-        if(tableBody) {
-            tableBody.innerHTML = `<tr><td colspan="${displayHeaders.length}" class="no-data">Data loaded successfully. Apply a filter or search to view records.</td></tr>`;
-        }
-        if (foundCountDisplay) {
-            foundCountDisplay.textContent = `(0 items displayed)`;
-        }
-        updatePaginationUI(0);
-        isAppInitialized = true;
-    } else {
-        executeSearch(!retainPage);
-    }
-}
 
 function populateDropdown(type, selectEl, placeholderText) {
+    // ... [Rest of your code continues normally]
     if(!selectEl) return;
     const previousSelection = selectEl.value;
     selectEl.innerHTML = `<option value="ALL">${placeholderText}</option>`;
