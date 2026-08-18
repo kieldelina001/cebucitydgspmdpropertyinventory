@@ -273,10 +273,22 @@ function setupDashboardClickHandlers() {
         }
     }
 
-    // Helper function to set dropdown value by matching option text or value
+   // Helper function to set dropdown value (Exact Match first, then Partial Match)
     function setDropdownByText(selectEl, keyword) {
         if (!selectEl) return false;
-        const keyUpper = keyword.toUpperCase();
+        const keyUpper = keyword.toUpperCase().trim();
+
+        // Pass 1: Check for exact matches first (prevents 'STRUCTURE' matching 'INFRASTRUCTURE')
+        for (let i = 0; i < selectEl.options.length; i++) {
+            const optVal = selectEl.options[i].value.toUpperCase().trim();
+            const optText = selectEl.options[i].text.toUpperCase().trim();
+            if (optVal === keyUpper || optText === keyUpper) {
+                selectEl.selectedIndex = i;
+                return true;
+            }
+        }
+
+        // Pass 2: Partial match fallback if exact match isn't found
         for (let i = 0; i < selectEl.options.length; i++) {
             const optVal = selectEl.options[i].value.toUpperCase();
             const optText = selectEl.options[i].text.toUpperCase();
@@ -349,17 +361,17 @@ function setupDashboardClickHandlers() {
         };
     }
 
-    // --- 3. PROPERTY TYPE CARDS ---
+   // --- 3. PROPERTY TYPE CARDS (Updated Keywords) ---
     const typeMappings = [
         { id: 'countBuilding', keyword: 'BUILDING' },
-        { id: 'countAssetMod', keyword: 'ASSET' },
+        { id: 'countAssetMod', keyword: 'BUILDING MODIFICATION' }, // Changed from 'ASSET'
         { id: 'countFlood', keyword: 'FLOOD' },
         { id: 'countHospital', keyword: 'HOSPITAL' },
         { id: 'countLand', keyword: 'LAND' },
         { id: 'countMarket', keyword: 'MARKET' },
-        { id: 'countOtherInfra', keyword: 'INFRASTRUCTURE' },
+        { id: 'countOtherInfra', keyword: 'OTHER INFRASTRUCTURE' },
         { id: 'countOtherLand', keyword: 'OTHER LAND' },
-        { id: 'countOtherStruct', keyword: 'STRUCTURE' },
+        { id: 'countOtherStruct', keyword: 'OTHER STRUCTURE' }, // Changed from 'STRUCTURE'
         { id: 'countPark', keyword: 'PARK' },
         { id: 'countRoad', keyword: 'ROAD' },
         { id: 'countSchool', keyword: 'SCHOOL' },
