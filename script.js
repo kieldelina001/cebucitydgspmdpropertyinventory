@@ -402,7 +402,7 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
                 hideLoading();
             }
         });
-    } catch (err) {
+} catch (err) {
         hideLoading();
         if (statusBanner) {
             statusBanner.style.backgroundColor = "#f8d7da";
@@ -410,6 +410,12 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
             statusBanner.textContent = "Connection Error: Check Sheet spreadsheet access permission configuration.";
         }
         console.error(err);
+
+        // --- NEW MODIFICATION ---
+        // Display pop-up alert with your specified message and redirect back to login upon clicking OK
+        alert("You have been logged out from Google. Please log in again.");
+        performLogout();
+        // -------------------------
     }
 }
 
