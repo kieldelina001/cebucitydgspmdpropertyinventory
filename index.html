@@ -140,43 +140,33 @@
 
 @keyframes macDockBounce {
     0% {
-        transform: scale(1);
+        transform: scale(1) translateY(0);
     }
 
-    15% {
-        transform: scale(1.35) translateY(-8px);
+    25% {
+        transform: scale(1.20) translateY(-3px);
     }
 
-    30% {
-        transform: scale(1.55) translateY(-20px);
-    }
-
-    45% {
-        transform: scale(1.42) translateY(-12px);
-    }
-
-    60% {
-        transform: scale(1.55) translateY(-20px);
+    50% {
+        transform: scale(1.50) translateY(-8px);
     }
 
     75% {
-        transform: scale(1.45) translateY(-14px);
+        transform: scale(1.38) translateY(-4px);
     }
 
     100% {
-        transform: scale(1.50) translateY(-17px);
+        transform: scale(1.45) translateY(-6px);
     }
 }
 
-/* Make the icon animate when the card OR its text is hovered */
 .type-card:hover .type-icon,
 .ins-card:hover .type-icon {
-    animation: macDockBounce 1.4s ease-in-out infinite;
+    animation: macDockBounce 2s ease-in-out infinite;
     transform-origin: center bottom;
     position: relative;
     z-index: 100;
 }
-
 /* Smooth return when mouse leaves */
 .type-icon {
     transition: transform 0.25s ease;
