@@ -50,7 +50,7 @@ let currentPhotoIndex = 0;
 let currentPage = 1;
 const itemsPerPage = 50;
 
-let searchInput, searchButton, exportButton, exportFilteredButton, remarksFilter, typeFilter, photoFilter, tableHeaderRow, tableBody, statusBanner, foundCountDisplay;
+let searchInput, searchButton, resetDropdownsBtn, exportButton, exportFilteredButton, remarksFilter, typeFilter, photoFilter, tableHeaderRow, tableBody, statusBanner, foundCountDisplay;
 let paginationContainer, prevPageBtn, nextPageBtn, pageIndicator;
 let countTotal, countExisting, countNotFound, countVerification, countWithPhotos, countTaxDec;
 let countBuilding, countAssetMod, countFlood, countHospital, countLand, countMarket, countOtherInfra, countOtherLand, countOtherStruct, countPark, countRoad, countSchool, countSlaughterhouse, countWater;
@@ -89,6 +89,7 @@ function resetAndFilterByItem(filterCategory, clickedValue) {
 function initUIReferences() {
     searchInput = document.getElementById('searchInput');
     searchButton = document.getElementById('searchButton');
+	resetDropdownsBtn = document.getElementById('resetDropdownsBtn');
     exportButton = document.getElementById('exportButton');
     exportFilteredButton = document.getElementById('exportFilteredButton');
     remarksFilter = document.getElementById('remarksFilter');
@@ -1333,6 +1334,13 @@ function setupSystemEventHandlers() {
     if(clearInsFilterBtn) clearInsFilterBtn.addEventListener('click', () => setInsuranceFilter('ALL', ''));
     if(searchButton) searchButton.addEventListener('click', () => executeSearch(true));
     if(searchInput) searchInput.addEventListener('keypress', e => { if(e.key === 'Enter') executeSearch(true); });
+	// Add this new block for the Reset Button
+    if(resetDropdownsBtn) resetDropdownsBtn.addEventListener('click', () => {
+        if(remarksFilter) remarksFilter.value = 'ALL';
+        if(typeFilter) typeFilter.value = 'ALL';
+        if(photoFilter) photoFilter.value = 'ALL';
+        // Note: No executeSearch() is called here, so the table is unaffected.
+    });
     
     if(remarksFilter) remarksFilter.addEventListener('change', () => executeSearch(true));
     if(typeFilter) typeFilter.addEventListener('change', () => executeSearch(true));
