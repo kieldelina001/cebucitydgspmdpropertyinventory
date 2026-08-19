@@ -217,17 +217,32 @@
         .table-label { font-size: 18px; margin: 0; font-weight: bold; }
         .export-group { display: flex; gap: 8px; }
         .property-table-container { border: 2px solid #1e293b; width: 100%; overflow: visible; box-sizing: border-box; border-radius: 6px; }
-        .property-table { width: 100%; min-width: 900px; border-collapse: collapse; table-layout: auto; }
-        .property-table th, .property-table td { border: 1px solid #ccc; padding: 10px; text-align: left; font-size: 13px; word-wrap: break-word; white-space: normal !important; }
-		/* Wrap long text in UPDATED BY column */
-		.property-table th:nth-child(13),
-		.property-table td:nth-child(13) {
-	    white-space: normal !important;
-	    overflow-wrap: anywhere !important;
- 	   word-break: break-word !important;
- 	   max-width: 250px;
-		}
-        .property-table th { background-color: #f2f2f2; position: sticky; top: 0; z-index: 10; }
+       .property-table { width: 100%; min-width: 900px; border-collapse: collapse; table-layout: auto; }
+
+.property-table th, .property-table td {
+    border: 1px solid #ccc;
+    padding: 10px;
+    text-align: left;
+    font-size: 13px;
+    word-wrap: break-word;
+    white-space: normal !important;
+}
+
+/* Wrap long text in UPDATED BY column */
+.property-table th:nth-child(13),
+.property-table td:nth-child(13) {
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+    max-width: 150px;
+}
+
+.property-table th {
+    background-color: #f2f2f2;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
         .no-data { text-align: center; padding: 20px; color: #666; font-style: italic; }
         
         .site-footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 14px; color: #64748b; }
