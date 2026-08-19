@@ -50,7 +50,7 @@ let currentPhotoIndex = 0;
 let currentPage = 1;
 const itemsPerPage = 50;
 
-let searchInput, searchButton, resetDropdownsBtn, exportButton, exportFilteredButton, remarksFilter, typeFilter, photoFilter, tableHeaderRow, tableBody, statusBanner, foundCountDisplay;
+let searchInput, searchButton, resetFiltersButton, exportButton, exportFilteredButton, remarksFilter, typeFilter, photoFilter, tableHeaderRow, tableBody, statusBanner, foundCountDisplay;
 let paginationContainer, prevPageBtn, nextPageBtn, pageIndicator;
 let countTotal, countExisting, countNotFound, countVerification, countWithPhotos, countTaxDec;
 let countBuilding, countAssetMod, countFlood, countHospital, countLand, countMarket, countOtherInfra, countOtherLand, countOtherStruct, countPark, countRoad, countSchool, countSlaughterhouse, countWater;
@@ -89,7 +89,7 @@ function resetAndFilterByItem(filterCategory, clickedValue) {
 function initUIReferences() {
     searchInput = document.getElementById('searchInput');
     searchButton = document.getElementById('searchButton');
-	resetDropdownsBtn = document.getElementById('resetDropdownsBtn');
+	resetFiltersButton = document.getElementById('resetFiltersButton');
     exportButton = document.getElementById('exportButton');
     exportFilteredButton = document.getElementById('exportFilteredButton');
     remarksFilter = document.getElementById('remarksFilter');
@@ -1333,14 +1333,35 @@ function setupSystemEventHandlers() {
     if(cardExpiring) cardExpiring.addEventListener('click', () => setInsuranceFilter('EXPIRING', 'cardExpiring'));
     if(clearInsFilterBtn) clearInsFilterBtn.addEventListener('click', () => setInsuranceFilter('ALL', ''));
     if(searchButton) searchButton.addEventListener('click', () => executeSearch(true));
-    if(searchInput) searchInput.addEventListener('keypress', e => { if(e.key === 'Enter') executeSearch(true); });
-	// Add this new block for the Reset Button
-    if(resetDropdownsBtn) resetDropdownsBtn.addEventListener('click', () => {
-        if(remarksFilter) remarksFilter.value = 'ALL';
-        if(typeFilter) typeFilter.value = 'ALL';
-        if(photoFilter) photoFilter.value = 'ALL';
-        // Note: No executeSearch() is called here, so the table is unaffected.
+	if(resetFiltersButton) {
+    resetFiltersButton.addEventListener('click', () => {
+        // Clear search text
+        if (searchInput) searchInput.value = '';
+
+        // Reset all dropdowns to their default
+        if (remarksFilter) remarksFilter.value = 'ALL';
+        if (typeFilter) typeFilter.value = 'ALL';
+        if (photoFilter) photoFilter.value = 'ALL';
+
+        // Clear insurance dashboard filter
+        activeInsuranceFilter = 'ALL';
+
+        // Remove insurance card highlighting
+        document.querySelectorAll('.ins-card').forEach(card => {
+            card.style.transform = 'scale(1)';
+            card.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
+            card.style.backgroundColor = '#f8f9fa';
+        });
+
+        // Hide insurance clear-filter text
+        const clearBtn = document.getElementById('clearInsFilterBtn');
+        if (clearBtn) clearBtn.style.display = 'none';
+
+        // Show all data again
+        executeSearch(true);
     });
+}
+    if(searchInput) searchInput.addEventListener('keypress', e => { if(e.key === 'Enter') executeSearch(true); });
     
     if(remarksFilter) remarksFilter.addEventListener('change', () => executeSearch(true));
     if(typeFilter) typeFilter.addEventListener('change', () => executeSearch(true));
