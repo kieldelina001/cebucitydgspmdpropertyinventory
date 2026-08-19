@@ -254,25 +254,26 @@ function getOrCreateTokenClient() {
 function setupDashboardClickHandlers() {
     
     // 🧹 NEW: Helper function to clear search and dropdowns
-    function resetAllFilters() {
+   function resetAllFilters() {
     if (searchInput) searchInput.value = '';
     
-    // Dropdown resets removed so they stay unchanged when clicking icons
+    // Reset all dropdowns back to default when clicking icons
+    if (remarksFilter) remarksFilter.value = 'ALL';
+    if (typeFilter) typeFilter.value = 'ALL';
+    if (photoFilter) photoFilter.value = 'ALL';
     
     // Clear insurance UI filter if active
-        
-        // Clear insurance UI filter if active
-        if (typeof activeInsuranceFilter !== 'undefined') {
-            activeInsuranceFilter = 'ALL';
-            document.querySelectorAll('.ins-card').forEach(c => {
-                c.style.transform = 'scale(1)';
-                c.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
-                c.style.backgroundColor = '#f8f9fa';
-            });
-            const clearBtn = document.getElementById('clearInsFilterBtn');
-            if (clearBtn) clearBtn.style.display = 'none';
-        }
+    if (typeof activeInsuranceFilter !== 'undefined') {
+        activeInsuranceFilter = 'ALL';
+        document.querySelectorAll('.ins-card').forEach(c => {
+            c.style.transform = 'scale(1)';
+            c.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
+            c.style.backgroundColor = '#f8f9fa';
+        });
+        const clearBtn = document.getElementById('clearInsFilterId');
+        if (clearBtn) clearBtn.style.display = 'none';
     }
+}
 
    // Helper function to set dropdown value (Exact Match first, then Partial Match)
     function setDropdownByText(selectEl, keyword) {
@@ -309,21 +310,15 @@ function setupDashboardClickHandlers() {
         }
     }
 
- // --- 1. TOTAL PROPERTIES CARD (Reset all filters) ---
-const cardTotal = document.getElementById('countTotal')?.closest('.dash-card');
-if (cardTotal) {
-    cardTotal.onclick = () => {
-        resetAllFilters(); 
-        
-        // Explicitly clear dropdowns only when "Total Properties" is clicked
-        if (remarksFilter) remarksFilter.value = 'ALL';
-        if (typeFilter) typeFilter.value = 'ALL';
-        if (photoFilter) photoFilter.value = 'ALL';
-
-        executeSearch(true);
-        scrollToTable();
-    };
-}
+    // --- 1. TOTAL PROPERTIES CARD (Reset all filters) ---
+    const cardTotal = document.getElementById('countTotal')?.closest('.dash-card');
+    if (cardTotal) {
+        cardTotal.onclick = () => {
+            resetAllFilters(); // Just clear everything
+            executeSearch(true);
+            scrollToTable();
+        };
+    }
 
     // --- 2. STATUS DASHBOARD CARDS ---
     const cardExisting = document.getElementById('countExisting')?.closest('.dash-card');
@@ -1258,8 +1253,11 @@ function closeModal() {
 // --- DASHBOARD CLICK-TO-FILTER FUNCTION ---
 function setInsuranceFilter(filterMode, cardId) {
     
-    // 🧹 Reset search input, but keep Remarks, Type, and Media unchanged
+    // Reset search and all dropdowns when clicking insurance cards
     if (searchInput) searchInput.value = '';
+    if (remarksFilter) remarksFilter.value = 'ALL';
+    if (typeFilter) typeFilter.value = 'ALL';
+    if (photoFilter) photoFilter.value = 'ALL';
 
     // Toggle off if clicking the already active filter
     if (activeInsuranceFilter === filterMode) {
@@ -1283,17 +1281,15 @@ function setInsuranceFilter(filterMode, cardId) {
         if (activeCard) {
             activeCard.style.transform = 'scale(1.05)';
             activeCard.style.boxShadow = '0 4px 10px rgba(0,0,0,0.15)';
-            activeCard.style.backgroundColor = '#ffffff'; // highlight color
+            activeCard.style.backgroundColor = '#ffffff';
         }
         if (clearBtn) clearBtn.style.display = 'inline';
     } else {
         if (clearBtn) clearBtn.style.display = 'none';
     }
 
-    // Trigger the table update
     executeSearch(true); 
     
-    // Smooth scroll down
     const tableSec = document.querySelector('.table-section');
     if (tableSec) tableSec.scrollIntoView({ behavior: 'smooth' });
 }
