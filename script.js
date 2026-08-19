@@ -254,26 +254,24 @@ function getOrCreateTokenClient() {
 function setupDashboardClickHandlers() {
     
     // 🧹 NEW: Helper function to clear search and dropdowns
-   function resetAllFilters() {
-    if (searchInput) searchInput.value = '';
-    
-    // Reset all dropdowns back to default when clicking icons
-    if (remarksFilter) remarksFilter.value = 'ALL';
-    if (typeFilter) typeFilter.value = 'ALL';
-    if (photoFilter) photoFilter.value = 'ALL';
-    
-    // Clear insurance UI filter if active
-    if (typeof activeInsuranceFilter !== 'undefined') {
-        activeInsuranceFilter = 'ALL';
-        document.querySelectorAll('.ins-card').forEach(c => {
-            c.style.transform = 'scale(1)';
-            c.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
-            c.style.backgroundColor = '#f8f9fa';
-        });
-        const clearBtn = document.getElementById('clearInsFilterId');
-        if (clearBtn) clearBtn.style.display = 'none';
+    function resetAllFilters() {
+        if (searchInput) searchInput.value = '';
+        if (remarksFilter) remarksFilter.value = 'ALL';
+        if (typeFilter) typeFilter.value = 'ALL';
+        if (photoFilter) photoFilter.value = 'ALL';
+        
+        // Clear insurance UI filter if active
+        if (typeof activeInsuranceFilter !== 'undefined') {
+            activeInsuranceFilter = 'ALL';
+            document.querySelectorAll('.ins-card').forEach(c => {
+                c.style.transform = 'scale(1)';
+                c.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
+                c.style.backgroundColor = '#f8f9fa';
+            });
+            const clearBtn = document.getElementById('clearInsFilterBtn');
+            if (clearBtn) clearBtn.style.display = 'none';
+        }
     }
-}
 
    // Helper function to set dropdown value (Exact Match first, then Partial Match)
     function setDropdownByText(selectEl, keyword) {
@@ -956,6 +954,10 @@ function executeSearch(resetPage = true) {
     
     if (resetPage) currentPage = 1;
     renderTable(currentFilteredData, currentPage);
+// --- ADDED: Reset Remarks and Media dropdowns to default after displaying data ---
+    if (remarksFilter) remarksFilter.value = 'ALL';
+    if (photoFilter) photoFilter.value = 'ALL';
+    // --------------------------------------------------------------------------------
 }
 
 // 🖼️ MODAL HANDLING & EDIT
@@ -1253,7 +1255,7 @@ function closeModal() {
 // --- DASHBOARD CLICK-TO-FILTER FUNCTION ---
 function setInsuranceFilter(filterMode, cardId) {
     
-    // Reset search and all dropdowns when clicking insurance cards
+    // 🧹 Reset other text and dropdown filters so they don't block the results
     if (searchInput) searchInput.value = '';
     if (remarksFilter) remarksFilter.value = 'ALL';
     if (typeFilter) typeFilter.value = 'ALL';
@@ -1281,15 +1283,17 @@ function setInsuranceFilter(filterMode, cardId) {
         if (activeCard) {
             activeCard.style.transform = 'scale(1.05)';
             activeCard.style.boxShadow = '0 4px 10px rgba(0,0,0,0.15)';
-            activeCard.style.backgroundColor = '#ffffff';
+            activeCard.style.backgroundColor = '#ffffff'; // highlight color
         }
         if (clearBtn) clearBtn.style.display = 'inline';
     } else {
         if (clearBtn) clearBtn.style.display = 'none';
     }
 
+    // Trigger the table update
     executeSearch(true); 
     
+    // Smooth scroll down
     const tableSec = document.querySelector('.table-section');
     if (tableSec) tableSec.scrollIntoView({ behavior: 'smooth' });
 }
