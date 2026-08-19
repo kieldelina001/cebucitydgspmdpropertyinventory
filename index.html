@@ -118,20 +118,35 @@
 }
 
 @keyframes macOsBounce {
-    0%, 100% { transform: translateY(0) scale(1.4); }
-    50% { transform: translateY(-8px) scale(1.4); }
+    0%, 100% { transform: translateY(0) scale(1.7); }
+    50% { transform: translateY(-16px) scale(1.7); }
 }
 
-.type-card:hover {
+/* 1. Lift the card slightly when hovered */
+.type-card:hover, 
+.ins-card:hover, 
+.stat-card:hover, 
+.summary-card:hover,
+.dash-card:hover {
     transform: translateY(-4px);
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
 }
 
-.type-card:hover .type-icon {
+/* 2. Trigger the continuous bounce on the icon inside ANY of these cards */
+.type-card:hover .type-icon, 
+.ins-card:hover .type-icon, 
+.stat-card:hover .type-icon, 
+.summary-card:hover .type-icon,
+.dash-card:hover .type-icon {
     animation: macOsBounce 0.8s ease-in-out infinite;
 }
 
-.type-card:hover .dash-title {
+/* 3. Enlarge the text slightly */
+.type-card:hover .dash-title, 
+.ins-card:hover .dash-title, 
+.stat-card:hover .dash-title, 
+.summary-card:hover .dash-title,
+.dash-card:hover .dash-title {
     transform: scale(1.08);
 }
 
@@ -158,7 +173,13 @@
         .types-dashboard { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 10px; padding-bottom: 8px; margin: 0 auto; text-align: left; }
         
      .type-card { display: flex; flex-direction: column; align-items: center; text-align: center; background: #f8f9fa; border-top: 4px solid #57a1e0; padding: 12px 6px; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); flex: 0 0 88px; box-sizing: border-box; transition: transform 0.3s ease; }
-.type-icon { width: 32px; height: 32px; margin-bottom: 8px; object-fit: contain; transition: transform 0.3s ease; }
+.type-icon { 
+    width: 32px; 
+    height: 32px; 
+    margin-bottom: 8px; 
+    object-fit: contain; 
+    transition: transform 0.3s ease; 
+}
 .type-card .dash-value { font-size: 20px; }
 .type-card .dash-title { font-size: 11px; white-space: normal !important; word-wrap: break-word; line-height: 1.2; transition: transform 0.3s ease, font-size 0.3s ease; }
         
