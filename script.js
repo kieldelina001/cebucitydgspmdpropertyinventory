@@ -1336,12 +1336,12 @@ function setupSystemEventHandlers() {
 if(resetFiltersButton) {
     resetFiltersButton.addEventListener('click', () => {
 
-        // 1. Clear search box
+        // Clear search box
         if (searchInput) {
             searchInput.value = '';
         }
 
-        // 2. Reset ALL dropdowns to their first/default option
+        // Reset all dropdowns to their default option
         if (remarksFilter) {
             remarksFilter.selectedIndex = 0;
         }
@@ -1354,37 +1354,47 @@ if(resetFiltersButton) {
             photoFilter.selectedIndex = 0;
         }
 
-        // 3. Clear insurance dashboard filter
+        // Clear insurance filter
         activeInsuranceFilter = 'ALL';
 
-        // 4. Remove insurance card highlighting
+        // Remove insurance card highlighting
         document.querySelectorAll('.ins-card').forEach(card => {
             card.style.transform = 'scale(1)';
             card.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
             card.style.backgroundColor = '#f8f9fa';
         });
 
-        // 5. Hide insurance clear-filter link
+        // Hide insurance clear-filter link
         const clearBtn = document.getElementById('clearInsFilterBtn');
         if (clearBtn) {
             clearBtn.style.display = 'none';
         }
 
-        // 6. Reset pagination
+        // Reset pagination
         currentPage = 1;
 
-        // 7. IMPORTANT:
-        // Directly restore the complete inventory dataset
-        currentFilteredData = [...inventoryData];
+        // IMPORTANT:
+        // Clear the table data instead of showing all records
+        currentFilteredData = [];
 
-        // 8. Update displayed record count
+        // Display 0 records
         if (foundCountDisplay) {
-            foundCountDisplay.textContent =
-                `(${currentFilteredData.length} records active)`;
+            foundCountDisplay.textContent = '(0 items displayed)';
         }
 
-        // 9. Force the full dataset back into the table
-        renderTable(currentFilteredData, 1);
+        // Clear the table and show the default message
+        if (tableBody) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="${displayHeaders.length}" class="no-data">
+                        Data loaded successfully. Apply a filter or search to view records.
+                    </td>
+                </tr>
+            `;
+        }
+
+        // Reset pagination display
+        updatePaginationUI(0);
     });
 }
     if(searchInput) searchInput.addEventListener('keypress', e => { if(e.key === 'Enter') executeSearch(true); });
