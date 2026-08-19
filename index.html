@@ -133,6 +133,58 @@
         .type-icon { width: 32px; height: 32px; margin-bottom: 8px; object-fit: contain; }
         .type-card .dash-value { font-size: 20px; }
         .type-card .dash-title { font-size: 11px; white-space: normal !important; word-wrap: break-word; line-height: 1.2; }
+		
+		/* =========================================================
+   🍎 MACOS-STYLE DASHBOARD ICON HOVER ANIMATION
+   ========================================================= */
+
+@keyframes macDockBounce {
+    0% {
+        transform: scale(1);
+    }
+
+    20% {
+        transform: scale(1.55) translateY(-8px);
+    }
+
+    40% {
+        transform: scale(1.45) translateY(-14px);
+    }
+
+    60% {
+        transform: scale(1.50) translateY(-7px);
+    }
+
+    80% {
+        transform: scale(1.45) translateY(-12px);
+    }
+
+    100% {
+        transform: scale(1.5) translateY(-8px);
+    }
+}
+
+/* Make the icon animate when the card OR its text is hovered */
+.type-card:hover .type-icon,
+.ins-card:hover .type-icon {
+    animation: macDockBounce 0.75s ease-in-out infinite;
+    transform-origin: center bottom;
+    position: relative;
+    z-index: 100;
+}
+
+/* Smooth return when mouse leaves */
+.type-icon {
+    transition: transform 0.25s ease;
+}
+
+/* Keep the animation comfortable on small screens */
+@media (max-width: 768px) {
+    .type-card:hover .type-icon,
+    .ins-card:hover .type-icon {
+        animation: macDockBounce 0.8s ease-in-out infinite;
+    }
+}
         
         .filter-row { display: flex; justify-content: flex-start; gap: 20px; margin-bottom: 25px; padding-left: 10px; flex-wrap: wrap; }
         .input-group { display: flex; flex-direction: column; align-items: flex-start; flex: 1; min-width: 200px; }
