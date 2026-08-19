@@ -64,11 +64,10 @@ function resetAndFilterByItem(filterCategory, clickedValue) {
     // 1. Reset all filters and search inputs to default
     if (searchInput) searchInput.value = "";
     
-    // Assuming the default value for your dropdowns is an empty string "" 
-    // If your default value is something else, use that (e.g., "-- All Types --")
-    if (remarksFilter) remarksFilter.value = ""; 
-    if (typeFilter) typeFilter.value = "";
-    if (photoFilter) photoFilter.value = "";
+    // Fix: Replaced "" with "ALL" to correctly reset your dropdowns
+    if (remarksFilter) remarksFilter.value = "ALL"; 
+    if (typeFilter) typeFilter.value = "ALL";
+    if (photoFilter) photoFilter.value = "ALL";
 
     // 2. Set the specific filter to the value of the item clicked
     if (filterCategory === 'type' && typeFilter) {
@@ -77,11 +76,7 @@ function resetAndFilterByItem(filterCategory, clickedValue) {
         remarksFilter.value = clickedValue;
     }
 
-    // Optional: Reset pagination to page 1 if you have a pagination variable
-    // currentPage = 1; 
-
     // 3. Trigger your search function to update the table based on the new filter
-    // Passing 'true' based on your executeSearch(!retainPage) logic
     executeSearch(true); 
 }
 
@@ -353,8 +348,8 @@ const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card')
     if (cardTaxDec) {
         cardTaxDec.onclick = () => {
             resetAllFilters(); // Reset everything first!
-            if (photoFilter && photoFilter.options.length > 3) {
-                photoFilter.selectedIndex = 3; // Index 3 is "With Tax Declaration"
+            if (photoFilter) {
+                photoFilter.value = 'WITH_TAX_DEC'; // Fix: Uses exact value instead of fragile index
             }
             executeSearch(true);
             scrollToTable();
@@ -365,8 +360,8 @@ const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card')
     if (cardPhotos) {
         cardPhotos.onclick = () => {
             resetAllFilters(); // Reset everything first!
-            if (photoFilter && photoFilter.options.length > 1) {
-                photoFilter.selectedIndex = 1; 
+            if (photoFilter) {
+                photoFilter.value = 'WITH_PHOTO'; // Fix: Uses exact value instead of fragile index
             }
             executeSearch(true);
             scrollToTable();
