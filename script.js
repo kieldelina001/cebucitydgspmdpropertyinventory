@@ -1333,32 +1333,58 @@ function setupSystemEventHandlers() {
     if(cardExpiring) cardExpiring.addEventListener('click', () => setInsuranceFilter('EXPIRING', 'cardExpiring'));
     if(clearInsFilterBtn) clearInsFilterBtn.addEventListener('click', () => setInsuranceFilter('ALL', ''));
     if(searchButton) searchButton.addEventListener('click', () => executeSearch(true));
-	if(resetFiltersButton) {
+if(resetFiltersButton) {
     resetFiltersButton.addEventListener('click', () => {
-        // Clear search text
-        if (searchInput) searchInput.value = '';
 
-        // Reset all dropdowns to their default
-        if (remarksFilter) remarksFilter.value = 'ALL';
-        if (typeFilter) typeFilter.value = 'ALL';
-        if (photoFilter) photoFilter.value = 'ALL';
+        // 1. Clear search box
+        if (searchInput) {
+            searchInput.value = '';
+        }
 
-        // Clear insurance dashboard filter
+        // 2. Reset ALL dropdowns to their first/default option
+        if (remarksFilter) {
+            remarksFilter.selectedIndex = 0;
+        }
+
+        if (typeFilter) {
+            typeFilter.selectedIndex = 0;
+        }
+
+        if (photoFilter) {
+            photoFilter.selectedIndex = 0;
+        }
+
+        // 3. Clear insurance dashboard filter
         activeInsuranceFilter = 'ALL';
 
-        // Remove insurance card highlighting
+        // 4. Remove insurance card highlighting
         document.querySelectorAll('.ins-card').forEach(card => {
             card.style.transform = 'scale(1)';
             card.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
             card.style.backgroundColor = '#f8f9fa';
         });
 
-        // Hide insurance clear-filter text
+        // 5. Hide insurance clear-filter link
         const clearBtn = document.getElementById('clearInsFilterBtn');
-        if (clearBtn) clearBtn.style.display = 'none';
+        if (clearBtn) {
+            clearBtn.style.display = 'none';
+        }
 
-        // Show all data again
-        executeSearch(true);
+        // 6. Reset pagination
+        currentPage = 1;
+
+        // 7. IMPORTANT:
+        // Directly restore the complete inventory dataset
+        currentFilteredData = [...inventoryData];
+
+        // 8. Update displayed record count
+        if (foundCountDisplay) {
+            foundCountDisplay.textContent =
+                `(${currentFilteredData.length} records active)`;
+        }
+
+        // 9. Force the full dataset back into the table
+        renderTable(currentFilteredData, 1);
     });
 }
     if(searchInput) searchInput.addEventListener('keypress', e => { if(e.key === 'Enter') executeSearch(true); });
