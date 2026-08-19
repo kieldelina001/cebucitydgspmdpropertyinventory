@@ -64,10 +64,11 @@ function resetAndFilterByItem(filterCategory, clickedValue) {
     // 1. Reset all filters and search inputs to default
     if (searchInput) searchInput.value = "";
     
-    // Fix: Replaced "" with "ALL" to correctly reset your dropdowns
-    if (remarksFilter) remarksFilter.value = "ALL"; 
-    if (typeFilter) typeFilter.value = "ALL";
-    if (photoFilter) photoFilter.value = "ALL";
+    // Assuming the default value for your dropdowns is an empty string "" 
+    // If your default value is something else, use that (e.g., "-- All Types --")
+    if (remarksFilter) remarksFilter.value = ""; 
+    if (typeFilter) typeFilter.value = "";
+    if (photoFilter) photoFilter.value = "";
 
     // 2. Set the specific filter to the value of the item clicked
     if (filterCategory === 'type' && typeFilter) {
@@ -76,7 +77,11 @@ function resetAndFilterByItem(filterCategory, clickedValue) {
         remarksFilter.value = clickedValue;
     }
 
+    // Optional: Reset pagination to page 1 if you have a pagination variable
+    // currentPage = 1; 
+
     // 3. Trigger your search function to update the table based on the new filter
+    // Passing 'true' based on your executeSearch(!retainPage) logic
     executeSearch(true); 
 }
 
@@ -250,10 +255,11 @@ function setupDashboardClickHandlers() {
     
     // 🧹 NEW: Helper function to clear search and dropdowns
     function resetAllFilters() {
-        if (searchInput) searchInput.value = '';
-        if (remarksFilter) remarksFilter.value = 'ALL';
-        if (typeFilter) typeFilter.value = 'ALL';
-        if (photoFilter) photoFilter.value = 'ALL';
+    if (searchInput) searchInput.value = '';
+    
+    // Dropdown resets removed so they stay unchanged when clicking icons
+    
+    // Clear insurance UI filter if active
         
         // Clear insurance UI filter if active
         if (typeof activeInsuranceFilter !== 'undefined') {
@@ -303,15 +309,21 @@ function setupDashboardClickHandlers() {
         }
     }
 
-    // --- 1. TOTAL PROPERTIES CARD (Reset all filters) ---
-    const cardTotal = document.getElementById('countTotal')?.closest('.dash-card');
-    if (cardTotal) {
-        cardTotal.onclick = () => {
-            resetAllFilters(); // Just clear everything
-            executeSearch(true);
-            scrollToTable();
-        };
-    }
+ // --- 1. TOTAL PROPERTIES CARD (Reset all filters) ---
+const cardTotal = document.getElementById('countTotal')?.closest('.dash-card');
+if (cardTotal) {
+    cardTotal.onclick = () => {
+        resetAllFilters(); 
+        
+        // Explicitly clear dropdowns only when "Total Properties" is clicked
+        if (remarksFilter) remarksFilter.value = 'ALL';
+        if (typeFilter) typeFilter.value = 'ALL';
+        if (photoFilter) photoFilter.value = 'ALL';
+
+        executeSearch(true);
+        scrollToTable();
+    };
+}
 
     // --- 2. STATUS DASHBOARD CARDS ---
     const cardExisting = document.getElementById('countExisting')?.closest('.dash-card');
@@ -348,8 +360,8 @@ const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card')
     if (cardTaxDec) {
         cardTaxDec.onclick = () => {
             resetAllFilters(); // Reset everything first!
-            if (photoFilter) {
-                photoFilter.value = 'WITH_TAX_DEC'; // Fix: Uses exact value instead of fragile index
+            if (photoFilter && photoFilter.options.length > 3) {
+                photoFilter.selectedIndex = 3; // Index 3 is "With Tax Declaration"
             }
             executeSearch(true);
             scrollToTable();
@@ -360,8 +372,8 @@ const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card')
     if (cardPhotos) {
         cardPhotos.onclick = () => {
             resetAllFilters(); // Reset everything first!
-            if (photoFilter) {
-                photoFilter.value = 'WITH_PHOTO'; // Fix: Uses exact value instead of fragile index
+            if (photoFilter && photoFilter.options.length > 1) {
+                photoFilter.selectedIndex = 1; 
             }
             executeSearch(true);
             scrollToTable();
@@ -704,32 +716,6 @@ function updatePaginationUI(totalPages) {
     }
 }
 
-// 🖼️ LAZY LOADING OBSERVER FOR TABLE PHOTOS
-const tableImageObserver = new IntersectionObserver((entries, observer) => {
-    entries.forEach(entry => {
-        // Check if the image has entered the viewport
-        if (entry.isIntersecting) {
-            const img = entry.target;
-            const driveUrl = img.dataset.src;
-            
-            if (driveUrl) {
-                // Fetch the image securely now that it's in view
-                fetchAuthorizedImage(driveUrl).then(objectUrl => {
-                    if (objectUrl) {
-                        img.src = objectUrl;
-                        img.alt = "Preview";
-                    }
-                });
-                
-                // Stop observing this image once it's processing
-                observer.unobserve(img);
-            }
-        }
-    });
-}, { 
-    rootMargin: "0px 0px 300px 0px" // Starts loading slightly before the user scrolls to it
-});
-
 function renderTable(data, page = 1) {
     if(!tableBody) return; tableBody.innerHTML = '';
     
@@ -770,14 +756,15 @@ function renderTable(data, page = 1) {
                     imgEl.alt = "Loading...";
                     imgEl.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'%3E%3Ccircle cx='25' cy='25' r='20' fill='none' stroke='%23ccc' stroke-width='4' stroke-dasharray='31.4 31.4'%3E%3CanimateTransform attributeName='transform' type='rotate' from='0 25 25' to='360 25 25' dur='1s' repeatCount='indefinite'/%3E%3C/circle%3E%3C/svg%3E";
                     
-                 imgEl.onclick = (event) => { event.stopPropagation(); openPopUp(row._rowId, tKey); };
-                    
-                    // Assign the URL to a data attribute instead of fetching immediately
-                    imgEl.dataset.src = url; 
+                    imgEl.onclick = (event) => { event.stopPropagation(); openPopUp(row._rowId, tKey); };
                     td.appendChild(imgEl);
 
-                    // Tell the observer to watch this image placeholder
-                    tableImageObserver.observe(imgEl);
+                    fetchAuthorizedImage(url).then(objectUrl => {
+                        if(objectUrl) {
+                            imgEl.src = objectUrl;
+                            imgEl.alt = "Preview";
+                        }
+                    });
                 } else {
                     td.textContent = 'No Photo';
                 }
@@ -1271,11 +1258,8 @@ function closeModal() {
 // --- DASHBOARD CLICK-TO-FILTER FUNCTION ---
 function setInsuranceFilter(filterMode, cardId) {
     
-    // 🧹 Reset other text and dropdown filters so they don't block the results
+    // 🧹 Reset search input, but keep Remarks, Type, and Media unchanged
     if (searchInput) searchInput.value = '';
-    if (remarksFilter) remarksFilter.value = 'ALL';
-    if (typeFilter) typeFilter.value = 'ALL';
-    if (photoFilter) photoFilter.value = 'ALL';
 
     // Toggle off if clicking the already active filter
     if (activeInsuranceFilter === filterMode) {
