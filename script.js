@@ -709,6 +709,32 @@ function updatePaginationUI(totalPages) {
     }
 }
 
+// 🖼️ LAZY LOADING OBSERVER FOR TABLE PHOTOS
+const tableImageObserver = new IntersectionObserver((entries, observer) => {
+    entries.forEach(entry => {
+        // Check if the image has entered the viewport
+        if (entry.isIntersecting) {
+            const img = entry.target;
+            const driveUrl = img.dataset.src;
+            
+            if (driveUrl) {
+                // Fetch the image securely now that it's in view
+                fetchAuthorizedImage(driveUrl).then(objectUrl => {
+                    if (objectUrl) {
+                        img.src = objectUrl;
+                        img.alt = "Preview";
+                    }
+                });
+                
+                // Stop observing this image once it's processing
+                observer.unobserve(img);
+            }
+        }
+    });
+}, { 
+    rootMargin: "0px 0px 300px 0px" // Starts loading slightly before the user scrolls to it
+});
+
 function renderTable(data, page = 1) {
     if(!tableBody) return; tableBody.innerHTML = '';
     
@@ -749,15 +775,14 @@ function renderTable(data, page = 1) {
                     imgEl.alt = "Loading...";
                     imgEl.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'%3E%3Ccircle cx='25' cy='25' r='20' fill='none' stroke='%23ccc' stroke-width='4' stroke-dasharray='31.4 31.4'%3E%3CanimateTransform attributeName='transform' type='rotate' from='0 25 25' to='360 25 25' dur='1s' repeatCount='indefinite'/%3E%3C/circle%3E%3C/svg%3E";
                     
-                    imgEl.onclick = (event) => { event.stopPropagation(); openPopUp(row._rowId, tKey); };
+                 imgEl.onclick = (event) => { event.stopPropagation(); openPopUp(row._rowId, tKey); };
+                    
+                    // Assign the URL to a data attribute instead of fetching immediately
+                    imgEl.dataset.src = url; 
                     td.appendChild(imgEl);
 
-                    fetchAuthorizedImage(url).then(objectUrl => {
-                        if(objectUrl) {
-                            imgEl.src = objectUrl;
-                            imgEl.alt = "Preview";
-                        }
-                    });
+                    // Tell the observer to watch this image placeholder
+                    tableImageObserver.observe(imgEl);
                 } else {
                     td.textContent = 'No Photo';
                 }
