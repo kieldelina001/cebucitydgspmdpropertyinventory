@@ -109,50 +109,7 @@
             50% { opacity: 0.3; transform: scale(1.08); text-shadow: 0 0 18px rgba(40, 167, 69, 0.9); }
             100% { opacity: 1; transform: scale(1); text-shadow: 0 0 2px rgba(21, 87, 36, 0.2); }
         }
-@keyframes bounceAndGrow {
-    0% { transform: scale(1) translateY(0); }
-    30% { transform: scale(1.3) translateY(-6px); }
-    50% { transform: scale(1.2) translateY(0); }
-    70% { transform: scale(1.25) translateY(-3px); }
-    100% { transform: scale(1.2) translateY(0); }
-}
 
-@keyframes macOsBounce {
-    0%, 100% { transform: translateY(0) scale(1.7); }
-    50% { transform: translateY(-16px) scale(1.7); }
-}
-
-/* 1. Lift the card slightly when hovered */
-.type-card:hover, 
-.ins-card:hover, 
-.stat-card:hover, 
-.summary-card:hover,
-.dash-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
-}
-
-/* 2. Trigger the continuous bounce on the icon inside ANY of these cards */
-.type-card:hover .type-icon, 
-.ins-card:hover .type-icon, 
-.stat-card:hover .type-icon, 
-.summary-card:hover .type-icon,
-.dash-card:hover .type-icon {
-    animation: macOsBounce 0.8s ease-in-out infinite;
-}
-
-/* 3. Enlarge the text slightly */
-.type-card:hover .dash-title, 
-.ins-card:hover .dash-title, 
-.stat-card:hover .dash-title, 
-.summary-card:hover .dash-title,
-.dash-card:hover .dash-title {
-    transform: scale(1.08);
-}
-
-.type-icon:hover {
-    animation: bounceAndGrow 0.6s ease-out forwards;
-}
         .live-animated-text {
             display: inline-block;
             animation: livePulse 1s infinite ease-in-out;
@@ -172,16 +129,10 @@
         .types-dashboard-wrapper { text-align: center; width: 100%; margin-bottom: 35px; }
         .types-dashboard { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 10px; padding-bottom: 8px; margin: 0 auto; text-align: left; }
         
-     .type-card { display: flex; flex-direction: column; align-items: center; text-align: center; background: #f8f9fa; border-top: 4px solid #57a1e0; padding: 12px 6px; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); flex: 0 0 88px; box-sizing: border-box; transition: transform 0.3s ease; }
-.type-icon { 
-    width: 32px; 
-    height: 32px; 
-    margin-bottom: 8px; 
-    object-fit: contain; 
-    transition: transform 0.3s ease; 
-}
-.type-card .dash-value { font-size: 20px; }
-.type-card .dash-title { font-size: 11px; white-space: normal !important; word-wrap: break-word; line-height: 1.2; transition: transform 0.3s ease, font-size 0.3s ease; }
+        .type-card { display: flex; flex-direction: column; align-items: center; text-align: center; background: #f8f9fa; border-top: 4px solid #57a1e0; padding: 12px 6px; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); flex: 0 0 88px; box-sizing: border-box; }
+        .type-icon { width: 32px; height: 32px; margin-bottom: 8px; object-fit: contain; }
+        .type-card .dash-value { font-size: 20px; }
+        .type-card .dash-title { font-size: 11px; white-space: normal !important; word-wrap: break-word; line-height: 1.2; }
         
         .filter-row { display: flex; justify-content: flex-start; gap: 20px; margin-bottom: 25px; padding-left: 10px; flex-wrap: wrap; }
         .input-group { display: flex; flex-direction: column; align-items: flex-start; flex: 1; min-width: 200px; }
@@ -191,6 +142,29 @@
         .filter-select { font-size: 16px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%; background-color: white; cursor: pointer; height: 37px; box-sizing: border-box; }
         .search-btn { font-size: 16px; padding: 8px 18px; margin-left: 10px; background-color: #57a1e0; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; height: 37px; }
         
+		.reset-filter-btn {
+    font-size: 14px;
+    padding: 8px 18px;
+    margin-top: 8px;
+    width: 100%;
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    height: 37px;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.reset-filter-btn:hover {
+    background-color: #495057;
+}
+
+.reset-filter-btn:active {
+    transform: scale(0.98);
+}
+		
         .export-btn { font-size: 14px; padding: 8px 12px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-bottom: 5px; }
         .table-section { display: flex; flex-direction: column; width: 100%; }
         .table-label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px; padding-left: 10px; }
@@ -591,11 +565,7 @@
                     <div class="type-card"><img src="road.png" class="type-icon" onerror="this.style.display='none'"><div class="dash-value" id="countRoad">0</div><div class="dash-title">Roads</div></div>
                     <div class="type-card"><img src="slaughterhouse.png" class="type-icon" onerror="this.style.display='none'"><div class="dash-value" id="countSlaughterhouse">0</div><div class="dash-title">Slaughterhouse</div></div>
                 </div>
-            </<!-- Add the new Reset Button right here -->
-        <button id="resetDropdownsBtn" class="search-btn" style="margin-top: 8px; width: fit-content;">Reset Dropdowns</button>
-        
-    </div>
-</div>
+            </div>
 
             <div class="filter-row">
                 <div class="input-group">
@@ -604,6 +574,7 @@
                         <input type="text" id="searchInput" class="input-box" placeholder="Type keywords...">
                         <button id="searchButton" class="search-btn">Search</button>
                     </div>
+					<button id="resetFiltersButton" class="reset-filter-btn">Reset Filters</button>
                 </div>
                 
                 <div class="input-group">
