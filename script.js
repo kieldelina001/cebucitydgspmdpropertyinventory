@@ -324,7 +324,10 @@ function setupDashboardClickHandlers() {
     if (cardExisting) {
         cardExisting.onclick = () => {
             resetAllFilters(); // Reset everything first!
-            if (remarksFilter) setDropdownByText(remarksFilter, 'EXISTING');
+            if (remarksFilter) {
+            const found = setDropdownByText(remarksFilter, 'EXISTING');
+            if (!found && searchInput) searchInput.value = 'EXISTING';
+        }
             executeSearch(true);
             scrollToTable();
         };
@@ -334,7 +337,10 @@ function setupDashboardClickHandlers() {
     if (cardNotFound) {
         cardNotFound.onclick = () => {
             resetAllFilters(); // Reset everything first!
-            if (remarksFilter) setDropdownByText(remarksFilter, 'NOT FOUND');
+            if (remarksFilter) {
+            const found = setDropdownByText(remarksFilter, 'NOT FOUND');
+            if (!found && searchInput) searchInput.value = 'NOT FOUND';
+        }
             executeSearch(true);
             scrollToTable();
         };
@@ -344,7 +350,10 @@ function setupDashboardClickHandlers() {
     if (cardVerification) {
         cardVerification.onclick = () => {
             resetAllFilters(); // Reset everything first!
-            if (remarksFilter) setDropdownByText(remarksFilter, 'VERIFICATION');
+            if (remarksFilter) {
+            const found = setDropdownByText(remarksFilter, 'VERIFICATION');
+            if (!found && searchInput) searchInput.value = 'VERIFICATION';
+        }
             executeSearch(true);
             scrollToTable();
         };
