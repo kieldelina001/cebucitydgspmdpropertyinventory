@@ -1105,6 +1105,7 @@ function openPopUp(rowId, clickedPhotoKey = null) {
     modalCloseBtn.textContent = 'Close'; // <--- ADD THIS LINE
     modalCloseX.disabled = false;
     editModal.style.display = 'flex';
+	document.body.style.overflow = 'hidden'; // Locks the background scroll
 }
 
 function renderModalPhotoViewer() {
@@ -1275,6 +1276,9 @@ function openUploadWindow() {
 
 function closeModal() {
     if (editModal) editModal.style.display = 'none';
+    
+    // Unlocks the background scroll
+    document.body.style.overflow = ''; 
     
     if (modalModified) {
         loadInventoryFromGoogleSheets(true);
