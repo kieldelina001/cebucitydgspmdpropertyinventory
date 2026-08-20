@@ -1297,12 +1297,8 @@ function setInsuranceFilter(filterMode, cardId) {
     if (typeFilter) typeFilter.value = 'ALL';
     if (photoFilter) photoFilter.value = 'ALL';
 
-    // Toggle off if clicking the already active filter
-    if (activeInsuranceFilter === filterMode) {
-        activeInsuranceFilter = 'ALL';
-    } else {
-        activeInsuranceFilter = filterMode;
-    }
+    // Set insurance filter mode directly
+    activeInsuranceFilter = filterMode;
 
     // Reset styles for all 3 cards
     document.querySelectorAll('.ins-card').forEach(card => {
@@ -1341,11 +1337,10 @@ function setupSystemEventHandlers() {
     const cardExpiring = document.getElementById('cardExpiring');
     const clearInsFilterBtn = document.getElementById('clearInsFilterBtn');
 
-    if(cardInsured) cardInsured.addEventListener('click', () => setInsuranceFilter('INSURED', 'cardInsured'));
-    if(cardNotInsured) cardNotInsured.addEventListener('click', () => setInsuranceFilter('NOT_INSURED', 'cardNotInsured'));
-    if(cardExpiring) cardExpiring.addEventListener('click', () => setInsuranceFilter('EXPIRING', 'cardExpiring'));
-    if(clearInsFilterBtn) clearInsFilterBtn.addEventListener('click', () => setInsuranceFilter('ALL', ''));
-    if(searchButton) searchButton.addEventListener('click', () => executeSearch(true));
+    if(cardInsured) cardInsured.onclick = () => setInsuranceFilter('INSURED', 'cardInsured');
+    if(cardNotInsured) cardNotInsured.onclick = () => setInsuranceFilter('NOT_INSURED', 'cardNotInsured');
+    if(cardExpiring) cardExpiring.onclick = () => setInsuranceFilter('EXPIRING', 'cardExpiring');
+    if(clearInsFilterBtn) clearInsFilterBtn.onclick = () => setInsuranceFilter('ALL', '');
 if(resetFiltersButton) {
     resetFiltersButton.addEventListener('click', () => {
 
