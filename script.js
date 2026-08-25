@@ -614,31 +614,52 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
         }
         console.error(err);
 
-        // --- UPDATED MODIFICATION: Request Access Check ---
-        // If there is an active token, it means they logged in but lack Google Sheet permissions
+        // --- BACKGROUND REQUEST LOGIC ---
         if (accessToken && loggedInUser !== "System User") {
-            const requestAccess = confirm(
-                "⚠️ Access Denied!\n\n" +
-                "Your Gmail account (" + loggedInUser + ") does not have permission to view the Google Sheet.\n\n" +
-                "Would you like to request access?\n" +
-                "(This will send an email notification to kieldelina001@gmail.com)"
-            );
+            const modal = document.getElementById("accessModal");
+            const modalText = document.getElementById("accessModalText");
+            const submitBtn = document.getElementById("submitRequestBtn");
+            const closeBtn = document.getElementById("closeModalBtn");
 
-            if (requestAccess) {
-                // Construct the URL to trigger the backend handleAccessRequest function
-                const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&name=" + encodeURIComponent(loggedInUser);
-                
-                // Open the Apps Script HTML success page in a pop-up window
-                window.open(requestUrl, "RequestAccessWindow", "width=600,height=600,top=100,left=100");
-            }
+            // Customize text with the user's logged-in email
+            modalText.innerHTML = "Your Gmail account (<b>" + loggedInUser + "</b>) does not have permission to view the Google Sheet.<br><br>Would you like to send an access request?";
+
+            // Display the modal window
+            modal.style.display = "flex";
+
+            // When the user clicks "Request Access"
+            submitBtn.onclick = async function() {
+                submitBtn.textContent = "Sending...";
+                submitBtn.disabled = true;
+
+                try {
+                    // Construct the URL to trigger your backend Google Apps Script function
+                    const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&name=" + encodeURIComponent(loggedInUser);
+                    
+                    // Send a silent background request to Google Apps Script to trigger the email
+                    await fetch(requestUrl, { method: "GET", mode: "no-cors" });
+
+                    alert("Access request sent successfully! The administrator has been notified.");
+                } catch (fetchErr) {
+                    console.error("Failed to send request:", fetchErr);
+                    alert("Failed to send request automatically. Please contact the administrator directly.");
+                } finally {
+                    submitBtn.textContent = "Request Access";
+                    submitBtn.disabled = false;
+                    modal.style.display = "none";
+                }
+            };
+
+            // When the user clicks "Cancel"
+            closeBtn.onclick = function() {
+                modal.style.display = "none";
+            };
         } else {
-            // Fallback for general network errors
             alert("Connection failed or you have been logged out from Google. Please log in again.");
         }
 
-        // Safely log them out of the UI since they do not have data access yet
+        // Safely log them out of the UI interface
         performLogout();
-        // -------------------------
     }
 }
 
