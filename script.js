@@ -629,6 +629,15 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
 
                 const notesInput = document.getElementById("requestNotesInput");
                 const userNotes = notesInput ? notesInput.value.trim() : "";
+				
+				// Hide the input bar immediately upon clicking
+    if (notesInput) {
+        notesInput.style.display = "none";
+    }
+
+    submitBtn.textContent = "Sending...";
+    submitBtn.disabled = true;
+				
 
                 // Construct the Apps Script URL with the user's note
                 const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&notes=" + encodeURIComponent(userNotes);
