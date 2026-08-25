@@ -627,8 +627,11 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
                 submitBtn.textContent = "Sending...";
                 submitBtn.disabled = true;
 
-                // Construct the Apps Script URL
-                const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&name=" + encodeURIComponent(loggedInUser);
+                const notesInput = document.getElementById("requestNotesInput");
+                const userNotes = notesInput ? notesInput.value.trim() : "";
+
+                // Construct the Apps Script URL with the user's note
+                const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&notes=" + encodeURIComponent(userNotes);
 
                 // Create a hidden iframe to silently trigger the Apps Script (bypasses CORS/redirect blocks)
                 let iframe = document.createElement("iframe");
