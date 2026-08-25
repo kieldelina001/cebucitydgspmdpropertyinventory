@@ -634,37 +634,42 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
     modal.style.display = "flex";
 
     submitBtn.onclick = function() {
-        submitBtn.textContent = "Sending...";
-        submitBtn.disabled = true;
-        
-        // Capture the note value and hide the textarea upon clicking
+        // 1. Capture the note value
         let noteValue = "No note provided";
         if (noteInput) {
             noteValue = noteInput.value.trim() || "No note provided";
-            noteInput.style.display = "none"; 
+            noteInput.value = ""; // Reset input in the background for next time
         }
 
-        // Append the notes parameter to the URL for Apps Script
+        // 2. IMMEDIATELY close the modal window so the user isn't waiting
+        modal.style.display = "none";
+
+        // 3. Update the main status banner so the user knows it was sent (Optional but recommended)
+        if (statusBanner) {
+            statusBanner.style.backgroundColor = "#d4edda";
+            statusBanner.style.color = "#155724";
+            statusBanner.innerHTML = "✅ <b>Access request sent successfully!</b> Please wait for admin approval.";
+        }
+
+        // 4. Prepare the URL for Apps Script
         const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&name=" + encodeURIComponent(loggedInUser) + "&notes=" + encodeURIComponent(noteValue);
 
-        // Create a hidden iframe to silently trigger the Apps Script (bypasses CORS/redirect blocks)
+        // 5. Create a hidden iframe to silently trigger the Apps Script (bypasses CORS/redirect blocks)
         let iframe = document.createElement("iframe");
         iframe.style.display = "none";
         iframe.src = requestUrl;
         document.body.appendChild(iframe);
 
+        // 6. Clean up the iframe silently in the background after 2 seconds
         setTimeout(function() {
-            document.body.removeChild(iframe);
+            if (document.body.contains(iframe)) {
+                document.body.removeChild(iframe);
+            }
             
-            // Pop-up modal window confirmation upon completion
-            modalText.innerHTML = "✅ <b>Access request sent successfully!</b><br>Your request has been encoded into your Request Access sheet. Please wait for administrator approval.";
-            submitBtn.style.display = "none"; // Hide request button
-            closeBtn.textContent = "Close";
-            closeBtn.style.background = "#28a745"; // Change cancel button to a green 'Close' button
-            
+            // Reset the submit button state in the background in case the modal is triggered again later
             submitBtn.textContent = "Request Access";
             submitBtn.disabled = false;
-        }, 2000); // Gives the script 2 seconds to fire the email in the background
+        }, 2000);
     };
 
     closeBtn.onclick = function() {
