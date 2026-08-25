@@ -654,19 +654,6 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
 
         performLogout();
     }
-            };
-
-            // When the user clicks "Cancel"
-            closeBtn.onclick = function() {
-                modal.style.display = "none";
-            };
-        } else {
-            alert("Connection failed or you have been logged out from Google. Please log in again.");
-        }
-
-        // Safely log them out of the UI interface
-        performLogout();
-    }
 }
 
 function initializeSystemUI(retainPage = false) {
