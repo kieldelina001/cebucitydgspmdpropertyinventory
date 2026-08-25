@@ -616,9 +616,22 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
 
         // --- UPDATED MODIFICATION ---
         // Trigger the custom modal instead of the default browser alert
-        showUnauthorizedModal();
+        handleUnauthorizedAccess();
         // -------------------------
     }
+}
+
+function handleUnauthorizedAccess() {
+
+    performLogout();
+
+    if (statusBanner) {
+        statusBanner.style.backgroundColor = "#f8d7da";
+        statusBanner.style.color = "#721c24";
+        statusBanner.textContent = "You are not authorized.";
+    }
+
+    handleUnauthorizedAccess();
 }
 
 function initializeSystemUI(retainPage = false) {
@@ -1723,6 +1736,29 @@ window.addEventListener('DOMContentLoaded', () => {
             btn.style.display = accessToken ? 'block' : 'none';
         }
     }, 1000);
+	
+	// =========================================================================
+// 🚫 UNAUTHORIZED GOOGLE SHEET ACCESS HANDLER
+// =========================================================================
+function handleUnauthorizedAccess() {
+
+    // Use the EXISTING logout function.
+    // Do not modify performLogout().
+    performLogout();
+
+    // Change the status message
+    if (statusBanner) {
+        statusBanner.style.backgroundColor = "#f8d7da";
+        statusBanner.style.color = "#721c24";
+        statusBanner.textContent = "You are not authorized.";
+    }
+
+    // Show the existing unauthorized window
+    showUnauthorizedModal();
+}
+	
+	
+	
 	
 	// =========================================================================
 // 🚫 UNAUTHORIZED ACCESS HANDLER
