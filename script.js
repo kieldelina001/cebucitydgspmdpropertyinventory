@@ -678,7 +678,7 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
         // Reset modal back to original prompt state when closed
         setTimeout(() => {
             // 2. Change the modal content to the "Success" window instead of closing it
-        modalText.innerHTML = "<h3 style='margin-top:0; margin-bottom: 10px; color: #155724;'>✅ Request Access Sent</h3><p style='margin:0; line-height: 1.5;'>Your request has been successfully sent. Please wait for admin approval.<br>You may call <b>639282199308</b> for follow-up.</p>";
+        modalText.innerHTML = "<h3 style='margin-top:0; margin-bottom: 10px; color: #155724;'>✅ Request Access Sent</h3><p style='margin:0; line-height: 1.5;'>Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.</p>";
             submitBtn.style.display = "inline-block";
             closeBtn.textContent = "Cancel";
             closeBtn.style.background = "#6c757d";
