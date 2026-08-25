@@ -234,13 +234,15 @@ function getOrCreateTokenClient() {
                         }
                     }).catch(console.error);
 
-                    const loginScreen = document.getElementById('loginScreen');
-                    const mainApp = document.getElementById('mainApp');
-                    if (loginScreen) loginScreen.style.display = 'none';
-                    if (mainApp) mainApp.style.display = 'block';
-                    
-                    setupSystemEventHandlers();
-                    loadInventoryFromGoogleSheets();
+                   const loginScreen = document.getElementById('loginScreen');
+const mainApp = document.getElementById('mainApp');
+
+// Keep the login screen visible while checking Sheet access
+if (loginScreen) loginScreen.style.display = 'flex';
+if (mainApp) mainApp.style.display = 'none';
+
+setupSystemEventHandlers();
+loadInventoryFromGoogleSheets();
                 } else {
                     const loginErr = document.getElementById('loginError');
                     if (loginErr) loginErr.textContent = 'Google Sign-In authorization failed.';
@@ -1760,7 +1762,11 @@ function handleUnauthorizedAccess() {
 	
 	
 	
-	// =========================================================================
+	
+	
+});
+
+// =========================================================================
 // 🚫 UNAUTHORIZED ACCESS HANDLER
 // =========================================================================
 function showUnauthorizedModal() {
@@ -1802,6 +1808,3 @@ function showUnauthorizedModal() {
         performLogout(); 
     };
 }
-	
-});
-// =========================================================================
