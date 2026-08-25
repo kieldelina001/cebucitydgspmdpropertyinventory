@@ -638,15 +638,27 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
 
                 setTimeout(function() {
                     document.body.removeChild(iframe);
-                    alert("Access request sent to kieldelina001@gmail.com!");
+                    
+                    // 🌟 Pop-up modal window confirmation upon completion
+                    modalText.innerHTML = "✅ <b>Access request sent successfully!</b><br>Your request has been encoded into your Request Access sheet. Please wait for administrator approval.";
+                    submitBtn.style.display = "none"; // Hide request button
+                    closeBtn.textContent = "Close";
+                    closeBtn.style.background = "#28a745";
+                    
                     submitBtn.textContent = "Request Access";
                     submitBtn.disabled = false;
-                    modal.style.display = "none";
                 }, 2000); // Gives the script 2 seconds to fire the email in the background
             };
 
             closeBtn.onclick = function() {
                 modal.style.display = "none";
+                // Reset modal back to original prompt state when closed
+                setTimeout(() => {
+                    modalText.innerHTML = "Your Gmail account (<b>" + loggedInUser + "</b>) does not have permission to view the Google Sheet.<br><br>Would you like to send an access request?";
+                    submitBtn.style.display = "inline-block";
+                    closeBtn.textContent = "Cancel";
+                    closeBtn.style.background = "#6c757d";
+                }, 300);
             };
         } else {
             alert("Connection failed or you have been logged out from Google. Please log in again.");
