@@ -1,10 +1,5 @@
 // 🔑 Google Sheets Cloud Gateway Architecture
 const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzu78LrVMEzgsn8amccnXdLq8z5MG2zU7BiCwdOOs1J0jI2ulUn4Kdv1eIk6VvcPa55AA/exec";
-// =========================================================================
-// 📧 ACCESS REQUEST CONFIGURATION
-// =========================================================================
-const ADMIN_EMAIL = "kieldelina001@gmail.com"; // Replace with your email
-// =========================================================================
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
 // Update: Changed to the official Google Drive Export endpoint to prevent CORS & redirect issues
 const GOOGLE_SHEET_CSV_URL = `https://www.googleapis.com/drive/v3/files/${SPREADSHEET_ID}/export?mimeType=text/csv`;
@@ -60,7 +55,6 @@ let paginationContainer, prevPageBtn, nextPageBtn, pageIndicator;
 let countTotal, countExisting, countNotFound, countVerification, countWithPhotos, countTaxDec;
 let countBuilding, countAssetMod, countFlood, countHospital, countLand, countMarket, countOtherInfra, countOtherLand, countOtherStruct, countPark, countRoad, countSchool, countSlaughterhouse, countWater;
 let editModal, modalFormContainer, modalEditBtn, modalSaveBtn, modalCloseBtn, modalCloseX, uploadPhotoBtn;
-let unauthorizedModal, unauthorizedCloseX, unauthorizedCloseBtn, requestAccessBtn;
 let tooltip, tooltipImg;
 let loadingOverlay, customNameModal;
 let countInsured, countNotInsured, countExpiring;
@@ -137,10 +131,6 @@ countInsured = document.getElementById('countInsured');
     countWater = document.getElementById('countWater');
 
     editModal = document.getElementById('editModal');
-	    unauthorizedModal = document.getElementById('unauthorizedModal');
-    unauthorizedCloseX = document.getElementById('unauthorizedCloseX');
-    unauthorizedCloseBtn = document.getElementById('unauthorizedCloseBtn');
-    requestAccessBtn = document.getElementById('requestAccessBtn');
     modalFormContainer = document.getElementById('modalFormContainer');
     modalEditBtn = document.getElementById('modalEditBtn');
     modalSaveBtn = document.getElementById('modalSaveBtn');
@@ -229,28 +219,28 @@ function getOrCreateTokenClient() {
                 if (tokenResponse && tokenResponse.access_token) {
                     accessToken = tokenResponse.access_token;
                     
-                fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-    headers: { 'Authorization': `Bearer ${accessToken}` }
-})
-.then(res => res.json())
-.then(profile => {
-    if (profile.email) {
-        loggedInUser = profile.email;
-    }
-    
-    const operatorInput = document.getElementById('custom-operator-input');
-    if (operatorInput && profile.email) {
-        operatorInput.value = profile.email;
-        operatorInput.disabled = true;
-    }
-    
-    // IMMEDIATELY test sheet access before showing the app
-    testSheetAccess();
-}).catch(error => {
-    console.error("Failed to get user info:", error);
-    // Fallback: Try to test access without email
-    testSheetAccess();
-});
+                   fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                        headers: { 'Authorization': `Bearer ${accessToken}` }
+                    })
+                    .then(res => res.json())
+                    .then(profile => {
+                        if (profile.email) {
+                            loggedInUser = profile.email; // <--- ADDED: Saves email globally
+                        }
+                        const operatorInput = document.getElementById('custom-operator-input');
+                        if (operatorInput && profile.email) {
+                            operatorInput.value = profile.email;
+                            operatorInput.disabled = true;
+                        }
+                    }).catch(console.error);
+
+                    const loginScreen = document.getElementById('loginScreen');
+                    const mainApp = document.getElementById('mainApp');
+                    if (loginScreen) loginScreen.style.display = 'none';
+                    if (mainApp) mainApp.style.display = 'block';
+                    
+                    setupSystemEventHandlers();
+                    loadInventoryFromGoogleSheets();
                 } else {
                     const loginErr = document.getElementById('loginError');
                     if (loginErr) loginErr.textContent = 'Google Sign-In authorization failed.';
@@ -435,7 +425,6 @@ const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card')
 
 function initApp() {
     initUIReferences();
-	
 
     // Try initializing immediately if the script is already loaded
     getOrCreateTokenClient();
@@ -465,75 +454,6 @@ function initApp() {
             }
         });
     }
-
-// =========================================================================
-// 📧 UNAUTHORIZED ACCESS FUNCTIONS
-// =========================================================================
-function showUnauthorizedModal() {
-    function showUnauthorizedModal() {
-    console.log("Attempting to show unauthorized modal");
-    console.log("Modal element:", unauthorizedModal);
-    
-    if (!unauthorizedModal) {
-        unauthorizedModal = document.getElementById('unauthorizedModal');
-        console.log("Fetched modal from DOM:", unauthorizedModal);
-    }
-    
-    if (unauthorizedModal) {
-        console.log("Showing modal...");
-        unauthorizedModal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
-    } else {
-        console.error("Modal not found! Trying alert...");
-        alert("Access Denied: Your Gmail account is not authorized to access this system.");
-        performLogout();
-    }
-}
-	
-	
-	// Make sure the modal exists
-    if (!unauthorizedModal) {
-        unauthorizedModal = document.getElementById('unauthorizedModal');
-    }
-    
-    if (unauthorizedModal) {
-        unauthorizedModal.style.display = 'flex';
-        document.body.style.overflow = 'hidden'; // Prevent scrolling
-    } else {
-        // Fallback: alert if modal not found
-        alert("Access Denied: Your Gmail account is not authorized to access this system.");
-        performLogout();
-    }
-}
-
-function hideUnauthorizedModal() {
-    if (!unauthorizedModal) {
-        unauthorizedModal = document.getElementById('unauthorizedModal');
-    }
-    
-    if (unauthorizedModal) {
-        unauthorizedModal.style.display = 'none';
-        document.body.style.overflow = ''; // Restore scrolling
-    }
-}
-
-function sendAccessRequestEmail(userEmail) {
-    if (!userEmail) {
-        alert("Email not found. Please try again.");
-        return;
-    }
-    
-    // Open Google Apps Script to send email
-    const requestUrl = `${GOOGLE_APPS_SCRIPT_URL}?action=requestAccess&email=${encodeURIComponent(userEmail)}`;
-    
-    // Open in new window
-    window.open(requestUrl, '_blank');
-    
-    // Show confirmation
-    alert("Access request sent! Please wait for administrator approval.");
-    performLogout();
-}
-
 
     const backToTopBtn = document.getElementById('backToTopBtn');
     if (backToTopBtn) {
@@ -694,79 +614,33 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
         }
         console.error(err);
 
-        // --- NEW MODIFICATION ---
-        // Display pop-up alert with your specified message and redirect back to login upon clicking OK
-        alert("You have been logged out from Google. Please log in again.");
+        // --- UPDATED MODIFICATION: Request Access Check ---
+        // If there is an active token, it means they logged in but lack Google Sheet permissions
+        if (accessToken && loggedInUser !== "System User") {
+            const requestAccess = confirm(
+                "⚠️ Access Denied!\n\n" +
+                "Your Gmail account (" + loggedInUser + ") does not have permission to view the Google Sheet.\n\n" +
+                "Would you like to request access?\n" +
+                "(This will send an email notification to kieldelina001@gmail.com)"
+            );
+
+            if (requestAccess) {
+                // Construct the URL to trigger the backend handleAccessRequest function
+                const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&name=" + encodeURIComponent(loggedInUser);
+                
+                // Open the Apps Script HTML success page in a pop-up window
+                window.open(requestUrl, "RequestAccessWindow", "width=600,height=600,top=100,left=100");
+            }
+        } else {
+            // Fallback for general network errors
+            alert("Connection failed or you have been logged out from Google. Please log in again.");
+        }
+
+        // Safely log them out of the UI since they do not have data access yet
         performLogout();
         // -------------------------
     }
 }
-
-// =========================================================================
-// 📧 TEST SHEET ACCESS FUNCTION
-// =========================================================================
-async function testSheetAccess() {
-    console.log("Testing sheet access with token:", accessToken ? "Token exists" : "No token");
-    console.log("Spreadsheet ID:", SPREADSHEET_ID);
-    
-    showLoading("Verifying access permissions...");
-    
-    try {
-        const response = await fetch(`https://www.googleapis.com/drive/v3/files/${SPREADSHEET_ID}?fields=id,name`, {
-            headers: {
-                'Authorization': `Bearer ${accessToken}`
-            }
-        });
-        
-        console.log("Sheet access response status:", response.status);
-        console.log("Response:", response);
-        
-        // ... rest of the function
-    
-	
-	
-    try {
-        // Try to fetch the spreadsheet metadata
-        const response = await fetch(`https://www.googleapis.com/drive/v3/files/${SPREADSHEET_ID}?fields=id,name`, {
-            headers: {
-                'Authorization': `Bearer ${accessToken}`
-            }
-        });
-        
-        // Check if response is OK (authorized)
-        if (response.ok) {
-            // ✅ AUTHORIZED - Show the app
-            hideLoading();
-            
-            const loginScreen = document.getElementById('loginScreen');
-            const mainApp = document.getElementById('mainApp');
-            if (loginScreen) loginScreen.style.display = 'none';
-            if (mainApp) mainApp.style.display = 'block';
-
-            setupSystemEventHandlers();
-            loadInventoryFromGoogleSheets();
-            return;
-        }
-        
-        // ❌ UNAUTHORIZED - Show unauthorized modal
-        // Check if 403 (Forbidden) or 404 (Not Found)
-        if (response.status === 403 || response.status === 404) {
-            hideLoading();
-            showUnauthorizedModal();
-            return;
-        }
-        
-        // Other errors - still show unauthorized modal
-        hideLoading();
-        showUnauthorizedModal();
-        
-    } catch (error) {
-        console.error("Access test failed:", error);
-        hideLoading();
-        showUnauthorizedModal();
-    }
-}
-
 
 function initializeSystemUI(retainPage = false) {
     if (statusBanner) {
@@ -1550,26 +1424,6 @@ if(resetFiltersButton) {
         // Reset pagination display
         updatePaginationUI(0);
     });
-	    // Unauthorized Modal Handlers
-    if (unauthorizedCloseX) {
-        unauthorizedCloseX.addEventListener('click', () => {
-            hideUnauthorizedModal();
-            performLogout();
-        });
-    }
-    
-    if (unauthorizedCloseBtn) {
-        unauthorizedCloseBtn.addEventListener('click', () => {
-            hideUnauthorizedModal();
-            performLogout();
-        });
-    }
-    
-    if (requestAccessBtn) {
-        requestAccessBtn.addEventListener('click', () => {
-            sendAccessRequestEmail(loggedInUser);
-        });
-    }
 }
     if(searchInput) searchInput.addEventListener('keypress', e => { if(e.key === 'Enter') executeSearch(true); });
     
