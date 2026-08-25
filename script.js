@@ -614,40 +614,46 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
         }
         console.error(err);
 
-        // --- BACKGROUND REQUEST LOGIC ---
         if (accessToken && loggedInUser !== "System User") {
             const modal = document.getElementById("accessModal");
             const modalText = document.getElementById("accessModalText");
             const submitBtn = document.getElementById("submitRequestBtn");
             const closeBtn = document.getElementById("closeModalBtn");
 
-            // Customize text with the user's logged-in email
             modalText.innerHTML = "Your Gmail account (<b>" + loggedInUser + "</b>) does not have permission to view the Google Sheet.<br><br>Would you like to send an access request?";
-
-            // Display the modal window
             modal.style.display = "flex";
 
-            // When the user clicks "Request Access"
-            submitBtn.onclick = async function() {
+            submitBtn.onclick = function() {
                 submitBtn.textContent = "Sending...";
                 submitBtn.disabled = true;
 
-                try {
-                    // Construct the URL to trigger your backend Google Apps Script function
-                    const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&name=" + encodeURIComponent(loggedInUser);
-                    
-                    // Send a silent background request to Google Apps Script to trigger the email
-                    await fetch(requestUrl, { method: "GET", mode: "no-cors" });
+                // Construct the Apps Script URL
+                const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&name=" + encodeURIComponent(loggedInUser);
 
-                    alert("Access request sent successfully! The administrator has been notified.");
-                } catch (fetchErr) {
-                    console.error("Failed to send request:", fetchErr);
-                    alert("Failed to send request automatically. Please contact the administrator directly.");
-                } finally {
+                // Create a hidden iframe to silently trigger the Apps Script (bypasses CORS/redirect blocks)
+                let iframe = document.createElement("iframe");
+                iframe.style.display = "none";
+                iframe.src = requestUrl;
+                document.body.appendChild(iframe);
+
+                setTimeout(function() {
+                    document.body.removeChild(iframe);
+                    alert("Access request sent to kieldelina001@gmail.com!");
                     submitBtn.textContent = "Request Access";
                     submitBtn.disabled = false;
                     modal.style.display = "none";
-                }
+                }, 2000); // Gives the script 2 seconds to fire the email in the background
+            };
+
+            closeBtn.onclick = function() {
+                modal.style.display = "none";
+            };
+        } else {
+            alert("Connection failed or you have been logged out from Google. Please log in again.");
+        }
+
+        performLogout();
+    }
             };
 
             // When the user clicks "Cancel"
