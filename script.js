@@ -624,43 +624,42 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
             modal.style.display = "flex";
 
             submitBtn.onclick = function() {
-                submitBtn.textContent = "Sending...";
-                submitBtn.disabled = true;
+    const notesInput = document.getElementById("requestNotesInput");
+    
+    // 1. Capture the typed note
+    const userNotes = notesInput ? notesInput.value.trim() : "";
 
-                const notesInput = document.getElementById("requestNotesInput");
-                const userNotes = notesInput ? notesInput.value.trim() : "";
-				
-				// Hide the input bar immediately upon clicking
+    // 2. Clear the input value and hide the input bar
     if (notesInput) {
-        notesInput.style.display = "none";
+        notesInput.value = "";           // Resets text for next time
+        notesInput.style.display = "none"; // Hides input bar immediately
     }
 
     submitBtn.textContent = "Sending...";
     submitBtn.disabled = true;
-				
 
-                // Construct the Apps Script URL with the user's note
-                const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&notes=" + encodeURIComponent(userNotes);
+    // Construct the Apps Script URL
+    const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&notes=" + encodeURIComponent(userNotes);
 
-                // Create a hidden iframe to silently trigger the Apps Script (bypasses CORS/redirect blocks)
-                let iframe = document.createElement("iframe");
-                iframe.style.display = "none";
-                iframe.src = requestUrl;
-                document.body.appendChild(iframe);
-
-                setTimeout(function() {
-                    document.body.removeChild(iframe);
-                    
-                    // 🌟 Pop-up modal window confirmation upon completion
-                    modalText.innerHTML = "✅ <b>Access request sent successfully!</b><br>Your request has been encoded into your Request Access sheet. Please wait for administrator approval.";
-                    submitBtn.style.display = "none"; // Hide request button
-                    closeBtn.textContent = "Close";
-                    closeBtn.style.background = "#28a745";
-                    
-                    submitBtn.textContent = "Request Access";
-                    submitBtn.disabled = false;
-                }, 2000); // Gives the script 2 seconds to fire the email in the background
-            };
+    fetch(requestUrl)
+        .then(response => response.json())
+        .then(data => {
+            alert("Access request sent!");
+            document.getElementById("accessModal").style.display = "none";
+            
+            // Restore visibility for future opens
+            if (notesInput) notesInput.style.display = "block";
+            submitBtn.textContent = "Request Access";
+            submitBtn.disabled = false;
+        })
+        .catch(error => {
+            console.error("Error:", error);
+            // Re-enable and restore input view on failure
+            if (notesInput) notesInput.style.display = "block";
+            submitBtn.textContent = "Request Access";
+            submitBtn.disabled = false;
+        });
+};
 
             closeBtn.onclick = function() {
                 modal.style.display = "none";
