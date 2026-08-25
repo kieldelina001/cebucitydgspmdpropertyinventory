@@ -199,7 +199,8 @@ function hideLoading() {
 window.addEventListener('scroll', () => {
     const backToTopBtn = document.getElementById('backToTopBtn');
     if (backToTopBtn) {
-        if (document.body.scrollTop > 300 || document.documentElement.scrollTop > 300) {
+        // Add accessToken check to ensure it only shows when securely logged in
+        if (accessToken && (document.body.scrollTop > 300 || document.documentElement.scrollTop > 300)) {
             backToTopBtn.style.visibility = "visible";
             backToTopBtn.style.opacity = "1";
         } else {
@@ -1751,8 +1752,18 @@ function performLogout() {
     // 3. Stop the timer
     clearTimeout(idleTimer);
     
-    // Optional: Alert the user they were logged out safely
-    // alert("Session ended. You have been securely logged out."); 
+    // 4. Force hide all floating elements immediately
+    const floatingLogoutBtn = document.getElementById('floatingLogoutBtn');
+    if (floatingLogoutBtn) floatingLogoutBtn.style.display = 'none';
+
+    const paginationContainer = document.getElementById('paginationContainer');
+    if (paginationContainer) paginationContainer.style.display = 'none';
+
+    const backToTopBtn = document.getElementById('backToTopBtn');
+    if (backToTopBtn) {
+        backToTopBtn.style.visibility = 'hidden';
+        backToTopBtn.style.opacity = '0';
+    }
 }
 
 function resetIdleTimer() {
@@ -1802,13 +1813,17 @@ window.addEventListener('DOMContentLoaded', () => {
         document.addEventListener(event, resetIdleTimer);
     });
 
-    // --- Monitor Login State ---
+// --- Monitor Login State ---
     // Checks every 1 second if the user logged in to display the button, 
     // ensuring we don't have to alter your existing login functions.
     setInterval(() => {
         const btn = document.getElementById('floatingLogoutBtn');
+        const mainApp = document.getElementById('mainApp');
+        
         if (btn) {
-            btn.style.display = accessToken ? 'block' : 'none';
+            // Only display if we have an access token AND the main app screen is visible
+            const isMainAppVisible = mainApp && mainApp.style.display !== 'none';
+            btn.style.display = (accessToken && isMainAppVisible) ? 'block' : 'none';
         }
     }, 1000);
 });
