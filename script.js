@@ -641,46 +641,34 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
             noteInput.value = ""; // Reset input in the background for next time
         }
 
-        // 2. IMMEDIATELY close the modal window so the user isn't waiting
-        modal.style.display = "none";
-
-        // 3. Update the main status banner with the success message AND a close button
-        if (statusBanner) {
-            // Adjust styles to make it a flexbox so the 'X' aligns to the far right
-            statusBanner.style.display = "flex";
-            statusBanner.style.justifyContent = "space-between";
-            statusBanner.style.alignItems = "center";
-            statusBanner.style.backgroundColor = "#d4edda";
-            statusBanner.style.color = "#155724";
-            
-            // Inject the message and the clickable 'X'
-            statusBanner.innerHTML = `
-                <span>✅ <b>Access request sent successfully!</b> Please wait for admin approval.</span>
-                <span style="cursor: pointer; font-size: 20px; font-weight: bold; margin-left: 15px; line-height: 1; opacity: 0.7;" 
-                      onmouseover="this.style.opacity='1'" 
-                      onmouseout="this.style.opacity='0.7'" 
-                      onclick="document.getElementById('statusBanner').style.display='none';">&times;</span>
-            `;
+        // 2. Change the modal content to the "Success" window instead of closing it
+        modalText.innerHTML = "<h3 style='margin-top:0; margin-bottom: 10px; color: #155724;'>✅ Request Access Sent</h3><p style='margin:0;'>Your request has been successfully sent. Please wait for admin approval.</p>";
+        
+        // 3. Hide the text area input
+        if (noteInput) {
+            noteInput.style.display = "none";
         }
 
-        // 4. Prepare the URL for Apps Script
+        // 4. Update the buttons: Hide 'Submit', change 'Cancel' to a green 'OK' button
+        submitBtn.style.display = "none";
+        closeBtn.textContent = "OK";
+        closeBtn.style.background = "#28a745"; // Green success color
+        closeBtn.style.color = "white";
+
+        // 5. Prepare the URL for Apps Script
         const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&name=" + encodeURIComponent(loggedInUser) + "&notes=" + encodeURIComponent(noteValue);
 
-        // 5. Create a hidden iframe to silently trigger the Apps Script (bypasses CORS/redirect blocks)
+        // 6. Create a hidden iframe to silently trigger the Apps Script (bypasses CORS/redirect blocks)
         let iframe = document.createElement("iframe");
         iframe.style.display = "none";
         iframe.src = requestUrl;
         document.body.appendChild(iframe);
 
-        // 6. Clean up the iframe silently in the background after 2 seconds
+        // 7. Clean up the iframe silently in the background after 2 seconds
         setTimeout(function() {
             if (document.body.contains(iframe)) {
                 document.body.removeChild(iframe);
             }
-            
-            // Reset the submit button state in the background in case the modal is triggered again later
-            submitBtn.textContent = "Request Access";
-            submitBtn.disabled = false;
         }, 2000);
     };
 
@@ -689,7 +677,8 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
         
         // Reset modal back to original prompt state when closed
         setTimeout(() => {
-            modalText.innerHTML = "Your Gmail account (<b>" + loggedInUser + "</b>) does not have permission to view the Google Sheet.<br><br>Would you like to send an access request?";
+            // 2. Change the modal content to the "Success" window instead of closing it
+        modalText.innerHTML = "<h3 style='margin-top:0; margin-bottom: 10px; color: #155724;'>✅ Request Access Sent</h3><p style='margin:0; line-height: 1.5;'>Your request has been successfully sent. Please wait for admin approval.<br>You may call <b>639282199308</b> for follow-up.</p>";
             submitBtn.style.display = "inline-block";
             closeBtn.textContent = "Cancel";
             closeBtn.style.background = "#6c757d";
