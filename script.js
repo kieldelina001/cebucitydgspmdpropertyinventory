@@ -614,10 +614,9 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
         }
         console.error(err);
 
-        // --- NEW MODIFICATION ---
-        // Display pop-up alert with your specified message and redirect back to login upon clicking OK
-        alert("You have been logged out from Google. Please log in again.");
-        performLogout();
+        // --- UPDATED MODIFICATION ---
+        // Trigger the custom modal instead of the default browser alert
+        showUnauthorizedModal();
         // -------------------------
     }
 }
@@ -1724,5 +1723,49 @@ window.addEventListener('DOMContentLoaded', () => {
             btn.style.display = accessToken ? 'block' : 'none';
         }
     }, 1000);
+	
+	// =========================================================================
+// 🚫 UNAUTHORIZED ACCESS HANDLER
+// =========================================================================
+function showUnauthorizedModal() {
+    const modal = document.getElementById('unauthorizedModal');
+    const requestBtn = document.getElementById('requestAccessBtn');
+    const closeBtn = document.getElementById('closeUnauthorizedBtn');
+    const notesInput = document.getElementById('accessNotes');
+
+    // 1. Display the modal window
+    if (modal) {
+        modal.style.display = 'flex';
+        // Clear previous notes if any
+        if (notesInput) notesInput.value = ''; 
+    }
+
+    // 2. Handle "Request Access" Button Click
+    requestBtn.onclick = function() {
+        // Replace this with your actual admin email address
+        const adminEmail = "kieldelina001@gmail.com"; 
+        
+        // loggedInUser is captured during login. Default to 'Unknown' if missing.
+        const requesterEmail = loggedInUser || "Unknown User";
+        const notes = notesInput.value.trim() || "No additional notes provided.";
+        
+        // Format the email subject and body
+        const subject = encodeURIComponent("Access Request: Real Estate Inventory System");
+        const body = encodeURIComponent(`Hello,\n\nI am requesting access to view the Real Estate Inventory Google Sheet.\n\nRequester Google Account: ${requesterEmail}\n\nNotes from Requester:\n${notes}\n\nPlease grant viewer/editor access to the spreadsheet.`);
+        
+        // Open the default mail client to send the email
+        window.location.href = `mailto:${adminEmail}?subject=${subject}&body=${body}`;
+    };
+
+    // 3. Handle "Cancel & Log Out" Button Click
+    closeBtn.onclick = function() {
+        if (modal) {
+            modal.style.display = 'none';
+        }
+        // Run the original logout function you already built without changing it
+        performLogout(); 
+    };
+}
+	
 });
 // =========================================================================
