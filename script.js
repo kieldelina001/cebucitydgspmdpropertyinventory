@@ -625,20 +625,17 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
 
             submitBtn.onclick = function() {
     const notesInput = document.getElementById("requestNotesInput");
-    
-    // 1. Capture the typed note
     const userNotes = notesInput ? notesInput.value.trim() : "";
 
-    // 2. Clear the input value and hide the input bar
+    // Hide the input bar immediately upon clicking
     if (notesInput) {
-        notesInput.value = "";           // Resets text for next time
-        notesInput.style.display = "none"; // Hides input bar immediately
+        notesInput.style.display = "none";
     }
 
     submitBtn.textContent = "Sending...";
     submitBtn.disabled = true;
 
-    // Construct the Apps Script URL
+    // Construct the Apps Script URL with the user's note
     const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&notes=" + encodeURIComponent(userNotes);
 
     fetch(requestUrl)
@@ -646,15 +643,10 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
         .then(data => {
             alert("Access request sent!");
             document.getElementById("accessModal").style.display = "none";
-            
-            // Restore visibility for future opens
-            if (notesInput) notesInput.style.display = "block";
-            submitBtn.textContent = "Request Access";
-            submitBtn.disabled = false;
         })
         .catch(error => {
             console.error("Error:", error);
-            // Re-enable and restore input view on failure
+            // Re-enable and show input again if the request fails
             if (notesInput) notesInput.style.display = "block";
             submitBtn.textContent = "Request Access";
             submitBtn.disabled = false;
