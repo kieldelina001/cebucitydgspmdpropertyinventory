@@ -1476,6 +1476,7 @@ if(resetFiltersButton) {
     });
 }
     if(searchInput) searchInput.addEventListener('keypress', e => { if(e.key === 'Enter') executeSearch(true); });
+	if(searchButton) searchButton.addEventListener('click', () => executeSearch(true));
     
     if(remarksFilter) remarksFilter.addEventListener('change', () => executeSearch(true));
     if(typeFilter) typeFilter.addEventListener('change', () => executeSearch(true));
