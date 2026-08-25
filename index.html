@@ -243,28 +243,6 @@
         
         .site-footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 14px; color: #64748b; }
         
-		/* --- Unauthorized Access Modal Styles --- */
-        #unauthorizedModal .modal-box {
-            max-width: 450px;
-            text-align: center;
-            border-top: 5px solid #dc3545; /* Red border to indicate error/stop */
-        }
-        #unauthorizedModal .modal-header {
-            color: #dc3545;
-            border-bottom: none;
-            margin-bottom: 10px;
-        }
-        .request-notes {
-            width: 100%;
-            padding: 12px;
-            margin: 15px 0;
-            border: 1px solid #cbd5e1;
-            border-radius: 4px;
-            box-sizing: border-box;
-            font-family: inherit;
-            resize: vertical;
-        }
-		
         /* --- Modals & Split Layout --- */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); z-index: 100000; justify-content: center; align-items: center; }
         .modal-box { background-color: white; padding: 25px; border-radius: 8px; width: 1200px; max-width: 95%; box-shadow: 0 10px 30px rgba(0,0,0,0.4); border: 2px solid #57a1e0; box-sizing: border-box; max-height: 92vh; overflow-y: auto; position: relative; }
@@ -718,6 +696,26 @@
         </div>
     </div>
 
+<!-- UNAUTHORIZED ACCESS MODAL -->
+<div id="unauthorizedModal" class="modal-overlay">
+    <div class="modal-box" style="width: 500px; max-width: 95%; text-align: center;">
+        <button id="unauthorizedCloseX" class="close-x-btn">&times;</button>
+        <div class="modal-header">Access Denied</div>
+        <div style="padding: 20px;">
+            <div style="font-size: 48px; margin-bottom: 15px;">🔒</div>
+            <p style="font-size: 16px; color: #333; margin-bottom: 20px;">
+                <strong>Gmail Account Not Authorized</strong><br><br>
+                Your email account does not have permission to access this Real Estate Inventory System.<br><br>
+                Please request access from the system administrator.
+            </p>
+            <div style="display: flex; justify-content: center; gap: 10px; margin-top: 20px;">
+                <button id="requestAccessBtn" class="modal-btn" style="background-color: #17a2b8; color: white;">Request Access</button>
+                <button id="unauthorizedCloseBtn" class="modal-btn" style="background-color: #6c757d; color: white;">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
     <!-- MODALS -->
     <div id="editModal" class="modal-overlay">
         <div class="modal-box">
@@ -737,22 +735,6 @@
     <div id="imagePreviewTooltip">
         <img id="imagePreviewTooltipImg" src="" alt="Enlarged Preview">
     </div>
-	
-	<!-- UNAUTHORIZED MODAL -->
-    <div id="unauthorizedModal" class="modal-overlay">
-        <div class="modal-box">
-            <div class="modal-header">You are not authorized</div>
-            <p style="color: #475569; font-size: 14px; margin-top: 0;">
-                You do not have permission to access the connected Google Sheet. You can request access below.
-            </p>
-            <textarea id="accessNotes" class="request-notes" rows="4" placeholder="Add a note or reason for your access request..."></textarea>
-            <div class="modal-actions" style="justify-content: center; margin-top: 15px;">
-                <button id="requestAccessBtn" class="modal-btn" style="background-color: #57a1e0; color: white;">Request Access</button>
-                <button id="closeUnauthorizedBtn" class="modal-btn btn-close">Cancel & Log Out</button>
-            </div>
-        </div>
-    </div>
-
 
     <!-- FLOATING CONTROLS -->
     <div class="floating-controls">
