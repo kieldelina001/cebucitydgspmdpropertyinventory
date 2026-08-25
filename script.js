@@ -641,24 +641,34 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
             noteInput.value = ""; // Reset input in the background for next time
         }
 
-        // 2. Change the modal content to the "Success" window instead of closing it
-        modalText.innerHTML = "<h3 style='margin-top:0; margin-bottom: 10px; color: #155724;'>✅ Request Access Sent</h3><p style='margin:0;'>Your request has been successfully sent. Please wait for admin approval.</p>";
+        // 2. Target the entire modal content area or update both title and text together
+        const modalHeader = document.querySelector('.access-modal-header') || modalText.parentElement;
+        
+        // Update the content to show the clean success state with your phone number text
+        modalText.innerHTML = `
+            <div style="text-align: center;">
+                <h3 style="margin-top:0; margin-bottom: 12px; color: #155724; font-size: 22px;">✅ Request Access Sent</h3>
+                <p style="margin:0; line-height: 1.6; font-size: 15px; color: #333;">
+                    Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.
+                </p>
+            </div>
+        `;
         
         // 3. Hide the text area input
         if (noteInput) {
             noteInput.style.display = "none";
         }
 
-        // 4. Update the buttons: Hide 'Submit', change 'Cancel' to a green 'OK' button
+        // 4. Update buttons: Hide 'Submit', change 'Cancel' to a green 'OK' button
         submitBtn.style.display = "none";
         closeBtn.textContent = "OK";
-        closeBtn.style.background = "#28a745"; // Green success color
+        closeBtn.style.background = "#28a745"; 
         closeBtn.style.color = "white";
 
         // 5. Prepare the URL for Apps Script
         const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&name=" + encodeURIComponent(loggedInUser) + "&notes=" + encodeURIComponent(noteValue);
 
-        // 6. Create a hidden iframe to silently trigger the Apps Script (bypasses CORS/redirect blocks)
+        // 6. Create a hidden iframe to silently trigger the Apps Script
         let iframe = document.createElement("iframe");
         iframe.style.display = "none";
         iframe.src = requestUrl;
