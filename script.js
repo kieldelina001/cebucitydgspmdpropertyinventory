@@ -244,9 +244,13 @@ function getOrCreateTokenClient() {
         operatorInput.disabled = true;
     }
     
-    // Try to access the sheet - if successful, user is authorized
+    // IMMEDIATELY test sheet access before showing the app
     testSheetAccess();
-}).catch(console.error);
+}).catch(error => {
+    console.error("Failed to get user info:", error);
+    // Fallback: Try to test access without email
+    testSheetAccess();
+});
                 } else {
                     const loginErr = document.getElementById('loginError');
                     if (loginErr) loginErr.textContent = 'Google Sign-In authorization failed.';
@@ -466,13 +470,47 @@ function initApp() {
 // 📧 UNAUTHORIZED ACCESS FUNCTIONS
 // =========================================================================
 function showUnauthorizedModal() {
+    function showUnauthorizedModal() {
+    console.log("Attempting to show unauthorized modal");
+    console.log("Modal element:", unauthorizedModal);
+    
+    if (!unauthorizedModal) {
+        unauthorizedModal = document.getElementById('unauthorizedModal');
+        console.log("Fetched modal from DOM:", unauthorizedModal);
+    }
+    
+    if (unauthorizedModal) {
+        console.log("Showing modal...");
+        unauthorizedModal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    } else {
+        console.error("Modal not found! Trying alert...");
+        alert("Access Denied: Your Gmail account is not authorized to access this system.");
+        performLogout();
+    }
+}
+	
+	
+	// Make sure the modal exists
+    if (!unauthorizedModal) {
+        unauthorizedModal = document.getElementById('unauthorizedModal');
+    }
+    
     if (unauthorizedModal) {
         unauthorizedModal.style.display = 'flex';
         document.body.style.overflow = 'hidden'; // Prevent scrolling
+    } else {
+        // Fallback: alert if modal not found
+        alert("Access Denied: Your Gmail account is not authorized to access this system.");
+        performLogout();
     }
 }
 
 function hideUnauthorizedModal() {
+    if (!unauthorizedModal) {
+        unauthorizedModal = document.getElementById('unauthorizedModal');
+    }
+    
     if (unauthorizedModal) {
         unauthorizedModal.style.display = 'none';
         document.body.style.overflow = ''; // Restore scrolling
@@ -668,8 +706,25 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
 // 📧 TEST SHEET ACCESS FUNCTION
 // =========================================================================
 async function testSheetAccess() {
+    console.log("Testing sheet access with token:", accessToken ? "Token exists" : "No token");
+    console.log("Spreadsheet ID:", SPREADSHEET_ID);
+    
     showLoading("Verifying access permissions...");
     
+    try {
+        const response = await fetch(`https://www.googleapis.com/drive/v3/files/${SPREADSHEET_ID}?fields=id,name`, {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`
+            }
+        });
+        
+        console.log("Sheet access response status:", response.status);
+        console.log("Response:", response);
+        
+        // ... rest of the function
+    
+	
+	
     try {
         // Try to fetch the spreadsheet metadata
         const response = await fetch(`https://www.googleapis.com/drive/v3/files/${SPREADSHEET_ID}?fields=id,name`, {
@@ -678,24 +733,32 @@ async function testSheetAccess() {
             }
         });
         
-        if (!response.ok) {
-            // If we can't access the sheet, user is unauthorized
-            if (response.status === 403 || response.status === 404) {
-                hideLoading();
-                showUnauthorizedModal();
-                return;
-            }
-            throw new Error(`HTTP Error: ${response.status}`);
+        // Check if response is OK (authorized)
+        if (response.ok) {
+            // ✅ AUTHORIZED - Show the app
+            hideLoading();
+            
+            const loginScreen = document.getElementById('loginScreen');
+            const mainApp = document.getElementById('mainApp');
+            if (loginScreen) loginScreen.style.display = 'none';
+            if (mainApp) mainApp.style.display = 'block';
+
+            setupSystemEventHandlers();
+            loadInventoryFromGoogleSheets();
+            return;
         }
         
-        // Sheet is accessible - proceed to load data
-        const loginScreen = document.getElementById('loginScreen');
-        const mainApp = document.getElementById('mainApp');
-        if (loginScreen) loginScreen.style.display = 'none';
-        if (mainApp) mainApp.style.display = 'block';
-
-        setupSystemEventHandlers();
-        loadInventoryFromGoogleSheets();
+        // ❌ UNAUTHORIZED - Show unauthorized modal
+        // Check if 403 (Forbidden) or 404 (Not Found)
+        if (response.status === 403 || response.status === 404) {
+            hideLoading();
+            showUnauthorizedModal();
+            return;
+        }
+        
+        // Other errors - still show unauthorized modal
+        hideLoading();
+        showUnauthorizedModal();
         
     } catch (error) {
         console.error("Access test failed:", error);
