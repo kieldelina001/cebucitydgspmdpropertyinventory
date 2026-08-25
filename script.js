@@ -633,7 +633,7 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
     modalText.innerHTML = "Your Gmail account (<b>" + loggedInUser + "</b>) does not have permission to view the Google Sheet.<br><br>Would you like to send an access request?";
     modal.style.display = "flex";
 
-    submitBtn.onclick = function() {
+   submitBtn.onclick = function() {
         // 1. Capture the note value
         let noteValue = "No note provided";
         if (noteInput) {
@@ -644,11 +644,23 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
         // 2. IMMEDIATELY close the modal window so the user isn't waiting
         modal.style.display = "none";
 
-        // 3. Update the main status banner so the user knows it was sent (Optional but recommended)
+        // 3. Update the main status banner with the success message AND a close button
         if (statusBanner) {
+            // Adjust styles to make it a flexbox so the 'X' aligns to the far right
+            statusBanner.style.display = "flex";
+            statusBanner.style.justifyContent = "space-between";
+            statusBanner.style.alignItems = "center";
             statusBanner.style.backgroundColor = "#d4edda";
             statusBanner.style.color = "#155724";
-            statusBanner.innerHTML = "✅ <b>Access request sent successfully!</b> Please wait for admin approval.";
+            
+            // Inject the message and the clickable 'X'
+            statusBanner.innerHTML = `
+                <span>✅ <b>Access request sent successfully!</b> Please wait for admin approval.</span>
+                <span style="cursor: pointer; font-size: 20px; font-weight: bold; margin-left: 15px; line-height: 1; opacity: 0.7;" 
+                      onmouseover="this.style.opacity='1'" 
+                      onmouseout="this.style.opacity='0.7'" 
+                      onclick="document.getElementById('statusBanner').style.display='none';">&times;</span>
+            `;
         }
 
         // 4. Prepare the URL for Apps Script
