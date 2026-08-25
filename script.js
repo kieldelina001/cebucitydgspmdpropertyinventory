@@ -614,87 +614,77 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
         }
         console.error(err);
 
-       if (accessToken && loggedInUser !== "System User") {
-            const modal = document.getElementById("accessModal");
-            const modalText = document.getElementById("accessModalText");
-            const submitBtn = document.getElementById("submitRequestBtn");
-            const closeBtn = document.getElementById("closeModalBtn");
+        if (accessToken && loggedInUser !== "System User") {
+    const modal = document.getElementById("accessModal");
+    const modalText = document.getElementById("accessModalText");
+    const submitBtn = document.getElementById("submitRequestBtn");
+    const closeBtn = document.getElementById("closeModalBtn");
+    
+    // Grab your existing textarea by its exact ID
+    const noteInput = document.getElementById("requestNotesInput");
 
-            // 1. Create or retrieve the Note input element dynamically
-            let noteInput = document.getElementById("accessNoteInput");
-            if (!noteInput) {
-                noteInput = document.createElement("textarea");
-                noteInput.id = "accessNoteInput";
-                noteInput.placeholder = "Add a note or reason for your access request...";
-                noteInput.style.width = "100%";
-                noteInput.style.height = "60px";
-                noteInput.style.marginTop = "12px";
-                noteInput.style.marginBottom = "12px";
-                noteInput.style.padding = "8px";
-                noteInput.style.boxSizing = "border-box";
-                noteInput.style.borderRadius = "4px";
-                noteInput.style.border = "1px solid #ccc";
-                noteInput.style.resize = "vertical";
-                // Inserts the note input above the submit button
-                modalText.parentNode.insertBefore(noteInput, submitBtn);
-            }
+    // Ensure the textarea is visible and empty when the modal first opens
+    if (noteInput) {
+        noteInput.style.display = "block";
+        noteInput.value = "";
+    }
 
-            // 2. Reset input value and ensure visibility when run/opened
-            noteInput.value = "";
-            noteInput.style.display = "block";
+    // Keep your dynamic text structure
+    modalText.innerHTML = "Your Gmail account (<b>" + loggedInUser + "</b>) does not have permission to view the Google Sheet.<br><br>Would you like to send an access request?";
+    modal.style.display = "flex";
 
+    submitBtn.onclick = function() {
+        submitBtn.textContent = "Sending...";
+        submitBtn.disabled = true;
+        
+        // Capture the note value and hide the textarea upon clicking
+        let noteValue = "No note provided";
+        if (noteInput) {
+            noteValue = noteInput.value.trim() || "No note provided";
+            noteInput.style.display = "none"; 
+        }
+
+        // Append the notes parameter to the URL for Apps Script
+        const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&name=" + encodeURIComponent(loggedInUser) + "&notes=" + encodeURIComponent(noteValue);
+
+        // Create a hidden iframe to silently trigger the Apps Script (bypasses CORS/redirect blocks)
+        let iframe = document.createElement("iframe");
+        iframe.style.display = "none";
+        iframe.src = requestUrl;
+        document.body.appendChild(iframe);
+
+        setTimeout(function() {
+            document.body.removeChild(iframe);
+            
+            // Pop-up modal window confirmation upon completion
+            modalText.innerHTML = "✅ <b>Access request sent successfully!</b><br>Your request has been encoded into your Request Access sheet. Please wait for administrator approval.";
+            submitBtn.style.display = "none"; // Hide request button
+            closeBtn.textContent = "Close";
+            closeBtn.style.background = "#28a745"; // Change cancel button to a green 'Close' button
+            
+            submitBtn.textContent = "Request Access";
+            submitBtn.disabled = false;
+        }, 2000); // Gives the script 2 seconds to fire the email in the background
+    };
+
+    closeBtn.onclick = function() {
+        modal.style.display = "none";
+        
+        // Reset modal back to original prompt state when closed
+        setTimeout(() => {
             modalText.innerHTML = "Your Gmail account (<b>" + loggedInUser + "</b>) does not have permission to view the Google Sheet.<br><br>Would you like to send an access request?";
-            modal.style.display = "flex";
-
-            submitBtn.onclick = function() {
-                submitBtn.textContent = "Sending...";
-                submitBtn.disabled = true;
-
-                // 3. Capture note value and hide input bar immediately
-                const userNote = noteInput.value.trim();
-                noteInput.style.display = "none";
-
-                // 4. Encode the note parameter into the Apps Script URL
-                const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess" +
-                    "&email=" + encodeURIComponent(loggedInUser) +
-                    "&name=" + encodeURIComponent(loggedInUser) +
-                    "&note=" + encodeURIComponent(userNote);
-
-                // Create a hidden iframe to trigger the Apps Script silently
-                let iframe = document.createElement("iframe");
-                iframe.style.display = "none";
-                iframe.src = requestUrl;
-                document.body.appendChild(iframe);
-
-                setTimeout(function() {
-                    document.body.removeChild(iframe);
-                    
-                    // Pop-up confirmation message
-                    modalText.innerHTML = "✅ <b>Access request sent successfully!</b><br>Your request and note have been encoded into your Request Access sheet. Please wait for administrator approval.";
-                    submitBtn.style.display = "none";
-                    closeBtn.textContent = "Close";
-                    closeBtn.style.background = "#28a745";
-                    
-                    submitBtn.textContent = "Request Access";
-                    submitBtn.disabled = false;
-                }, 2000);
-            };
-
-            closeBtn.onclick = function() {
-                modal.style.display = "none";
-                // Reset modal and restore note input state when closed
-                setTimeout(() => {
-                    modalText.innerHTML = "Your Gmail account (<b>" + loggedInUser + "</b>) does not have permission to view the Google Sheet.<br><br>Would you like to send an access request?";
-                    submitBtn.style.display = "inline-block";
-                    closeBtn.textContent = "Cancel";
-                    closeBtn.style.background = "#6c757d";
-                    if (noteInput) {
-                        noteInput.value = "";
-                        noteInput.style.display = "block";
-                    }
-                }, 300);
-            };
-        } else {
+            submitBtn.style.display = "inline-block";
+            closeBtn.textContent = "Cancel";
+            closeBtn.style.background = "#6c757d";
+            
+            // Reset the textarea for the next time the modal is used
+            if (noteInput) {
+                noteInput.value = "";
+                noteInput.style.display = "block";
+            }
+        }, 300);
+    };
+} else {
             alert("Connection failed or you have been logged out from Google. Please log in again.");
         }
 
