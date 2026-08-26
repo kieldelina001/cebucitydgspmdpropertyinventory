@@ -7,44 +7,7 @@
     <meta name="author" content="Noel Rie N. Deliña">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     
-const SCRIPT_URL = "YOUR_EXECUTABLE_APPS_SCRIPT_WEB_APP_URL";
 
-// 1. Open Google Sign-In Popup
-function loginWithGoogle() {
-  const loginUrl = `${SCRIPT_URL}?action=login`;
-  window.open(loginUrl, "GoogleLoginPopup", "width=500,height=600");
-}
-
-// 2. Listen for messages sent back from Apps Script
-window.addEventListener("message", function(event) {
-  if (event.data && event.data.type === "auth_result") {
-    
-    if (event.data.status === "success") {
-      // User HAS sheet access: render dashboard
-      console.log("Logged in as:", event.data.email);
-      loadDashboardData(event.data.csv); 
-      
-    } else if (event.data.status === "denied") {
-      // User LACKS sheet access: automatically send access request
-      alert(`Access denied for ${event.data.email}. Submitting access request...`);
-      sendAccessRequest(event.data.email);
-    }
-  }
-});
-
-// 3. Trigger Request Access endpoint
-function sendAccessRequest(userEmail) {
-  const requestUrl = `${SCRIPT_URL}?action=requestAccess&email=${encodeURIComponent(userEmail)}&notes=${encodeURIComponent("Auto-requested on login")}`;
-  
-  fetch(requestUrl)
-    .then(res => res.text())
-    .then(response => {
-      alert("Your access request has been recorded in the 'Request Access' sheet.");
-    })
-    .catch(err => {
-      console.error("Failed to request access:", err);
-    });
-}
     
     <style>
         body { font-family: Arial, sans-serif; margin: 0; background-color: #f8fafc; }
