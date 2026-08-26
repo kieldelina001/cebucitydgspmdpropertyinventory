@@ -1,5 +1,5 @@
 // 🔑 Google Sheets Cloud Gateway Architecture
-const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzu78LrVMEzgsn8amccnXdLq8z5MG2zU7BiCwdOOs1J0jI2ulUn4Kdv1eIk6VvcPa55AA/exec";
+const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSCW2ZeIFBJaQ3qts8oNeWVxHDGMt4FOqQgTk4bswbbhfzi_e5prVc0-QWDKo2j7tIJg/exec";
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
 // Update: Changed to the official Google Drive Export endpoint to prevent CORS & redirect issues
 const GOOGLE_SHEET_CSV_URL = `https://www.googleapis.com/drive/v3/files/${SPREADSHEET_ID}/export?mimeType=text/csv`;
@@ -27,7 +27,7 @@ const displayHeaders = ["Article no./ TCT no.", "Description", "Notes", "Unit Va
 const targetHeadersLowercase = ["article/item", "description", "notes", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "transfer_cert1", "transfer_cert2", "updated by", "last update"];
 const popupOrderLowercase = ["article/item", "description", "notes", "unit value", "remarks", "type"]; 
 
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzu78LrVMEzgsn8amccnXdLq8z5MG2zU7BiCwdOOs1J0jI2ulUn4Kdv1eIk6VvcPa55AA/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSCW2ZeIFBJaQ3qts8oNeWVxHDGMt4FOqQgTk4bswbbhfzi_e5prVc0-QWDKo2j7tIJg/exec";
 
 // 1. Open Google Sign-In Popup
 function loginWithGoogle() {
