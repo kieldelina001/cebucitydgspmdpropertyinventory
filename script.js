@@ -561,29 +561,7 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
         })
         .getInventoryData();
 }
-} catch (err) {
-        hideLoading();
-        if (statusBanner) {
-            statusBanner.style.backgroundColor = "#f8d7da";
-            statusBanner.style.color = "#721c24";
-            statusBanner.textContent = "Connection Error: Check Sheet spreadsheet access permission configuration.";
-        }
-        console.error(err);
 
-        if (accessToken && loggedInUser !== "System User") {
-    const modal = document.getElementById("accessModal");
-    const modalText = document.getElementById("accessModalText");
-    const submitBtn = document.getElementById("submitRequestBtn");
-    const closeBtn = document.getElementById("closeModalBtn");
-    
-    // Grab your existing textarea by its exact ID
-    const noteInput = document.getElementById("requestNotesInput");
-
-    // Ensure the textarea is visible and empty when the modal first opens
-    if (noteInput) {
-        noteInput.style.display = "block";
-        noteInput.value = "";
-    }
 
     // Keep your dynamic text structure
     modalText.innerHTML = "Your Gmail account (<b>" + loggedInUser + "</b>) does not have permission to view the Google Sheet.<br><br>Would you like to send an access request?";
