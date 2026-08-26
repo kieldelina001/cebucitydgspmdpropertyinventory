@@ -1656,21 +1656,18 @@ window.addEventListener('DOMContentLoaded', () => {
         transition: 'background-color 0.2s'
     });
 
- // Add a slight hover effect for better UI
+// Add a slight hover effect for better UI
     logoutBtn.onmouseover = () => logoutBtn.style.backgroundColor = '#c82333';
     logoutBtn.onmouseout = () => logoutBtn.style.backgroundColor = '#dc3545';
     
-    // Add the click event to trigger the logout function
+    // Append it to the body and add the click event
+    document.body.appendChild(logoutBtn);
     logoutBtn.addEventListener('click', performLogout);
     
-    // Append the button to the body
-    document.body.appendChild(logoutBtn);
-    
-    // Initialize the idle timer and reset it on user activity
-    document.addEventListener('mousemove', resetIdleTimer);
-    document.addEventListener('keypress', resetIdleTimer);
-    document.addEventListener('click', resetIdleTimer);
-    document.addEventListener('scroll', resetIdleTimer);
+    // Add activity listeners to reset the idle timer
+    ['mousemove', 'keydown', 'scroll', 'click'].forEach(evt => {
+        document.addEventListener(evt, resetIdleTimer);
+    });
 });
 
 // --- Monitor Login State ---
