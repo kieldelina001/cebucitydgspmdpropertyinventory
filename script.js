@@ -38,8 +38,8 @@ let modalModified = false;
 let loggedInUser = "System User";
 
 // 🔐 GIS Auth Architecture
-let tokenClient;
-let accessToken = null;
+
+
 const imageCache = {}; // Cache image blobs to avoid repeat fetches
 
 // Modal Photo Gallery State
@@ -210,27 +210,6 @@ window.addEventListener('scroll', () => {
     }
 });
 
-
-
-function getInventoryData() {
-
-  const email = Session.getActiveUser().getEmail();
-
-  if (!email) {
-    throw new Error("Google account could not be identified.");
-  }
-
-  const ss = SpreadsheetApp.openById(AUTH_SPREADSHEET_ID);
-  const sheet = ss.getSheets()[0];
-
-  const values = sheet.getDataRange().getDisplayValues();
-
-  return {
-    authorized: true,
-    email: email,
-    data: values
-  };
-}
 
 // 🖱️ DASHBOARD CARD CLICK HANDLERS
 // 🖱️ DASHBOARD CARD CLICK HANDLERS
@@ -408,31 +387,34 @@ const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card')
 function initApp() {
     initUIReferences();
 
-    // Try initializing immediately if the script is already loaded
-    getOrCreateTokenClient();
-
     const loginBtn = document.getElementById('customLoginBtn');
     if (loginBtn) {
+        // Change the visual text since Google already authenticated them
+        loginBtn.innerHTML = `Enter System Dashboard`;
+        
         loginBtn.addEventListener('click', () => {
-            let client = getOrCreateTokenClient();
-            if (client) {
-                const loginErr = document.getElementById('loginError');
-                if (loginErr) loginErr.textContent = '';
-                client.requestAccessToken();
+            loggedInUser = SERVER_USER_EMAIL;
+            
+            // Set the custom operator input if it exists
+            const operatorInput = document.getElementById('custom-operator-input');
+            if (operatorInput) {
+                operatorInput.value = loggedInUser;
+                operatorInput.disabled = true;
+            }
+
+            document.getElementById('loginScreen').style.display = 'none';
+
+            // Check the access status validated by Apps Script
+            if (SERVER_HAS_ACCESS) {
+                document.getElementById('mainApp').style.display = 'block';
+                setupSystemEventHandlers(); // Make sure your event handlers function is called
+                loadInventoryFromGoogleSheets();
             } else {
-                // Fallback: If Google GSI script is still loading, retry after 500ms automatically
-                const loginErr = document.getElementById('loginError');
-                if (loginErr) loginErr.textContent = 'Connecting to Google Sign-In, please wait...';
-                
-                setTimeout(() => {
-                    client = getOrCreateTokenClient();
-                    if (client) {
-                        if (loginErr) loginErr.textContent = '';
-                        client.requestAccessToken();
-                    } else {
-                        if (loginErr) loginErr.textContent = 'Google Sign-In failed to load. Please check your network connection or refresh.';
-                    }
-                }, 600);
+                // Trigger the Access Denied Modal seamlessly
+                const modal = document.getElementById("accessModal");
+                const modalText = document.getElementById("accessModalText");
+                modalText.innerHTML = "Your Gmail account (<b>" + loggedInUser + "</b>) does not have permission to view the Google Sheet.<br><br>Would you like to send an access request?";
+                modal.style.display = "flex";
             }
         });
     }
@@ -516,24 +498,10 @@ async function fetchAuthorizedImage(driveUrl) {
     const fileId = match[0];
     if (imageCache[fileId]) return imageCache[fileId];
 
-    if (!accessToken) return getDirectImageUrl(driveUrl, 'thumbnail'); 
-
-    try {
-        const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-            headers: {
-                'Authorization': `Bearer ${accessToken}`
-            }
-        });
-        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-        
-        const blob = await response.blob();
-        const objectUrl = URL.createObjectURL(blob);
-        imageCache[fileId] = objectUrl; 
-        return objectUrl;
-    } catch (e) {
-        console.warn("Failed to fetch image securely, falling back to thumbnail", e);
-        return getDirectImageUrl(driveUrl, 'thumbnail');
-    }
+    // Relying on native Google session cookies for authorization
+    const objectUrl = getDirectImageUrl(driveUrl, 'thumbnail'); 
+    imageCache[fileId] = objectUrl;
+    return objectUrl;
 }
 
 async function loadInventoryFromGoogleSheets(retainPage = false) {
@@ -544,49 +512,55 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
     }
     showLoading("Syncing live spreadsheet grid...");
 
-    try {
-        const response = await fetch(GOOGLE_SHEET_CSV_URL, {
-            headers: accessToken ? {
-                'Authorization': `Bearer ${accessToken}`
-            } : {}
-        });
-        
-        if (!response.ok) throw new Error("Could not connect to online Sheet feed.");
-        const rawCsvText = await response.text(); 
-
-        Papa.parse(rawCsvText, {
-            header: true,
-            skipEmptyLines: true,
-            complete: function(results) {
-                if (results.data && results.data.length > 0) {
-                    rawHeaders = Object.keys(results.data[0]);
-                    headerMapping = {};
-                    
-                    targetHeadersLowercase.forEach(target => {
-                        const actualKey = rawHeaders.find(h => {
-                            const normH = h.toLowerCase().trim();
-                            const normT = target.toLowerCase().trim();
-                            
-                            if (normT === 'transfer_cert1' && (normH.includes('transfer') && normH.includes('1'))) return true;
-                            if (normT === 'transfer_cert2' && (normH.includes('transfer') && normH.includes('2'))) return true;
-                            if (normT === 'article/item' && (normH.includes('article') || normH.includes('tct') || normH.includes('item'))) return true;
-                            
-                            return normH.includes(normT) || normT.includes(normH);
-                        });
-                        headerMapping[target] = actualKey || target; 
+  // Call the backend function directly
+    google.script.run
+        .withSuccessHandler(function(data) {
+            if (data && data.length > 1) {
+                // Convert 2D Array into Array of Objects (Replicating PapaParse behavior)
+                rawHeaders = data[0];
+                headerMapping = {};
+                
+                targetHeadersLowercase.forEach(target => {
+                    const actualKey = rawHeaders.find(h => {
+                        const normH = h.toString().toLowerCase().trim();
+                        const normT = target.toLowerCase().trim();
+                        if (normT === 'transfer_cert1' && (normH.includes('transfer') && normH.includes('1'))) return true;
+                        if (normT === 'transfer_cert2' && (normH.includes('transfer') && normH.includes('2'))) return true;
+                        if (normT === 'article/item' && (normH.includes('article') || normH.includes('tct') || normH.includes('item'))) return true;
+                        return normH.includes(normT) || normT.includes(normH);
                     });
-                    
-                    inventoryData = results.data.map((row, idx) => {
-                        row._rowId = idx;
-                        return row;
-                    });
-                    initializeSystemUI(retainPage);
-                } else {
-                    throw new Error("Target dataset sheet contains no metrics.");
+                    headerMapping[target] = actualKey || target; 
+                });
+                
+                inventoryData = [];
+                // Start from index 1 to skip headers
+                for (let i = 1; i < data.length; i++) {
+                    let rowObj = { _rowId: i }; 
+                    for (let j = 0; j < rawHeaders.length; j++) {
+                        rowObj[rawHeaders[j]] = data[i][j];
+                    }
+                    inventoryData.push(rowObj);
                 }
-                hideLoading();
+                
+                initializeSystemUI(retainPage);
+            } else {
+                if (statusBanner) {
+                    statusBanner.textContent = "Target dataset sheet contains no metrics.";
+                }
             }
-        });
+            hideLoading();
+        })
+        .withFailureHandler(function(err) {
+            hideLoading();
+            if (statusBanner) {
+                statusBanner.style.backgroundColor = "#f8d7da";
+                statusBanner.style.color = "#721c24";
+                statusBanner.textContent = "Connection Error: Check Sheet spreadsheet access permission configuration.";
+            }
+            console.error(err);
+        })
+        .getInventoryData();
+}
 } catch (err) {
         hideLoading();
         if (statusBanner) {
