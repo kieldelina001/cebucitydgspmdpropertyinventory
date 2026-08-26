@@ -62,6 +62,136 @@ let loadingOverlay, customNameModal;
 let countInsured, countNotInsured, countExpiring;
 let activeInsuranceFilter = 'ALL'; // Tracks which card is currently clicked
 
+let loggedInUser = null;
+let authToken = null;
+
+function authenticateWithAppsScript() {
+
+    document.getElementById("customLoginBtn")
+    .addEventListener("click", authenticateWithAppsScript);
+	
+    const loginError = document.getElementById("loginError");
+
+    if (loginError) {
+        loginError.textContent = "";
+    }
+
+    if (loginBtn) {
+        loginBtn.disabled = true;
+        loginBtn.innerHTML = "Checking Google Account...";
+    }
+
+    const callbackName =
+        "testAuth_" +
+        Date.now() +
+        "_" +
+        Math.random().toString(36).substring(2);
+
+    let scriptTag = document.createElement("script");
+
+    window[callbackName] = function(response) {
+
+        console.log("Apps Script authentication response:", response);
+
+        if (response && response.success === true) {
+
+            if (response.status === "AUTHORIZED") {
+
+                loggedInUser = response.email;
+                authToken = response.token;
+
+                console.log("Authorized Gmail:", loggedInUser);
+
+                document.getElementById("loginScreen").style.display = "none";
+                document.getElementById("mainApp").style.display = "block";
+
+                if (loginBtn) {
+                    loginBtn.disabled = false;
+                    loginBtn.innerHTML = "Continue with Google";
+                }
+
+                /*
+                 * IMPORTANT:
+                 * Call your existing application initialization
+                 * here if your current script has one.
+                 */
+
+                if (typeof initializeApp === "function") {
+                    initializeApp();
+                }
+
+            } else {
+
+                if (typeof showAccessRequestModal === "function") {
+                    showAccessRequestModal(response.email || "Unknown Gmail");
+                } else {
+
+                    if (loginError) {
+                        loginError.textContent =
+                            "Your Gmail account is not authorized.";
+                    }
+                }
+
+                if (loginBtn) {
+                    loginBtn.disabled = false;
+                    loginBtn.innerHTML = "Continue with Google";
+                }
+            }
+
+        } else {
+
+            if (loginError) {
+                loginError.textContent =
+                    response && response.message
+                        ? response.message
+                        : "Unable to verify your Google account.";
+            }
+
+            if (loginBtn) {
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = "Continue with Google";
+            }
+        }
+
+        delete window[callbackName];
+
+        if (scriptTag && scriptTag.parentNode) {
+            scriptTag.parentNode.removeChild(scriptTag);
+        }
+    };
+
+    scriptTag.src =
+        GOOGLE_APPS_SCRIPT_URL +
+        "?action=authenticate" +
+        "&callback=" +
+        encodeURIComponent(callbackName);
+
+    scriptTag.onerror = function() {
+
+        console.error("Unable to contact Apps Script.");
+
+        if (loginError) {
+            loginError.textContent =
+                "Unable to contact Google Apps Script. Please check the Apps Script deployment URL.";
+        }
+
+        if (loginBtn) {
+            loginBtn.disabled = false;
+            loginBtn.innerHTML = "Continue with Google";
+        }
+
+        delete window[callbackName];
+
+        if (scriptTag && scriptTag.parentNode) {
+            scriptTag.parentNode.removeChild(scriptTag);
+        }
+    };
+
+    document.body.appendChild(scriptTag);
+}
+
+
+
 function resetAndFilterByItem(filterCategory, clickedValue) {
     // 1. Reset all filters and search inputs to default
     if (searchInput) searchInput.value = "";
