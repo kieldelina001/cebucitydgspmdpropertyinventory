@@ -210,47 +210,28 @@ window.addEventListener('scroll', () => {
     }
 });
 
-// 🔐 SECURE INITIALIZER & GOOGLE IDENTITY TOKEN INTEGRATION (ROBUST 1-CLICK FIX)
-function getOrCreateTokenClient() {
-    if (!tokenClient && window.google && google.accounts && google.accounts.oauth2) {
-        tokenClient = google.accounts.oauth2.initTokenClient({
-            client_id: '84591548482-rfv15nf99g7nsdtlr3i57ms0fuln28s3.apps.googleusercontent.com',
-            scope: 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
-            callback: (tokenResponse) => {
-                if (tokenResponse && tokenResponse.access_token) {
-                    accessToken = tokenResponse.access_token;
-                    
-                   fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                        headers: { 'Authorization': `Bearer ${accessToken}` }
-                    })
-                    .then(res => res.json())
-                    .then(profile => {
-                        if (profile.email) {
-                            loggedInUser = profile.email; // <--- ADDED: Saves email globally
-                        }
-                        const operatorInput = document.getElementById('custom-operator-input');
-                        if (operatorInput && profile.email) {
-                            operatorInput.value = profile.email;
-                            operatorInput.disabled = true;
-                        }
-                    }).catch(console.error);
 
-                    const loginScreen = document.getElementById('loginScreen');
-                    const mainApp = document.getElementById('mainApp');
-                    if (loginScreen) loginScreen.style.display = 'none';
-                    if (mainApp) mainApp.style.display = 'block';
-                    
-                    setupSystemEventHandlers();
-                    loadInventoryFromGoogleSheets();
-                } else {
-                    const loginErr = document.getElementById('loginError');
-                    if (loginErr) loginErr.textContent = 'Google Sign-In authorization failed.';
-                }
-            }
-        });
-    }
-    return tokenClient;
+
+function getInventoryData() {
+
+  const email = Session.getActiveUser().getEmail();
+
+  if (!email) {
+    throw new Error("Google account could not be identified.");
+  }
+
+  const ss = SpreadsheetApp.openById(AUTH_SPREADSHEET_ID);
+  const sheet = ss.getSheets()[0];
+
+  const values = sheet.getDataRange().getDisplayValues();
+
+  return {
+    authorized: true,
+    email: email,
+    data: values
+  };
 }
+
 // 🖱️ DASHBOARD CARD CLICK HANDLERS
 // 🖱️ DASHBOARD CARD CLICK HANDLERS
 function setupDashboardClickHandlers() {
