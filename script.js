@@ -38,6 +38,7 @@ let modalModified = false;
 let loggedInUser = "System User";
 
 // 🔐 GIS Auth Architecture
+let accessToken = null; // <--- ADD THIS LINE HERE
 
 
 const imageCache = {}; // Cache image blobs to avoid repeat fetches
@@ -1655,19 +1656,22 @@ window.addEventListener('DOMContentLoaded', () => {
         transition: 'background-color 0.2s'
     });
 
-    // Add a slight hover effect for better UI
+ // Add a slight hover effect for better UI
     logoutBtn.onmouseover = () => logoutBtn.style.backgroundColor = '#c82333';
     logoutBtn.onmouseout = () => logoutBtn.style.backgroundColor = '#dc3545';
     
+    // Add the click event to trigger the logout function
     logoutBtn.addEventListener('click', performLogout);
+    
+    // Append the button to the body
     document.body.appendChild(logoutBtn);
-
-    // --- Setup the Idle Activity Trackers ---
-    // Any of these actions will reset the 30-minute timer
-    const userActivityEvents = ['mousemove', 'keydown', 'scroll', 'click', 'touchstart'];
-    userActivityEvents.forEach(event => {
-        document.addEventListener(event, resetIdleTimer);
-    });
+    
+    // Initialize the idle timer and reset it on user activity
+    document.addEventListener('mousemove', resetIdleTimer);
+    document.addEventListener('keypress', resetIdleTimer);
+    document.addEventListener('click', resetIdleTimer);
+    document.addEventListener('scroll', resetIdleTimer);
+});
 
 // --- Monitor Login State ---
     // Checks every 1 second if the user logged in to display the button, 
