@@ -1,14 +1,17 @@
 // 🔑 Google Sheets Cloud Gateway Architecture
 const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzu78LrVMEzgsn8amccnXdLq8z5MG2zU7BiCwdOOs1J0jI2ulUn4Kdv1eIk6VvcPa55AA/exec";
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
+// Update: Changed to the official Google Drive Export endpoint to prevent CORS & redirect issues
+const GOOGLE_SHEET_CSV_URL = `https://www.googleapis.com/drive/v3/files/${SPREADSHEET_ID}/export?mimeType=text/csv`;
 
 // =========================================================================
 // 🛠️ MANUAL EXPORT TABLE ADJUSTMENT CONFIGURATION 🛠️
+// Adjust the items below to change which columns appear in the "Export Searched" HTML file.
 // =========================================================================
 const EXPORT_TABLE_CONFIG = [
     { display: "Article no./ TCT no.", key: "article/item" },
     { display: "Description", key: "description" },
-    { display: "Notes", key: "notes" }, 
+    { display: "Notes", key: "notes" }, /// add notes
     { display: "Remarks", key: "remarks" },
     { display: "Type", key: "type" },
     { display: "Photo 1", key: "photo 1" },
@@ -24,6 +27,46 @@ const displayHeaders = ["Article no./ TCT no.", "Description", "Notes", "Unit Va
 const targetHeadersLowercase = ["article/item", "description", "notes", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "transfer_cert1", "transfer_cert2", "updated by", "last update"];
 const popupOrderLowercase = ["article/item", "description", "notes", "unit value", "remarks", "type"]; 
 
+const SCRIPT_URL = "YOUR_EXECUTABLE_APPS_SCRIPT_WEB_APP_URL";
+
+// 1. Open Google Sign-In Popup
+function loginWithGoogle() {
+  const loginUrl = `${SCRIPT_URL}?action=login`;
+  window.open(loginUrl, "GoogleLoginPopup", "width=500,height=600");
+}
+
+// 2. Listen for messages sent back from Apps Script
+window.addEventListener("message", function(event) {
+  if (event.data && event.data.type === "auth_result") {
+    
+    if (event.data.status === "success") {
+      // User HAS sheet access: render dashboard
+      console.log("Logged in as:", event.data.email);
+      loadDashboardData(event.data.csv); 
+      
+    } else if (event.data.status === "denied") {
+      // User LACKS sheet access: automatically send access request
+      alert(`Access denied for ${event.data.email}. Submitting access request...`);
+      sendAccessRequest(event.data.email);
+    }
+  }
+});
+
+// 3. Trigger Request Access endpoint
+function sendAccessRequest(userEmail) {
+  const requestUrl = `${SCRIPT_URL}?action=requestAccess&email=${encodeURIComponent(userEmail)}&notes=${encodeURIComponent("Auto-requested on login")}`;
+  
+  fetch(requestUrl)
+    .then(res => res.text())
+    .then(response => {
+      alert("Your access request has been recorded in the 'Request Access' sheet.");
+    })
+    .catch(err => {
+      console.error("Failed to request access:", err);
+    });
+}
+
+
 let inventoryData = []; 
 let currentFilteredData = []; 
 let rawHeaders = [];       
@@ -33,12 +76,17 @@ let parsedUniqueRemarks = [];
 let isAppInitialized = false; 
 let modalModified = false;
 let loggedInUser = "System User";
-let isRetainingPage = false; // Tracks pagination state during silent reloads
 
-// 🔐 GIS Auth Removed - Relies purely on Google Apps Script Web App
-const imageCache = {}; 
+// 🔐 GIS Auth Architecture
+let tokenClient;
+let accessToken = null;
+const imageCache = {}; // Cache image blobs to avoid repeat fetches
+
+// Modal Photo Gallery State
 let modalPhotos = [];
 let currentPhotoIndex = 0;
+
+// Pagination Variables
 let currentPage = 1;
 const itemsPerPage = 50;
 
@@ -50,22 +98,34 @@ let editModal, modalFormContainer, modalEditBtn, modalSaveBtn, modalCloseBtn, mo
 let tooltip, tooltipImg;
 let loadingOverlay, customNameModal;
 let countInsured, countNotInsured, countExpiring;
-let activeInsuranceFilter = 'ALL'; 
+let activeInsuranceFilter = 'ALL'; // Tracks which card is currently clicked
 
 function resetAndFilterByItem(filterCategory, clickedValue) {
+    // 1. Reset all filters and search inputs to default
     if (searchInput) searchInput.value = "";
+    
+    // Assuming the default value for your dropdowns is an empty string "" 
+    // If your default value is something else, use that (e.g., "-- All Types --")
     if (remarksFilter) remarksFilter.value = ""; 
     if (typeFilter) typeFilter.value = "";
     if (photoFilter) photoFilter.value = "";
 
+    // 2. Set the specific filter to the value of the item clicked
     if (filterCategory === 'type' && typeFilter) {
         typeFilter.value = clickedValue;
     } else if (filterCategory === 'remarks' && remarksFilter) {
         remarksFilter.value = clickedValue;
     }
+
+    // Optional: Reset pagination to page 1 if you have a pagination variable
+    // currentPage = 1; 
+
+    // 3. Trigger your search function to update the table based on the new filter
+    // Passing 'true' based on your executeSearch(!retainPage) logic
     executeSearch(true); 
 }
 
+// ⏳ LOADING OVERLAY GENERATOR
 function initUIReferences() {
     searchInput = document.getElementById('searchInput');
     searchButton = document.getElementById('searchButton');
@@ -91,7 +151,7 @@ function initUIReferences() {
     countVerification = document.getElementById('countVerification');
     countWithPhotos = document.getElementById('countWithPhotos');
     countTaxDec = document.getElementById('countTaxDec');
-    countInsured = document.getElementById('countInsured');
+countInsured = document.getElementById('countInsured');
     countNotInsured = document.getElementById('countNotInsured');
 	countExpiring = document.getElementById('countExpiring');
 
@@ -175,10 +235,12 @@ function hideLoading() {
     if (loadingOverlay) loadingOverlay.style.setProperty('display', 'none', 'important');
 }
 
+// --- BACK TO TOP SCROLL LISTENER ---
 window.addEventListener('scroll', () => {
     const backToTopBtn = document.getElementById('backToTopBtn');
     if (backToTopBtn) {
-        if (loggedInUser !== "System User" && (document.body.scrollTop > 300 || document.documentElement.scrollTop > 300)) {
+        // Add accessToken check to ensure it only shows when securely logged in
+        if (accessToken && (document.body.scrollTop > 300 || document.documentElement.scrollTop > 300)) {
             backToTopBtn.style.visibility = "visible";
             backToTopBtn.style.opacity = "1";
         } else {
@@ -188,46 +250,59 @@ window.addEventListener('scroll', () => {
     }
 });
 
-// 🔐 PostMessage API Listener (Replaces GIS functionality)
-window.addEventListener('message', (event) => {
-    // Only process authentic responses originating from our Google Apps Script Web App
-    if (event.data && event.data.type === 'auth_result') {
-        if (event.data.status === 'success') {
-            loggedInUser = event.data.email || "System User";
-            
-            const operatorInput = document.getElementById('custom-operator-input');
-            if (operatorInput && loggedInUser !== "System User") {
-                operatorInput.value = loggedInUser;
-                operatorInput.disabled = true;
-            }
+// 🔐 SECURE INITIALIZER & GOOGLE IDENTITY TOKEN INTEGRATION (ROBUST 1-CLICK FIX)
+function getOrCreateTokenClient() {
+    if (!tokenClient && window.google && google.accounts && google.accounts.oauth2) {
+        tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: '84591548482-rfv15nf99g7nsdtlr3i57ms0fuln28s3.apps.googleusercontent.com',
+            scope: 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
+            callback: (tokenResponse) => {
+                if (tokenResponse && tokenResponse.access_token) {
+                    accessToken = tokenResponse.access_token;
+                    
+                   fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                        headers: { 'Authorization': `Bearer ${accessToken}` }
+                    })
+                    .then(res => res.json())
+                    .then(profile => {
+                        if (profile.email) {
+                            loggedInUser = profile.email; // <--- ADDED: Saves email globally
+                        }
+                        const operatorInput = document.getElementById('custom-operator-input');
+                        if (operatorInput && profile.email) {
+                            operatorInput.value = profile.email;
+                            operatorInput.disabled = true;
+                        }
+                    }).catch(console.error);
 
-            const loginScreen = document.getElementById('loginScreen');
-            const mainApp = document.getElementById('mainApp');
-            if (loginScreen) loginScreen.style.display = 'none';
-            if (mainApp) mainApp.style.display = 'block';
-            
-            setupSystemEventHandlers();
-            
-            // Push CSV datastream to PapaParse
-            if (event.data.csv) {
-                processInventoryCSV(event.data.csv, isRetainingPage);
+                    const loginScreen = document.getElementById('loginScreen');
+                    const mainApp = document.getElementById('mainApp');
+                    if (loginScreen) loginScreen.style.display = 'none';
+                    if (mainApp) mainApp.style.display = 'block';
+                    
+                    setupSystemEventHandlers();
+                    loadInventoryFromGoogleSheets();
+                } else {
+                    const loginErr = document.getElementById('loginError');
+                    if (loginErr) loginErr.textContent = 'Google Sign-In authorization failed.';
+                }
             }
-            
-        } else if (event.data.status === 'denied') {
-            loggedInUser = event.data.email || "Unknown User";
-            showAccessDeniedModal();
-            performLogout();
-        }
+        });
     }
-});
-
+    return tokenClient;
+}
+// 🖱️ DASHBOARD CARD CLICK HANDLERS
+// 🖱️ DASHBOARD CARD CLICK HANDLERS
 function setupDashboardClickHandlers() {
+    
+    // 🧹 NEW: Helper function to clear search and dropdowns
     function resetAllFilters() {
         if (searchInput) searchInput.value = '';
         if (remarksFilter) remarksFilter.value = 'ALL';
         if (typeFilter) typeFilter.value = 'ALL';
         if (photoFilter) photoFilter.value = 'ALL';
         
+        // Clear insurance UI filter if active
         if (typeof activeInsuranceFilter !== 'undefined') {
             activeInsuranceFilter = 'ALL';
             document.querySelectorAll('.ins-card').forEach(c => {
@@ -240,9 +315,12 @@ function setupDashboardClickHandlers() {
         }
     }
 
+   // Helper function to set dropdown value (Exact Match first, then Partial Match)
     function setDropdownByText(selectEl, keyword) {
         if (!selectEl) return false;
         const keyUpper = keyword.toUpperCase().trim();
+
+        // Pass 1: Check for exact matches first (prevents 'STRUCTURE' matching 'INFRASTRUCTURE')
         for (let i = 0; i < selectEl.options.length; i++) {
             const optVal = selectEl.options[i].value.toUpperCase().trim();
             const optText = selectEl.options[i].text.toUpperCase().trim();
@@ -251,6 +329,8 @@ function setupDashboardClickHandlers() {
                 return true;
             }
         }
+
+        // Pass 2: Partial match fallback if exact match isn't found
         for (let i = 0; i < selectEl.options.length; i++) {
             const optVal = selectEl.options[i].value.toUpperCase();
             const optText = selectEl.options[i].text.toUpperCase();
@@ -262,6 +342,7 @@ function setupDashboardClickHandlers() {
         return false;
     }
 
+    // Helper function to smoothly scroll to the data table
     function scrollToTable() {
         const tableSec = document.querySelector('.table-section');
         if (tableSec) {
@@ -269,19 +350,25 @@ function setupDashboardClickHandlers() {
         }
     }
 
+    // --- 1. TOTAL PROPERTIES CARD (Reset all filters) ---
     const cardTotal = document.getElementById('countTotal')?.closest('.dash-card');
     if (cardTotal) {
-        cardTotal.onclick = () => { resetAllFilters(); executeSearch(true); scrollToTable(); };
+        cardTotal.onclick = () => {
+            resetAllFilters(); // Just clear everything
+            executeSearch(true);
+            scrollToTable();
+        };
     }
 
+    // --- 2. STATUS DASHBOARD CARDS ---
     const cardExisting = document.getElementById('countExisting')?.closest('.dash-card');
     if (cardExisting) {
         cardExisting.onclick = () => {
-            resetAllFilters();
+            resetAllFilters(); // Reset everything first!
             if (remarksFilter) {
-                const found = setDropdownByText(remarksFilter, 'EXISTING');
-                if (!found && searchInput) searchInput.value = 'EXISTING';
-            }
+            const found = setDropdownByText(remarksFilter, 'EXISTING');
+            if (!found && searchInput) searchInput.value = 'EXISTING';
+        }
             executeSearch(true);
             scrollToTable();
         };
@@ -290,11 +377,11 @@ function setupDashboardClickHandlers() {
     const cardNotFound = document.getElementById('countNotFound')?.closest('.dash-card');
     if (cardNotFound) {
         cardNotFound.onclick = () => {
-            resetAllFilters();
+            resetAllFilters(); // Reset everything first!
             if (remarksFilter) {
-                const found = setDropdownByText(remarksFilter, 'NOT FOUND');
-                if (!found && searchInput) searchInput.value = 'NOT FOUND';
-            }
+            const found = setDropdownByText(remarksFilter, 'NOT FOUND');
+            if (!found && searchInput) searchInput.value = 'NOT FOUND';
+        }
             executeSearch(true);
             scrollToTable();
         };
@@ -303,22 +390,22 @@ function setupDashboardClickHandlers() {
     const cardVerification = document.getElementById('countVerification')?.closest('.dash-card');
     if (cardVerification) {
         cardVerification.onclick = () => {
-            resetAllFilters();
+            resetAllFilters(); // Reset everything first!
             if (remarksFilter) {
-                const found = setDropdownByText(remarksFilter, 'VERIFICATION');
-                if (!found && searchInput) searchInput.value = 'VERIFICATION';
-            }
+            const found = setDropdownByText(remarksFilter, 'VERIFICATION');
+            if (!found && searchInput) searchInput.value = 'VERIFICATION';
+        }
             executeSearch(true);
             scrollToTable();
         };
     }
 
-    const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card');
+const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card');
     if (cardTaxDec) {
         cardTaxDec.onclick = () => {
-            resetAllFilters();
+            resetAllFilters(); // Reset everything first!
             if (photoFilter && photoFilter.options.length > 3) {
-                photoFilter.selectedIndex = 3; 
+                photoFilter.selectedIndex = 3; // Index 3 is "With Tax Declaration"
             }
             executeSearch(true);
             scrollToTable();
@@ -328,7 +415,7 @@ function setupDashboardClickHandlers() {
     const cardPhotos = document.getElementById('countWithPhotos')?.closest('.dash-card');
     if (cardPhotos) {
         cardPhotos.onclick = () => {
-            resetAllFilters();
+            resetAllFilters(); // Reset everything first!
             if (photoFilter && photoFilter.options.length > 1) {
                 photoFilter.selectedIndex = 1; 
             }
@@ -337,21 +424,23 @@ function setupDashboardClickHandlers() {
         };
     }
 
+   // --- 3. PROPERTY TYPE CARDS (Updated Keywords) ---
     const typeMappings = [
         { id: 'countBuilding', keyword: 'BUILDING' },
-        { id: 'countAssetMod', keyword: 'BUILDING MODIFICATION' }, 
+        { id: 'countAssetMod', keyword: 'BUILDING MODIFICATION' }, // Changed from 'ASSET'
         { id: 'countFlood', keyword: 'FLOOD' },
         { id: 'countHospital', keyword: 'HOSPITAL' },
         { id: 'countLand', keyword: 'LAND' },
         { id: 'countMarket', keyword: 'MARKET' },
         { id: 'countOtherInfra', keyword: 'OTHER INFRASTRUCTURE' },
         { id: 'countOtherLand', keyword: 'OTHER LAND' },
-        { id: 'countOtherStruct', keyword: 'OTHER STRUCTURE' }, 
+        { id: 'countOtherStruct', keyword: 'OTHER STRUCTURE' }, // Changed from 'STRUCTURE'
         { id: 'countPark', keyword: 'PARK' },
         { id: 'countRoad', keyword: 'ROAD' },
         { id: 'countSchool', keyword: 'SCHOOL' },
         { id: 'countSlaughterhouse', keyword: 'SLAUGHTERHOUSE' },
         { id: 'countWater', keyword: 'WATER' }
+		
     ];
 
     typeMappings.forEach(item => {
@@ -360,10 +449,12 @@ function setupDashboardClickHandlers() {
             const card = countEl.closest('.type-card');
             if (card) {
                 card.onclick = () => {
-                    resetAllFilters();
+                    resetAllFilters(); // Reset everything first!
                     if (typeFilter) {
                         const found = setDropdownByText(typeFilter, item.keyword);
-                        if (!found && searchInput) searchInput.value = item.keyword; 
+                        if (!found && searchInput) {
+                            searchInput.value = item.keyword; 
+                        }
                     }
                     executeSearch(true);
                     scrollToTable();
@@ -376,21 +467,40 @@ function setupDashboardClickHandlers() {
 function initApp() {
     initUIReferences();
 
+    // Try initializing immediately if the script is already loaded
+    getOrCreateTokenClient();
+
     const loginBtn = document.getElementById('customLoginBtn');
     if (loginBtn) {
         loginBtn.addEventListener('click', () => {
-            const loginErr = document.getElementById('loginError');
-            if (loginErr) loginErr.textContent = 'Authenticating with Google... Check popup window.';
-            
-            // Pop open the Google Apps Script securely for user validation
-            const authUrl = GOOGLE_APPS_SCRIPT_URL + "?action=login";
-            window.open(authUrl, "GoogleAuthPopup", "width=500,height=600");
+            let client = getOrCreateTokenClient();
+            if (client) {
+                const loginErr = document.getElementById('loginError');
+                if (loginErr) loginErr.textContent = '';
+                client.requestAccessToken();
+            } else {
+                // Fallback: If Google GSI script is still loading, retry after 500ms automatically
+                const loginErr = document.getElementById('loginError');
+                if (loginErr) loginErr.textContent = 'Connecting to Google Sign-In, please wait...';
+                
+                setTimeout(() => {
+                    client = getOrCreateTokenClient();
+                    if (client) {
+                        if (loginErr) loginErr.textContent = '';
+                        client.requestAccessToken();
+                    } else {
+                        if (loginErr) loginErr.textContent = 'Google Sign-In failed to load. Please check your network connection or refresh.';
+                    }
+                }, 600);
+            }
         });
     }
 
     const backToTopBtn = document.getElementById('backToTopBtn');
     if (backToTopBtn) {
-        backToTopBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+        backToTopBtn.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
     }
 
     if (prevPageBtn) {
@@ -428,8 +538,12 @@ function initApp() {
             let y = e.clientY + 15;
             
             const tooltipRect = tooltip.getBoundingClientRect();
-            if (x + tooltipRect.width > window.innerWidth) x = e.clientX - tooltipRect.width - 15;
-            if (y + tooltipRect.height > window.innerHeight) y = e.clientY - tooltipRect.height - 15;
+            if (x + tooltipRect.width > window.innerWidth) {
+                x = e.clientX - tooltipRect.width - 15;
+            }
+            if (y + tooltipRect.height > window.innerHeight) {
+                y = e.clientY - tooltipRect.height - 15;
+            }
             
             tooltip.style.left = x + 'px';
             tooltip.style.top = y + 'px';
@@ -452,6 +566,7 @@ if (document.readyState === 'loading') {
     initApp();
 }
 
+// 🌐 Secure Image Fetcher (Bypasses Google Drive Blocks)
 async function fetchAuthorizedImage(driveUrl) {
     if (!driveUrl || typeof driveUrl !== 'string') return null;
     const match = driveUrl.match(/[-\w]{25,}/);
@@ -459,134 +574,178 @@ async function fetchAuthorizedImage(driveUrl) {
 
     const fileId = match[0];
     if (imageCache[fileId]) return imageCache[fileId];
-    
-    // Direct fallback to thumbnail generation without API requirements
-    return getDirectImageUrl(driveUrl, 'thumbnail'); 
+
+    if (!accessToken) return getDirectImageUrl(driveUrl, 'thumbnail'); 
+
+    try {
+        const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`
+            }
+        });
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+        
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        imageCache[fileId] = objectUrl; 
+        return objectUrl;
+    } catch (e) {
+        console.warn("Failed to fetch image securely, falling back to thumbnail", e);
+        return getDirectImageUrl(driveUrl, 'thumbnail');
+    }
 }
 
-// Relies strictly on the hidden iframe for silent data refresh after modifications
-function loadInventoryFromGoogleSheets(retainPage = false) {
+async function loadInventoryFromGoogleSheets(retainPage = false) {
     if (statusBanner) {
         statusBanner.style.backgroundColor = "#fff3cd";
         statusBanner.style.color = "#856404";
         statusBanner.textContent = "Connecting to Google Sheets Live Datastream...";
     }
     showLoading("Syncing live spreadsheet grid...");
-    isRetainingPage = retainPage;
 
-    // Use a hidden iframe to invisibly query GAS and post the CSV datastream back
-    let iframe = document.createElement("iframe");
-    iframe.style.display = "none";
-    iframe.src = GOOGLE_APPS_SCRIPT_URL + "?action=login";
-    document.body.appendChild(iframe);
-    
-    setTimeout(() => { if (document.body.contains(iframe)) document.body.removeChild(iframe); }, 15000);
-}
+    try {
+        const response = await fetch(GOOGLE_SHEET_CSV_URL, {
+            headers: accessToken ? {
+                'Authorization': `Bearer ${accessToken}`
+            } : {}
+        });
+        
+        if (!response.ok) throw new Error("Could not connect to online Sheet feed.");
+        const rawCsvText = await response.text(); 
 
-// Modular CSV Parsing executed upon receiving data from GAS
-function processInventoryCSV(rawCsvText, retainPage = false) {
-    Papa.parse(rawCsvText, {
-        header: true,
-        skipEmptyLines: true,
-        complete: function(results) {
-            if (results.data && results.data.length > 0) {
-                rawHeaders = Object.keys(results.data[0]);
-                headerMapping = {};
-                
-                targetHeadersLowercase.forEach(target => {
-                    const actualKey = rawHeaders.find(h => {
-                        const normH = h.toLowerCase().trim();
-                        const normT = target.toLowerCase().trim();
-                        if (normT === 'transfer_cert1' && (normH.includes('transfer') && normH.includes('1'))) return true;
-                        if (normT === 'transfer_cert2' && (normH.includes('transfer') && normH.includes('2'))) return true;
-                        if (normT === 'article/item' && (normH.includes('article') || normH.includes('tct') || normH.includes('item'))) return true;
-                        return normH.includes(normT) || normT.includes(normH);
+        Papa.parse(rawCsvText, {
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                if (results.data && results.data.length > 0) {
+                    rawHeaders = Object.keys(results.data[0]);
+                    headerMapping = {};
+                    
+                    targetHeadersLowercase.forEach(target => {
+                        const actualKey = rawHeaders.find(h => {
+                            const normH = h.toLowerCase().trim();
+                            const normT = target.toLowerCase().trim();
+                            
+                            if (normT === 'transfer_cert1' && (normH.includes('transfer') && normH.includes('1'))) return true;
+                            if (normT === 'transfer_cert2' && (normH.includes('transfer') && normH.includes('2'))) return true;
+                            if (normT === 'article/item' && (normH.includes('article') || normH.includes('tct') || normH.includes('item'))) return true;
+                            
+                            return normH.includes(normT) || normT.includes(normH);
+                        });
+                        headerMapping[target] = actualKey || target; 
                     });
-                    headerMapping[target] = actualKey || target; 
-                });
-                
-                inventoryData = results.data.map((row, idx) => {
-                    row._rowId = idx;
-                    return row;
-                });
-                initializeSystemUI(retainPage);
-            } else {
-                showAccessDeniedModal();
+                    
+                    inventoryData = results.data.map((row, idx) => {
+                        row._rowId = idx;
+                        return row;
+                    });
+                    initializeSystemUI(retainPage);
+                } else {
+                    throw new Error("Target dataset sheet contains no metrics.");
+                }
+                hideLoading();
             }
-            hideLoading();
+        });
+} catch (err) {
+        hideLoading();
+        if (statusBanner) {
+            statusBanner.style.backgroundColor = "#f8d7da";
+            statusBanner.style.color = "#721c24";
+            statusBanner.textContent = "Connection Error: Check Sheet spreadsheet access permission configuration.";
         }
-    });
-}
+        console.error(err);
 
-function showAccessDeniedModal() {
-    hideLoading();
-    if (statusBanner) {
-        statusBanner.style.backgroundColor = "#f8d7da";
-        statusBanner.style.color = "#721c24";
-        statusBanner.textContent = "Connection Error: Check Sheet spreadsheet access permission configuration.";
+        if (accessToken && loggedInUser !== "System User") {
+    const modal = document.getElementById("accessModal");
+    const modalText = document.getElementById("accessModalText");
+    const submitBtn = document.getElementById("submitRequestBtn");
+    const closeBtn = document.getElementById("closeModalBtn");
+    
+    // Grab your existing textarea by its exact ID
+    const noteInput = document.getElementById("requestNotesInput");
+
+    // Ensure the textarea is visible and empty when the modal first opens
+    if (noteInput) {
+        noteInput.style.display = "block";
+        noteInput.value = "";
     }
 
-    if (loggedInUser !== "System User") {
-        const modal = document.getElementById("accessModal");
-        const modalText = document.getElementById("accessModalText");
-        const submitBtn = document.getElementById("submitRequestBtn");
-        const closeBtn = document.getElementById("closeModalBtn");
-        const noteInput = document.getElementById("requestNotesInput");
+    // Keep your dynamic text structure
+    modalText.innerHTML = "Your Gmail account (<b>" + loggedInUser + "</b>) does not have permission to view the Google Sheet.<br><br>Would you like to send an access request?";
+    modal.style.display = "flex";
 
+   submitBtn.onclick = function() {
+        // 1. Capture the note value
+        let noteValue = "No note provided";
         if (noteInput) {
-            noteInput.style.display = "block";
-            noteInput.value = "";
+            noteValue = noteInput.value.trim() || "No note provided";
+            noteInput.value = ""; // Reset input in the background for next time
         }
 
-        modalText.innerHTML = "Your Gmail account (<b>" + loggedInUser + "</b>) does not have permission to view the Google Sheet.<br><br>Would you like to send an access request?";
-        modal.style.display = "flex";
+        // 2. Target the entire modal content area or update both title and text together
+        const modalHeader = document.querySelector('.access-modal-header') || modalText.parentElement;
+        
+        // Update the content to show the clean success state with your phone number text
+        modalText.innerHTML = `
+            <div style="text-align: center;">
+                <h3 style="margin-top:0; margin-bottom: 12px; color: #155724; font-size: 22px;">✅ Request Access Sent</h3>
+                <p style="margin:0; line-height: 1.6; font-size: 15px; color: #333;">
+                    Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.
+                </p>
+            </div>
+        `;
+        
+        // 3. Hide the text area input
+        if (noteInput) {
+            noteInput.style.display = "none";
+        }
 
-        submitBtn.onclick = function() {
-            let noteValue = "No note provided";
-            if (noteInput) {
-                noteValue = noteInput.value.trim() || "No note provided";
-                noteInput.value = ""; 
+        // 4. Update buttons: Hide 'Submit', change 'Cancel' to a green 'OK' button
+        submitBtn.style.display = "none";
+        closeBtn.textContent = "OK";
+        closeBtn.style.background = "#28a745"; 
+        closeBtn.style.color = "white";
+
+        // 5. Prepare the URL for Apps Script
+        const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&name=" + encodeURIComponent(loggedInUser) + "&notes=" + encodeURIComponent(noteValue);
+
+        // 6. Create a hidden iframe to silently trigger the Apps Script
+        let iframe = document.createElement("iframe");
+        iframe.style.display = "none";
+        iframe.src = requestUrl;
+        document.body.appendChild(iframe);
+
+        // 7. Clean up the iframe silently in the background after 2 seconds
+        setTimeout(function() {
+            if (document.body.contains(iframe)) {
+                document.body.removeChild(iframe);
             }
+        }, 2000);
+    };
 
-            modalText.innerHTML = `
-                <div style="text-align: center;">
-                    <h3 style="margin-top:0; margin-bottom: 12px; color: #155724; font-size: 22px;">✅ Request Access Sent</h3>
-                    <p style="margin:0; line-height: 1.6; font-size: 15px; color: #333;">
-                        Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.
-                    </p>
-                </div>
-            `;
+    closeBtn.onclick = function() {
+        modal.style.display = "none";
+        
+        // Reset modal back to original prompt state when closed
+        setTimeout(() => {
+            // 2. Change the modal content to the "Success" window instead of closing it
+        modalText.innerHTML = "<h3 style='margin-top:0; margin-bottom: 10px; color: #155724;'>✅ Request Access Sent</h3><p style='margin:0; line-height: 1.5;'>Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.</p>";
+            submitBtn.style.display = "inline-block";
+            closeBtn.textContent = "Cancel";
+            closeBtn.style.background = "#6c757d";
             
-            if (noteInput) noteInput.style.display = "none";
-            submitBtn.style.display = "none";
-            closeBtn.textContent = "OK";
-            closeBtn.style.background = "#28a745"; 
-            closeBtn.style.color = "white";
+            // Reset the textarea for the next time the modal is used
+            if (noteInput) {
+                noteInput.value = "";
+                noteInput.style.display = "block";
+            }
+        }, 300);
+    };
+} else {
+            alert("Connection failed or you have been logged out from Google. Please log in again.");
+        }
 
-            const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&name=" + encodeURIComponent(loggedInUser) + "&notes=" + encodeURIComponent(noteValue);
-            let iframe = document.createElement("iframe");
-            iframe.style.display = "none";
-            iframe.src = requestUrl;
-            document.body.appendChild(iframe);
-
-            setTimeout(function() {
-                if (document.body.contains(iframe)) document.body.removeChild(iframe);
-            }, 2000);
-        };
-
-        closeBtn.onclick = function() {
-            modal.style.display = "none";
-            setTimeout(() => {
-                modalText.innerHTML = "<h3 style='margin-top:0; margin-bottom: 10px; color: #155724;'>✅ Request Access Sent</h3><p style='margin:0; line-height: 1.5;'>Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.</p>";
-                submitBtn.style.display = "inline-block";
-                closeBtn.textContent = "Cancel";
-                closeBtn.style.background = "#6c757d";
-                if (noteInput) {
-                    noteInput.value = "";
-                    noteInput.style.display = "block";
-                }
-            }, 300);
-        };
+        performLogout();
     }
 }
 
@@ -617,7 +776,9 @@ function initializeSystemUI(retainPage = false) {
         if(tableBody) {
             tableBody.innerHTML = `<tr><td colspan="${displayHeaders.length}" class="no-data">Data loaded successfully. Apply a filter or search to view records.</td></tr>`;
         }
-        if (foundCountDisplay) foundCountDisplay.textContent = `(0 items displayed)`;
+        if (foundCountDisplay) {
+            foundCountDisplay.textContent = `(0 items displayed)`;
+        }
         updatePaginationUI(0);
         isAppInitialized = true;
     } else {
@@ -626,6 +787,7 @@ function initializeSystemUI(retainPage = false) {
 }
 
 function populateDropdown(type, selectEl, placeholderText) {
+    // ... [Rest of your code continues normally]
     if(!selectEl) return;
     const previousSelection = selectEl.value;
     selectEl.innerHTML = `<option value="ALL">${placeholderText}</option>`;
@@ -684,23 +846,32 @@ function updatePaginationUI(totalPages) {
     }
 }
 
+// 🖼️ LAZY LOADING OBSERVER FOR TABLE PHOTOS
 const tableImageObserver = new IntersectionObserver((entries, observer) => {
     entries.forEach(entry => {
+        // Check if the image has entered the viewport
         if (entry.isIntersecting) {
             const img = entry.target;
             const driveUrl = img.dataset.src;
+            
             if (driveUrl) {
+                // Fetch the image securely now that it's in view
                 fetchAuthorizedImage(driveUrl).then(objectUrl => {
                     if (objectUrl) {
                         img.src = objectUrl;
                         img.alt = "Preview";
                     }
                 });
+                
+                // Stop observing this image once it's processing
                 observer.unobserve(img);
             }
         }
     });
-}, { rootMargin: "0px 0px 300px 0px" });
+}, { 
+    rootMargin: "0px 0px 300px 0px" // Starts loading slightly before the user scrolls to it
+});
+
 
 function renderTable(data, page = 1) {
     if(!tableBody) return; tableBody.innerHTML = '';
@@ -742,9 +913,13 @@ function renderTable(data, page = 1) {
                     imgEl.alt = "Loading...";
                     imgEl.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'%3E%3Ccircle cx='25' cy='25' r='20' fill='none' stroke='%23ccc' stroke-width='4' stroke-dasharray='31.4 31.4'%3E%3CanimateTransform attributeName='transform' type='rotate' from='0 25 25' to='360 25 25' dur='1s' repeatCount='indefinite'/%3E%3C/circle%3E%3C/svg%3E";
                     
-                    imgEl.onclick = (event) => { event.stopPropagation(); openPopUp(row._rowId, tKey); };
+                imgEl.onclick = (event) => { event.stopPropagation(); openPopUp(row._rowId, tKey); };
+                    
+                    // Assign the URL to a data attribute instead of fetching immediately
                     imgEl.dataset.src = url; 
                     td.appendChild(imgEl);
+
+                    // Tell the observer to watch this image placeholder
                     tableImageObserver.observe(imgEl);
                 } else {
                     td.textContent = 'No Photo';
@@ -757,6 +932,7 @@ function renderTable(data, page = 1) {
         tr.addEventListener('click', () => openPopUp(row._rowId));
         tableBody.appendChild(tr);
     });
+
     updatePaginationUI(totalPages);
 }
 
@@ -769,9 +945,11 @@ function calculateStaticDashboardTotals(items) {
     const pKey1 = headerMapping['photo 1'];
     const pKey2 = headerMapping['photo 2'];
     const pKey4 = headerMapping['tax declaration'];
+const aKey = headerMapping['article/item'];
     const nKey = headerMapping['notes'];
     
     let insuredCount = 0, notInsuredCount = 0, expiringCount = 0;
+    
     let existing = 0, notfound = 0, verify = 0, photos = 0, taxdec = 0;
     
     let stats = {
@@ -792,26 +970,42 @@ function calculateStaticDashboardTotals(items) {
         if(row[pKey4] && row[pKey4].trim()!=='') taxdec++;
         
         const typeStr = String(row[tKey] || '').toUpperCase().trim();
+// --- BUILDING INSURANCE LOGIC ---
         const notesVal = String(row[nKey] || '');
         const notesUpper = notesVal.toUpperCase();
 
         if (notesUpper.includes('NOT INSURED')) {
             notInsuredCount++;
         } else if (notesUpper.includes('BUILDING INSURED')) {
+            // Regex looks for "Coverage [Date] - [Date]" and extracts the second date
             const dateMatch = notesVal.match(/Coverage\s+.*?\s+-\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})/i);
+            
             if (dateMatch && dateMatch[1]) {
                 const endDate = new Date(dateMatch[1]);
                 const currentDate = new Date(); 
+                
+                // Verify the extracted date is valid
                 if (!isNaN(endDate.getTime())) {
-                    const daysDiff = (endDate.getTime() - currentDate.getTime()) / (1000 * 3600 * 24);
+                    const timeDiff = endDate.getTime() - currentDate.getTime();
+                    const daysDiff = timeDiff / (1000 * 3600 * 24);
+                    
+                   // 30 days is the threshold for "Almost Expire"
                     if (daysDiff <= 30) {
-                        expiringCount++; 
+                        expiringCount++; // Correctly count as Expiring
                     } else {
-                        insuredCount++; 
+                        insuredCount++; // Active
                     }
-                } else { insuredCount++; }
-            } else { insuredCount++; }
+                } else {
+                    insuredCount++; // Fallback if date is invalid but says insured
+                }
+            } else {
+                 insuredCount++; // Fallback if no date format is found but says insured
+            }
         }
+// --------------------------------
+
+
+
         
         if (typeStr.includes('BUILDING MOD') || typeStr.includes('ASSET MOD')) stats['Building Modifications']++;
         else if (typeStr.includes('SCHOOL')) stats['School Building']++;
@@ -849,7 +1043,7 @@ function calculateStaticDashboardTotals(items) {
     if(countSchool) countSchool.textContent = stats['School Building'];
     if(countSlaughterhouse) countSlaughterhouse.textContent = stats['Slaughterhouse'];
     if(countWater) countWater.textContent = stats['Water Supplies'];
-    if(countInsured) countInsured.textContent = insuredCount;
+if(countInsured) countInsured.textContent = insuredCount;
     if(countNotInsured) countNotInsured.textContent = notInsuredCount;
 	if(countExpiring) countExpiring.textContent = expiringCount;
 }
@@ -865,7 +1059,9 @@ function executeSearch(resetPage = true) {
     const pKey1 = headerMapping['photo 1'];
     const pKey2 = headerMapping['photo 2'];
     const pKey4 = headerMapping['tax declaration'];
+    const aKey = headerMapping['article/item'];
     const nKey = headerMapping['notes'];
+	
     const photo1Or2Keys = [pKey1, pKey2];
 
     currentFilteredData = inventoryData.filter(row => {
@@ -893,7 +1089,7 @@ function executeSearch(resetPage = true) {
             if (phoF === 'NO_PHOTO') matchPhoto = !hasPhoto1Or2;
             if (phoF === 'WITH_TAX_DEC') matchPhoto = hasTaxDec;
         }
-        
+       // --- INSURANCE CLICK FILTER LOGIC ---
         if (activeInsuranceFilter !== 'ALL') {
             const notesVal = String(row[nKey] || '');
             const notesUpper = notesVal.toUpperCase();
@@ -913,14 +1109,17 @@ function executeSearch(resetPage = true) {
             }
             matchInsurance = (status === activeInsuranceFilter);
         }
+        // ------------------------------------
         return matchText && matchRem && matchType && matchPhoto && matchInsurance;
     });
 
     if (foundCountDisplay) foundCountDisplay.textContent = `(${currentFilteredData.length} records active)`;
+    
     if (resetPage) currentPage = 1;
     renderTable(currentFilteredData, currentPage);
 }
 
+// 🖼️ MODAL HANDLING & EDIT
 function openPopUp(rowId, clickedPhotoKey = null) {
     activeEditIndex = rowId;
     const itemData = inventoryData.find(r => r._rowId === rowId);
@@ -930,8 +1129,10 @@ function openPopUp(rowId, clickedPhotoKey = null) {
     
     const flexWrapper = document.createElement('div');
     flexWrapper.className = 'modal-flex-layout';
+    
     const fieldsSide = document.createElement('div');
     fieldsSide.className = 'modal-fields-side';
+    
     const photoSide = document.createElement('div');
     photoSide.className = 'modal-photo-side';
     photoSide.id = 'modalPhotoSide'; 
@@ -939,48 +1140,51 @@ function openPopUp(rowId, clickedPhotoKey = null) {
     popupOrderLowercase.forEach(tKey => {
         const mappedKey = headerMapping[tKey];
         const val = mappedKey ? (itemData[mappedKey] || '') : '';
+        
         const fDiv = document.createElement('div');
         fDiv.className = 'modal-field';
+        
         const lbl = document.createElement('label');
         lbl.textContent = mappedKey || tKey;
         
-        let inp;
-        if(tKey === 'remarks') {
-            inp = document.createElement('select');
-            inp.id = 'modal_' + tKey;
-            inp.disabled = true;
-            let found = false;
-            parsedUniqueRemarks.forEach(r => {
-                const opt = document.createElement('option');
-                opt.value = r; opt.textContent = r;
-                if(r === val) { opt.selected = true; found = true; }
-                inp.appendChild(opt);
-            });
-            if(val && !found) {
-                const opt = document.createElement('option');
-                opt.value = val; opt.textContent = val;
-                opt.selected = true;
-                inp.appendChild(opt);
-            }
-        } else if(tKey === 'description') {
-            inp = document.createElement('textarea');
-            inp.id = 'modal_' + tKey;
-            inp.value = val;
-            inp.rows = 7; 
-            inp.disabled = true;
-        } else if(tKey === 'notes') {
-            inp = document.createElement('textarea');
-            inp.id = 'modal_' + tKey;
-            inp.value = val;
-            inp.rows = 3; 
-            inp.disabled = true;
-        } else {
-            inp = document.createElement('input');
-            inp.type = 'text';
-            inp.id = 'modal_' + tKey;
-            inp.value = val;
-            inp.disabled = true;
+       let inp;
+    if(tKey === 'remarks') {
+        inp = document.createElement('select');
+        inp.id = 'modal_' + tKey;
+        inp.disabled = true;
+        let found = false;
+        parsedUniqueRemarks.forEach(r => {
+            const opt = document.createElement('option');
+            opt.value = r; opt.textContent = r;
+            if(r === val) { opt.selected = true; found = true; }
+            inp.appendChild(opt);
+        });
+        if(val && !found) {
+            const opt = document.createElement('option');
+            opt.value = val; opt.textContent = val;
+            opt.selected = true;
+            inp.appendChild(opt);
         }
+    } else if(tKey === 'description') {
+        inp = document.createElement('textarea');
+        inp.id = 'modal_' + tKey;
+        inp.value = val;
+        inp.rows = 7; // <--- CHANGED FROM 8 TO 7 (less 1 line)
+        inp.disabled = true;
+    } else if(tKey === 'notes') {
+        inp = document.createElement('textarea');
+        inp.id = 'modal_' + tKey;
+        inp.value = val;
+        inp.rows = 3; // <--- ADDED: Sets notes field height to 3 lines
+        inp.disabled = true;
+    } else {
+        inp = document.createElement('input');
+        inp.type = 'text';
+        inp.id = 'modal_' + tKey;
+        inp.value = val;
+        inp.disabled = true;
+    }
+        
         fDiv.appendChild(lbl);
         fDiv.appendChild(inp);
         fieldsSide.appendChild(fDiv);
@@ -1009,7 +1213,9 @@ function openPopUp(rowId, clickedPhotoKey = null) {
     currentPhotoIndex = 0;
     if (clickedPhotoKey) {
         const foundIndex = modalPhotos.findIndex(mp => mp.key === clickedPhotoKey);
-        if (foundIndex !== -1) currentPhotoIndex = foundIndex;
+        if (foundIndex !== -1) {
+            currentPhotoIndex = foundIndex;
+        }
     }
     
     flexWrapper.appendChild(fieldsSide);
@@ -1023,10 +1229,10 @@ function openPopUp(rowId, clickedPhotoKey = null) {
     modalSaveBtn.style.display = 'none';
     uploadPhotoBtn.style.display = 'inline-block';
     modalCloseBtn.disabled = false;
-    modalCloseBtn.textContent = 'Close'; 
+    modalCloseBtn.textContent = 'Close'; // <--- ADD THIS LINE
     modalCloseX.disabled = false;
     editModal.style.display = 'flex';
-	document.body.style.overflow = 'hidden'; 
+	document.body.style.overflow = 'hidden'; // Locks the background scroll
 }
 
 function renderModalPhotoViewer() {
@@ -1040,8 +1246,10 @@ function renderModalPhotoViewer() {
     }
 
     const currentImg = modalPhotos[currentPhotoIndex];
+    
     const photoContainer = document.createElement('div');
     photoContainer.className = 'modal-photo-container';
+
     const actionsContainer = document.createElement('div');
     actionsContainer.className = 'photo-actions-container';
 
@@ -1104,6 +1312,7 @@ function navigatePhoto(dir) {
 function enableEditMode() {
     popupOrderLowercase.forEach(tKey => {
         const el = document.getElementById('modal_' + tKey);
+        // <--- MODIFIED: Excludes both 'article/item' and 'description' from being enabled
         if (el && tKey !== 'article/item' && tKey !== 'description') {
             el.disabled = false;
         }
@@ -1111,12 +1320,13 @@ function enableEditMode() {
     modalModified = true;
     modalEditBtn.style.display = 'none';
     modalSaveBtn.style.display = 'inline-block';
+    
     modalCloseBtn.disabled = false;        
     modalCloseBtn.textContent = 'Cancel';  
 }
 
 function triggerSaveProcess() {
-    finalizeSaveData(loggedInUser);
+    finalizeSaveData(loggedInUser); // <--- MODIFIED: Bypasses popup and goes straight to save & refresh
 }
 
 function finalizeSaveData(operatorName) {
@@ -1155,6 +1365,7 @@ function finalizeSaveData(operatorName) {
         if(updateMappedKey) itemData[updateMappedKey] = operatorName;
         if(dateMappedKey) itemData[dateMappedKey] = formattedTimestamp;
 
+        // Using 'no-cors' mode prevents the browser from throwing a 'Failed to fetch' error
         fetch(GOOGLE_APPS_SCRIPT_URL, {
             method: 'POST',
             body: params.toString(),
@@ -1162,14 +1373,17 @@ function finalizeSaveData(operatorName) {
             mode: 'no-cors' 
         })
         .then(() => {
+            // Silently hide the loading screen, close the modal, and refresh
             hideLoading();
             closeModal(); 
         })
         .catch(() => {
+            // Even if a background network drop occurs, hide loading, close, and refresh
             hideLoading();
             closeModal();
         });
     } else {
+        // If no changes were made, just close the modal
         closeModal(); 
     }
 }
@@ -1189,6 +1403,8 @@ function openUploadWindow() {
 
 function closeModal() {
     if (editModal) editModal.style.display = 'none';
+    
+    // Unlocks the background scroll
     document.body.style.overflow = ''; 
     
     if (modalModified) {
@@ -1199,14 +1415,19 @@ function closeModal() {
     modalModified = false;
 }
 
+// --- DASHBOARD CLICK-TO-FILTER FUNCTION ---
 function setInsuranceFilter(filterMode, cardId) {
+    
+    // 🧹 Reset other text and dropdown filters so they don't block the results
     if (searchInput) searchInput.value = '';
     if (remarksFilter) remarksFilter.value = 'ALL';
     if (typeFilter) typeFilter.value = 'ALL';
     if (photoFilter) photoFilter.value = 'ALL';
 
+    // Set insurance filter mode directly
     activeInsuranceFilter = filterMode;
 
+    // Reset styles for all 3 cards
     document.querySelectorAll('.ins-card').forEach(card => {
         card.style.transform = 'scale(1)';
         card.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
@@ -1214,24 +1435,30 @@ function setInsuranceFilter(filterMode, cardId) {
     });
 
     const clearBtn = document.getElementById('clearInsFilterBtn');
+
+    // Highlight the active card
     if (activeInsuranceFilter !== 'ALL') {
         const activeCard = document.getElementById(cardId);
         if (activeCard) {
             activeCard.style.transform = 'scale(1.05)';
             activeCard.style.boxShadow = '0 4px 10px rgba(0,0,0,0.15)';
-            activeCard.style.backgroundColor = '#ffffff'; 
+            activeCard.style.backgroundColor = '#ffffff'; // highlight color
         }
         if (clearBtn) clearBtn.style.display = 'inline';
     } else {
         if (clearBtn) clearBtn.style.display = 'none';
     }
 
+    // Trigger the table update
     executeSearch(true); 
+    
+    // Smooth scroll down
     const tableSec = document.querySelector('.table-section');
     if (tableSec) tableSec.scrollIntoView({ behavior: 'smooth' });
 }
 
 function setupSystemEventHandlers() {
+	// Dashboard Filter Click Events
     const cardInsured = document.getElementById('cardInsured');
     const cardNotInsured = document.getElementById('cardNotInsured');
     const cardExpiring = document.getElementById('cardExpiring');
@@ -1241,50 +1468,89 @@ function setupSystemEventHandlers() {
     if(cardNotInsured) cardNotInsured.onclick = () => setInsuranceFilter('NOT_INSURED', 'cardNotInsured');
     if(cardExpiring) cardExpiring.onclick = () => setInsuranceFilter('EXPIRING', 'cardExpiring');
     if(clearInsFilterBtn) clearInsFilterBtn.onclick = () => setInsuranceFilter('ALL', '');
+if(resetFiltersButton) {
+    resetFiltersButton.addEventListener('click', () => {
 
-    if(resetFiltersButton) {
-        resetFiltersButton.addEventListener('click', () => {
-            if (searchInput) searchInput.value = '';
-            if (remarksFilter) remarksFilter.selectedIndex = 0;
-            if (typeFilter) typeFilter.selectedIndex = 0;
-            if (photoFilter) photoFilter.selectedIndex = 0;
+        // Clear search box
+        if (searchInput) {
+            searchInput.value = '';
+        }
 
-            activeInsuranceFilter = 'ALL';
-            document.querySelectorAll('.ins-card').forEach(card => {
-                card.style.transform = 'scale(1)';
-                card.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
-                card.style.backgroundColor = '#f8f9fa';
-            });
+        // Reset all dropdowns to their default option
+        if (remarksFilter) {
+            remarksFilter.selectedIndex = 0;
+        }
 
-            const clearBtn = document.getElementById('clearInsFilterBtn');
-            if (clearBtn) clearBtn.style.display = 'none';
+        if (typeFilter) {
+            typeFilter.selectedIndex = 0;
+        }
 
-            currentPage = 1;
-            currentFilteredData = [];
-            if (foundCountDisplay) foundCountDisplay.textContent = '(0 items displayed)';
+        if (photoFilter) {
+            photoFilter.selectedIndex = 0;
+        }
 
-            if (tableBody) {
-                tableBody.innerHTML = `<tr><td colspan="${displayHeaders.length}" class="no-data">Data loaded successfully. Apply a filter or search to view records.</td></tr>`;
-            }
-            updatePaginationUI(0);
+        // Clear insurance filter
+        activeInsuranceFilter = 'ALL';
+
+        // Remove insurance card highlighting
+        document.querySelectorAll('.ins-card').forEach(card => {
+            card.style.transform = 'scale(1)';
+            card.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
+            card.style.backgroundColor = '#f8f9fa';
         });
-    }
-    
+
+        // Hide insurance clear-filter link
+        const clearBtn = document.getElementById('clearInsFilterBtn');
+        if (clearBtn) {
+            clearBtn.style.display = 'none';
+        }
+
+        // Reset pagination
+        currentPage = 1;
+
+        // IMPORTANT:
+        // Clear the table data instead of showing all records
+        currentFilteredData = [];
+
+        // Display 0 records
+        if (foundCountDisplay) {
+            foundCountDisplay.textContent = '(0 items displayed)';
+        }
+
+        // Clear the table and show the default message
+        if (tableBody) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="${displayHeaders.length}" class="no-data">
+                        Data loaded successfully. Apply a filter or search to view records.
+                    </td>
+                </tr>
+            `;
+        }
+
+        // Reset pagination display
+        updatePaginationUI(0);
+    });
+}
     if(searchInput) searchInput.addEventListener('keypress', e => { if(e.key === 'Enter') executeSearch(true); });
 	if(searchButton) searchButton.addEventListener('click', () => executeSearch(true));
+    
     if(remarksFilter) remarksFilter.addEventListener('change', () => executeSearch(true));
     if(typeFilter) typeFilter.addEventListener('change', () => executeSearch(true));
     if(photoFilter) photoFilter.addEventListener('change', () => executeSearch(true));
+    
     if(exportButton) exportButton.addEventListener('click', () => downloadDatasetCSV(inventoryData, 'Full_Inventory'));
     if(exportFilteredButton) exportFilteredButton.addEventListener('click', () => downloadSearchedHTML(currentFilteredData));
+    
     if(uploadPhotoBtn) uploadPhotoBtn.addEventListener('click', openUploadWindow); 
+    
     if(modalEditBtn) modalEditBtn.addEventListener('click', enableEditMode);
     if(modalSaveBtn) modalSaveBtn.addEventListener('click', triggerSaveProcess);
     
     if(modalCloseBtn) modalCloseBtn.addEventListener('click', () => {
         if (modalCloseBtn.textContent === 'Cancel') {
-            modalModified = false; 
-            openPopUp(activeEditIndex); 
+            modalModified = false; // Prevents unnecessary data reload
+            openPopUp(activeEditIndex); // Re-opens the current item in View Mode
         } else {
             closeModal();
         }
@@ -1292,7 +1558,11 @@ function setupSystemEventHandlers() {
     if(modalCloseX) modalCloseX.addEventListener('click', closeModal); 
     
     const cancelNameBtn = document.getElementById('customCancelNameBtn');
-    if (cancelNameBtn) cancelNameBtn.addEventListener('click', () => { if (customNameModal) customNameModal.style.display = 'none'; });
+    if (cancelNameBtn) {
+        cancelNameBtn.addEventListener('click', () => {
+            if (customNameModal) customNameModal.style.display = 'none';
+        });
+    }
     
     const confirmNameBtn = document.getElementById('customConfirmNameBtn');
     if (confirmNameBtn) {
@@ -1325,12 +1595,24 @@ function downloadDatasetCSV(data, filenamePrefix) {
     document.body.removeChild(link);
 }
 
+// 🖼️ Helper to Convert Image URL to Base64 Data URL for Offline Inclusion
 async function getBase64ImageFromUrl(imageUrl) {
     if (!imageUrl) return '';
     try {
+        const match = imageUrl.match(/[-\w]{25,}/);
         let fetchUrl = imageUrl;
-        const thumbnailFallback = getDirectImageUrl(imageUrl, 'thumbnail') || imageUrl;
-        let response = await fetch(thumbnailFallback).catch(() => null);
+        let headers = {};
+        if (match && accessToken) {
+            const fileId = match[0];
+            fetchUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+            headers = { 'Authorization': `Bearer ${accessToken}` };
+        }
+        
+        let response = await fetch(fetchUrl, { headers }).catch(() => null);
+        if (!response || !response.ok) {
+            const thumbnailFallback = getDirectImageUrl(imageUrl, 'thumbnail') || imageUrl;
+            response = await fetch(thumbnailFallback).catch(() => null);
+        }
         if (!response || !response.ok) return imageUrl;
 
         const blob = await response.blob();
@@ -1341,15 +1623,18 @@ async function getBase64ImageFromUrl(imageUrl) {
             reader.readAsDataURL(blob);
         });
     } catch (e) {
+        console.warn("Base64 image embedding fallback failed:", e);
         return imageUrl;
     }
 }
 
+// 🌐 Export Searched HTML with Photos Completely Downloaded & Embedded as Base64
 async function downloadSearchedHTML(data) {
     if(!data || data.length === 0) {
         alert("Export Nullified: No dataset active for export.");
         return;
     }
+
     showLoading("Downloading and embedding photos into standalone report...");
 
     let tableRowsHTML = '';
@@ -1364,6 +1649,7 @@ async function downloadSearchedHTML(data) {
             
             if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration') || tKey.includes('transfer_cert')) {
                 if (val.trim() !== '') {
+                    // Fetch and convert image to Base64 so photos are fully embedded and downloaded
                     const base64Img = await getBase64ImageFromUrl(val);
                     tableRowsHTML += `<td style="text-align: center;"><img src="${base64Img}" style="height: 250px; max-width: 250px; width: auto; object-fit: contain; border: 1px solid #94a3b8; border-radius: 4px; display: block; margin: 0 auto;" /></td>`;
                 } else {
@@ -1371,16 +1657,21 @@ async function downloadSearchedHTML(data) {
                 }
             } else {
                 let styleAttr = "";
-                if (tKey === "description") styleAttr = ' style="width: 200px; min-width: 190px;"';
+                if (tKey === "description") {
+                    styleAttr = ' style="width: 200px; min-width: 190px;"';
+                }
                 tableRowsHTML += `<td${styleAttr}>${escapeHtml(val)}</td>`;
             }
         }
         tableRowsHTML += '</tr>';
     }
+
     hideLoading();
 
     let headersHTML = '';
-    EXPORT_TABLE_CONFIG.forEach(col => headersHTML += `<th>${col.display}</th>`);
+    EXPORT_TABLE_CONFIG.forEach(col => {
+        headersHTML += `<th>${col.display}</th>`;
+    });
 
     const htmlContent = `<!DOCTYPE html>
 <html lang="en">
@@ -1388,20 +1679,76 @@ async function downloadSearchedHTML(data) {
     <meta charset="UTF-8">
     <title>Searched Inventory Report</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; color: #0f172a; background: #ffffff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        h1 { text-align: center; color: #0f172a; text-transform: uppercase; font-size: 24px; margin-bottom: 5px; }
-        .report-meta { text-align: center; font-size: 14px; color: #334155; margin-bottom: 25px; font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
-        th, td { border: 1px solid #64748b; padding: 10px 12px; text-align: left; font-size: 16px; line-height: 1.4; word-break: break-word; color: #0f172a; vertical-align: middle; }
-        th { background-color: #cbd5e1 !important; color: #0f172a; font-weight: bold; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
-        tr:nth-child(even) { background-color: #f8fafc; }
-        @media print { body { margin: 10px; } table { page-break-inside: auto; } tr { page-break-inside: avoid; page-break-after: auto; } th { background-color: #cbd5e1 !important; } }
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            color: #0f172a; 
+            background: #ffffff; 
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        h1 { 
+            text-align: center; 
+            color: #0f172a; 
+            text-transform: uppercase; 
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        .report-meta {
+            text-align: center;
+            font-size: 14px;
+            color: #334155;
+            margin-bottom: 25px;
+            font-weight: bold;
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 10px; 
+            background: white; 
+        }
+        th, td { 
+            border: 1px solid #64748b; 
+            padding: 10px 12px; 
+            text-align: left; 
+            font-size: 16px; 
+            line-height: 1.4;
+            word-break: break-word; 
+            color: #0f172a;
+            vertical-align: middle;
+        }
+        th { 
+            background-color: #cbd5e1 !important; 
+            color: #0f172a;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 0.5px;
+        }
+        tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+        @media print {
+            body { margin: 10px; }
+            table { page-break-inside: auto; }
+            tr { page-break-inside: avoid; page-break-after: auto; }
+            th { background-color: #cbd5e1 !important; }
+        }
     </style>
 </head>
 <body>
     <h1>Real Estate Inventory Report</h1>
-    <div class="report-meta">Exported On: ${new Date().toLocaleString()} &bull; Total Records: ${data.length}</div>
-    <table><thead><tr>${headersHTML}</tr></thead><tbody>${tableRowsHTML}</tbody></table>
+    <div class="report-meta">
+        Exported On: ${new Date().toLocaleString()} &bull; Total Records: ${data.length}
+    </div>
+    <table>
+        <thead>
+            <tr>${headersHTML}</tr>
+        </thead>
+        <tbody>
+            ${tableRowsHTML}
+        </tbody>
+    </table>
 </body>
 </html>`;
 
@@ -1417,19 +1764,35 @@ async function downloadSearchedHTML(data) {
 }
 
 function escapeHtml(str) {
-    return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
+// =========================================================================
+// 🚪 LOGOUT & IDLE TIMEOUT MODULE
+// =========================================================================
 let idleTimer;
-const IDLE_TIME_LIMIT = 30 * 60 * 1000; 
+const IDLE_TIME_LIMIT = 30 * 60 * 1000; // 30 minutes in milliseconds
 
 function performLogout() {
+    // 1. Clear the access token to revoke privileges
+    accessToken = null; 
+    
+    // 2. Transition back to the login screen
     const loginScreen = document.getElementById('loginScreen');
     const mainApp = document.getElementById('mainApp');
+    
     if (loginScreen) loginScreen.style.display = '';
     if (mainApp) mainApp.style.display = 'none';
     
+    // 3. Stop the timer
     clearTimeout(idleTimer);
+    
+    // 4. Force hide all floating elements immediately
     const floatingLogoutBtn = document.getElementById('floatingLogoutBtn');
     if (floatingLogoutBtn) floatingLogoutBtn.style.display = 'none';
 
@@ -1445,37 +1808,63 @@ function performLogout() {
 
 function resetIdleTimer() {
     clearTimeout(idleTimer);
-    if (loggedInUser !== "System User") {
+    // Only run the idle countdown if the user is currently logged in
+    if (accessToken) {
         idleTimer = setTimeout(performLogout, IDLE_TIME_LIMIT);
     }
 }
 
+// Initialize everything once the page loads
 window.addEventListener('DOMContentLoaded', () => {
+    // --- Create the Floating Logout Button ---
     const logoutBtn = document.createElement('button');
     logoutBtn.innerHTML = 'Log Out';
     logoutBtn.id = 'floatingLogoutBtn';
     
+    // Style the button so it floats in the upper right
     Object.assign(logoutBtn.style, {
-        position: 'fixed', top: '20px', right: '20px', backgroundColor: '#dc3545',
-        color: 'white', border: 'none', padding: '10px 20px', borderRadius: '5px',
-        fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
-        zIndex: '999999', display: 'none', transition: 'background-color 0.2s'
+        position: 'fixed',
+        top: '20px',
+        right: '20px',
+        backgroundColor: '#dc3545',
+        color: 'white',
+        border: 'none',
+        padding: '10px 20px',
+        borderRadius: '5px',
+        fontWeight: 'bold',
+        cursor: 'pointer',
+        boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+        zIndex: '999999',
+        display: 'none', // Hidden by default on the login screen
+        transition: 'background-color 0.2s'
     });
 
+    // Add a slight hover effect for better UI
     logoutBtn.onmouseover = () => logoutBtn.style.backgroundColor = '#c82333';
     logoutBtn.onmouseout = () => logoutBtn.style.backgroundColor = '#dc3545';
+    
     logoutBtn.addEventListener('click', performLogout);
     document.body.appendChild(logoutBtn);
 
+    // --- Setup the Idle Activity Trackers ---
+    // Any of these actions will reset the 30-minute timer
     const userActivityEvents = ['mousemove', 'keydown', 'scroll', 'click', 'touchstart'];
-    userActivityEvents.forEach(event => document.addEventListener(event, resetIdleTimer));
+    userActivityEvents.forEach(event => {
+        document.addEventListener(event, resetIdleTimer);
+    });
 
+// --- Monitor Login State ---
+    // Checks every 1 second if the user logged in to display the button, 
+    // ensuring we don't have to alter your existing login functions.
     setInterval(() => {
         const btn = document.getElementById('floatingLogoutBtn');
         const mainApp = document.getElementById('mainApp');
+        
         if (btn) {
+            // Only display if we have an access token AND the main app screen is visible
             const isMainAppVisible = mainApp && mainApp.style.display !== 'none';
-            btn.style.display = (loggedInUser !== "System User" && isMainAppVisible) ? 'block' : 'none';
+            btn.style.display = (accessToken && isMainAppVisible) ? 'block' : 'none';
         }
     }, 1000);
 });
+// =========================================================================
