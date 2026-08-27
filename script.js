@@ -37,9 +37,10 @@ let isAppInitialized = false;
 let modalModified = false;
 let loggedInUser = "System User";
 
-// 🔐 Google Apps Script Authentication State
+// 🔐 GIS Auth Architecture
 let isAuthenticated = false;
 let authWindow = null;
+let authCheckTimer = null;
 const imageCache = {}; // Cache image blobs to avoid repeat fetches
 
 // Modal Photo Gallery State
@@ -199,7 +200,7 @@ function hideLoading() {
 window.addEventListener('scroll', () => {
     const backToTopBtn = document.getElementById('backToTopBtn');
     if (backToTopBtn) {
-        // Show only while the Apps Script authentication session is active
+        // Add isAuthenticated check to ensure it only shows when securely logged in
         if (isAuthenticated && (document.body.scrollTop > 300 || document.documentElement.scrollTop > 300)) {
             backToTopBtn.style.visibility = "visible";
             backToTopBtn.style.opacity = "1";
@@ -210,19 +211,34 @@ window.addEventListener('scroll', () => {
     }
 });
 
-// 🔐 GOOGLE APPS SCRIPT AUTHENTICATION GATEWAY
-// The browser no longer uses Google Identity Services/OAuth.
-function openGoogleAppsScriptAuth() {
+// ================================================================
+// 🔐 GOOGLE APPS SCRIPT AUTHENTICATION
+// ================================================================
+// Browser-side Google OAuth / Google Identity Services has been
+// completely removed. Authentication is performed by the Apps
+// Script Web App in a centered popup.
+// ================================================================
+function getMainAppOrigin() {
+    return window.location.origin;
+}
+
+function openGoogleAuthentication() {
     const loginErr = document.getElementById('loginError');
     if (loginErr) loginErr.textContent = '';
-
-    const authUrl = GOOGLE_APPS_SCRIPT_URL +
-        '?action=auth&parentOrigin=' + encodeURIComponent(window.location.origin);
 
     const width = 520;
     const height = 680;
     const left = Math.max(0, Math.round((window.screen.width - width) / 2));
     const top = Math.max(0, Math.round((window.screen.height - height) / 2));
+
+    const authUrl = GOOGLE_APPS_SCRIPT_URL +
+        '?action=auth&parentOrigin=' +
+        encodeURIComponent(getMainAppOrigin());
+
+    if (authWindow && !authWindow.closed) {
+        authWindow.focus();
+        return;
+    }
 
     authWindow = window.open(
         authUrl,
@@ -231,61 +247,81 @@ function openGoogleAppsScriptAuth() {
     );
 
     if (!authWindow) {
-        if (loginErr) loginErr.textContent = 'Authentication popup was blocked. Please allow popups for this site and try again.';
+        if (loginErr) loginErr.textContent = 'Please allow pop-ups for this website and try again.';
         return;
     }
 
-    try { authWindow.focus(); } catch (e) {}
+    clearInterval(authCheckTimer);
+    authCheckTimer = setInterval(() => {
+        if (!authWindow || authWindow.closed) {
+            clearInterval(authCheckTimer);
+            authCheckTimer = null;
+            authWindow = null;
+        }
+    }, 500);
 }
 
-function handleAuthenticationMessage(event) {
-    // Only accept messages from the exact popup window we opened.
-    if (!authWindow || event.source !== authWindow) return;
-    if (!event.data || event.data.type !== 'GOOGLE_APPS_SCRIPT_AUTH') return;
-
-    const result = event.data;
+function handleGoogleAuthResult(result) {
     const loginErr = document.getElementById('loginError');
 
-    if (result.status === 'AUTHORIZED' && result.email) {
-        isAuthenticated = true;
-        loggedInUser = result.email;
+    if (!result) {
+        if (loginErr) loginErr.textContent = 'Google authentication failed. Please try again.';
+        return;
+    }
 
-        const operatorInput = document.getElementById('custom-operator-input');
-        if (operatorInput) {
-            operatorInput.value = result.email;
-            operatorInput.disabled = true;
-        }
+    if (result.status === 'AUTHORIZED') {
+        isAuthenticated = true;
+        loggedInUser = String(result.email || 'System User').trim();
+
+        if (loginErr) loginErr.textContent = '';
 
         const loginScreen = document.getElementById('loginScreen');
         const mainApp = document.getElementById('mainApp');
         if (loginScreen) loginScreen.style.display = 'none';
         if (mainApp) mainApp.style.display = 'block';
 
-        if (loginErr) loginErr.textContent = '';
+        const operatorInput = document.getElementById('custom-operator-input');
+        if (operatorInput && loggedInUser !== 'System User') {
+            operatorInput.value = loggedInUser;
+            operatorInput.disabled = true;
+        }
+
+        if (authWindow && !authWindow.closed) {
+            try { authWindow.close(); } catch (e) {}
+        }
         authWindow = null;
 
         setupSystemEventHandlers();
-        resetIdleTimer();
         loadInventoryFromGoogleSheets();
+        resetIdleTimer();
         return;
     }
 
     if (result.status === 'UNAUTHORIZED') {
-        // The authentication popup remains open and displays Request Access.
+        isAuthenticated = false;
         if (loginErr) loginErr.textContent = '';
         return;
     }
 
-    if (result.status === 'AUTHENTICATION_ERROR') {
-        if (loginErr) loginErr.textContent = result.message || 'Google authentication failed. Please try again.';
-        return;
-    }
+    isAuthenticated = false;
+    if (loginErr) loginErr.textContent = result.message || 'Google authentication failed. Please try again.';
 }
 
-window.addEventListener('message', handleAuthenticationMessage);
+window.addEventListener('message', (event) => {
+    // The sender is the Apps Script popup, so event.origin is the Apps Script
+    // origin, not the GitHub page origin. Apps Script deployments may use either
+    // script.google.com or script.googleusercontent.com as the popup origin.
+    const allowedAuthOrigins = [
+        'https://script.google.com',
+        'https://script.googleusercontent.com'
+    ];
 
-// 🖱️ DASHBOARD CARD CLICK HANDLERS
-// 🖱️ DASHBOARD CARD CLICK HANDLERS
+    if (!allowedAuthOrigins.includes(event.origin)) return;
+    if (authWindow && event.source !== authWindow) return;
+    if (!event.data || event.data.type !== 'GOOGLE_APPS_SCRIPT_AUTH') return;
+    handleGoogleAuthResult(event.data);
+});
+
 function setupDashboardClickHandlers() {
     
     // 🧹 NEW: Helper function to clear search and dropdowns
@@ -462,7 +498,7 @@ function initApp() {
 
     const loginBtn = document.getElementById('customLoginBtn');
     if (loginBtn) {
-        loginBtn.addEventListener('click', openGoogleAppsScriptAuth);
+        loginBtn.addEventListener('click', openGoogleAuthentication);
     }
 
     const backToTopBtn = document.getElementById('backToTopBtn');
@@ -539,15 +575,18 @@ if (document.readyState === 'loading') {
 async function fetchAuthorizedImage(driveUrl) {
     if (!driveUrl || typeof driveUrl !== 'string') return null;
     const match = driveUrl.match(/[-\w]{25,}/);
-    if (!match) return driveUrl; 
+    if (!match) return driveUrl;
 
     const fileId = match[0];
     if (imageCache[fileId]) return imageCache[fileId];
 
-    // Browser-side OAuth has been removed. Uploaded Drive files are already
-    // configured by the Apps Script upload routine as anyone-with-link.
-    return getDirectImageUrl(driveUrl, 'thumbnail');
+    // Browser-side OAuth tokens are intentionally no longer used.
+    // Use the existing public-thumbnail/direct-URL fallback.
+    const fallbackUrl = getDirectImageUrl(driveUrl, 'thumbnail') || driveUrl;
+    imageCache[fileId] = fallbackUrl;
+    return fallbackUrl;
 }
+
 
 async function loadInventoryFromGoogleSheets(retainPage = false) {
     if (statusBanner) {
@@ -558,7 +597,9 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
     showLoading("Syncing live spreadsheet grid...");
 
     try {
-        const response = await fetch(GOOGLE_SHEET_CSV_URL);
+        const response = await fetch(GOOGLE_SHEET_CSV_URL, {
+            headers: {}
+        });
         
         if (!response.ok) throw new Error("Could not connect to online Sheet feed.");
         const rawCsvText = await response.text(); 
@@ -605,6 +646,194 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
         }
         console.error(err);
 
+        if (isAuthenticated && loggedInUser !== "System User") {
+    const modal = document.getElementById("accessModal");
+    const modalText = document.getElementById("accessModalText");
+    const submitBtn = document.getElementById("submitRequestBtn");
+    const closeBtn = document.getElementById("closeModalBtn");
+    
+    // Grab your existing textarea by its exact ID
+    const noteInput = document.getElementById("requestNotesInput");
+
+    // Ensure the textarea is visible and empty when the modal first opens
+    if (noteInput) {
+        noteInput.style.display = "block";
+        noteInput.value = "";
+    }
+
+    // Keep your dynamic text structure
+    modalText.innerHTML = "Your Gmail account (<b>" + loggedInUser + "</b>) does not have permission to view the Google Sheet.<br><br>Would you like to send an access request?";
+    modal.style.display = "flex";
+
+   submitBtn.onclick = function() {
+        // 1. Capture the note value
+        let noteValue = "No note provided";
+        if (noteInput) {
+            noteValue = noteInput.value.trim() || "No note provided";
+            noteInput.value = ""; // Reset input in the background for next time
+        }
+
+        // 2. Target the entire modal content area or update both title and text together
+        const modalHeader = document.querySelector('.access-modal-header') || modalText.parentElement;
+        
+        // Update the content to show the clean success state with your phone number text
+        modalText.innerHTML = `
+            <div style="text-align: center;">
+                <h3 style="margin-top:0; margin-bottom: 12px; color: #155724; font-size: 22px;">✅ Request Access Sent</h3>
+                <p style="margin:0; line-height: 1.6; font-size: 15px; color: #333;">
+                    Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.
+                </p>
+            </div>
+        `;
+        
+        // 3. Hide the text area input
+        if (noteInput) {
+            noteInput.style.display = "none";
+        }
+
+        // 4. Update buttons: Hide 'Submit', change 'Cancel' to a green 'OK' button
+        submitBtn.style.display = "none";
+        closeBtn.textContent = "OK";
+        closeBtn.style.background = "#28a745"; 
+        closeBtn.style.color = "white";
+
+        // 5. Prepare the URL for Apps Script
+        const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&name=" + encodeURIComponent(loggedInUser) + "&notes=" + encodeURIComponent(noteValue);
+
+        // 6. Create a hidden iframe to silently trigger the Apps Script
+        let iframe = document.createElement("iframe");
+        iframe.style.display = "none";
+        iframe.src = requestUrl;
+        document.body.appendChild(iframe);
+
+        // 7. Clean up the iframe silently in the background after 2 seconds
+        setTimeout(function() {
+            if (document.body.contains(iframe)) {
+                document.body.removeChild(iframe);
+            }
+        }, 2000);
+    };
+
+    closeBtn.onclick = function() {
+        modal.style.display = "none";
+        
+        // Reset modal back to original prompt state when closed
+        setTimeout(() => {
+            // 2. Change the modal content to the "Success" window instead of closing it
+        modalText.innerHTML = "<h3 style='margin-top:0; margin-bottom: 10px; color: #155724;'>✅ Request Access Sent</h3><p style='margin:0; line-height: 1.5;'>Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.</p>";
+            submitBtn.style.display = "inline-block";
+            closeBtn.textContent = "Cancel";
+            closeBtn.style.background = "#6c757d";
+            
+            // Reset the textarea for the next time the modal is used
+            if (noteInput) {
+                noteInput.value = "";
+                noteInput.style.display = "block";
+            }
+        }, 300);
+    };
+} else {
+            alert("Connection failed or you have been logged out from Google. Please log in again.");
+        }
+
+        performLogout();
+    }
+}
+
+function initializeSystemUI(retainPage = false) {
+    if (statusBanner) {
+        statusBanner.style.backgroundColor = "#d4edda";
+        statusBanner.style.color = "#155724";
+        statusBanner.innerHTML = `<span class="live-animated-text">✅ Connected to Google Sheets: Live View Active.</span>`;
+    }
+
+    if (searchInput) searchInput.disabled = false;
+    if (searchButton) searchButton.disabled = false;
+    if (exportButton) exportButton.disabled = false;
+    if (exportFilteredButton) exportFilteredButton.disabled = false;
+    if (remarksFilter) remarksFilter.disabled = false;
+    if (typeFilter) typeFilter.disabled = false;
+    if (photoFilter) photoFilter.disabled = false;
+    if (searchInput) searchInput.placeholder = "Type keywords...";
+
+    populateDropdown('remarks', remarksFilter, '-- All Remarks --');
+    populateDropdown('type', typeFilter, '-- All Types --');
+    renderHeaders(displayHeaders);
+    calculateStaticDashboardTotals(inventoryData);
+	setupDashboardClickHandlers();
+
+    if (!isAppInitialized) {
+        currentFilteredData = []; 
+        if(tableBody) {
+            tableBody.innerHTML = `<tr><td colspan="${displayHeaders.length}" class="no-data">Data loaded successfully. Apply a filter or search to view records.</td></tr>`;
+        }
+        if (foundCountDisplay) {
+            foundCountDisplay.textContent = `(0 items displayed)`;
+        }
+        updatePaginationUI(0);
+        isAppInitialized = true;
+    } else {
+        executeSearch(!retainPage);
+    }
+}
+
+function populateDropdown(type, selectEl, placeholderText) {
+    // ... [Rest of your code continues normally]
+    if(!selectEl) return;
+    const previousSelection = selectEl.value;
+    selectEl.innerHTML = `<option value="ALL">${placeholderText}</option>`;
+    const sheetKey = headerMapping[type];
+    if(!sheetKey) return;
+    
+    let elements = new Set();
+    inventoryData.forEach(row => {
+        const val = String(row[sheetKey] || '').trim();
+        if(val) elements.add(val);
+    });
+    
+    const sorted = Array.from(elements).sort();
+    if(type === 'remarks') parsedUniqueRemarks = sorted;
+    
+    sorted.forEach(val => {
+        const opt = document.createElement('option');
+        opt.value = val; opt.textContent = val;
+        selectEl.appendChild(opt);
+    });
+
+    if(previousSelection && Array.from(selectEl.options).some(opt => opt.value === previousSelection)) {
+        selectEl.value = previousSelection;
+    }
+}
+
+function renderHeaders(headers) {
+    if(!tableHeaderRow) return; tableHeaderRow.innerHTML = '';
+    headers.forEach(h => {
+        const th = document.createElement('th');
+        th.textContent = h;
+        tableHeaderRow.appendChild(th);
+    });
+}
+
+function getDirectImageUrl(driveLink, requestType = 'view') {
+    if (!driveLink || typeof driveLink !== 'string') return null;
+    const match = driveLink.match(/[-\w]{25,}/); 
+    if (match) {
+        if (requestType === 'thumbnail') {
+            return `https://drive.google.com/thumbnail?id=${match[0]}&sz=w1600`;
+        }
+        return `https://lh3.googleusercontent.com/d/${match[0]}`;
+    }
+    return null;
+}
+
+function updatePaginationUI(totalPages) {
+    if (totalPages <= 1) {
+        if (paginationContainer) paginationContainer.style.display = 'none';
+    } else {
+        if (paginationContainer) paginationContainer.style.display = 'flex';
+        if (pageIndicator) pageIndicator.textContent = `Page ${currentPage} of ${totalPages}`;
+        if (prevPageBtn) prevPageBtn.disabled = currentPage === 1;
+        if (nextPageBtn) nextPageBtn.disabled = currentPage === totalPages;
     }
 }
 
@@ -1361,9 +1590,11 @@ function downloadDatasetCSV(data, filenamePrefix) {
 async function getBase64ImageFromUrl(imageUrl) {
     if (!imageUrl) return '';
     try {
-        // Browser-side OAuth has been removed. Use the existing public/link
-        // image URL and the thumbnail fallback already used by the app.
-        let response = await fetch(imageUrl).catch(() => null);
+        const match = imageUrl.match(/[-\w]{25,}/);
+        let fetchUrl = imageUrl;
+        let headers = {};
+        
+        let response = await fetch(fetchUrl, { headers }).catch(() => null);
         if (!response || !response.ok) {
             const thumbnailFallback = getDirectImageUrl(imageUrl, 'thumbnail') || imageUrl;
             response = await fetch(thumbnailFallback).catch(() => null);
@@ -1535,8 +1766,7 @@ const IDLE_TIME_LIMIT = 30 * 60 * 1000; // 30 minutes in milliseconds
 
 function performLogout() {
     // 1. Clear the access token to revoke privileges
-    isAuthenticated = false;
-    loggedInUser = "System User"; 
+    isAuthenticated = false; 
     
     // 2. Transition back to the login screen
     const loginScreen = document.getElementById('loginScreen');
@@ -1617,7 +1847,7 @@ window.addEventListener('DOMContentLoaded', () => {
         const mainApp = document.getElementById('mainApp');
         
         if (btn) {
-            // Only display while authenticated and the main app is visible
+            // Only display if we have an access token AND the main app screen is visible
             const isMainAppVisible = mainApp && mainApp.style.display !== 'none';
             btn.style.display = (isAuthenticated && isMainAppVisible) ? 'block' : 'none';
         }
