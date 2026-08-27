@@ -38,9 +38,8 @@ let modalModified = false;
 let loggedInUser = "System User";
 
 // 🔐 GIS Auth Architecture
-let isAuthenticated = false;
-let authWindow = null;
-let authCheckTimer = null;
+let tokenClient;
+let accessToken = null;
 const imageCache = {}; // Cache image blobs to avoid repeat fetches
 
 // Modal Photo Gallery State
@@ -200,8 +199,8 @@ function hideLoading() {
 window.addEventListener('scroll', () => {
     const backToTopBtn = document.getElementById('backToTopBtn');
     if (backToTopBtn) {
-        // Add isAuthenticated check to ensure it only shows when securely logged in
-        if (isAuthenticated && (document.body.scrollTop > 300 || document.documentElement.scrollTop > 300)) {
+        // Add accessToken check to ensure it only shows when securely logged in
+        if (accessToken && (document.body.scrollTop > 300 || document.documentElement.scrollTop > 300)) {
             backToTopBtn.style.visibility = "visible";
             backToTopBtn.style.opacity = "1";
         } else {
@@ -211,585 +210,49 @@ window.addEventListener('scroll', () => {
     }
 });
 
-// ================================================================
-// 🔐 GOOGLE APPS SCRIPT AUTHENTICATION
-// ================================================================
-// Authentication is handled by the Apps Script popup.
-// The popup sends the authenticated Google account back
-// to this GitHub page using window.postMessage().
-// ================================================================
+// 🔐 SECURE INITIALIZER & GOOGLE IDENTITY TOKEN INTEGRATION (ROBUST 1-CLICK FIX)
+function getOrCreateTokenClient() {
+    if (!tokenClient && window.google && google.accounts && google.accounts.oauth2) {
+        tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: '84591548482-rfv15nf99g7nsdtlr3i57ms0fuln28s3.apps.googleusercontent.com',
+            scope: 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
+            callback: (tokenResponse) => {
+                if (tokenResponse && tokenResponse.access_token) {
+                    accessToken = tokenResponse.access_token;
+                    
+                   fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                        headers: { 'Authorization': `Bearer ${accessToken}` }
+                    })
+                    .then(res => res.json())
+                    .then(profile => {
+                        if (profile.email) {
+                            loggedInUser = profile.email; // <--- ADDED: Saves email globally
+                        }
+                        const operatorInput = document.getElementById('custom-operator-input');
+                        if (operatorInput && profile.email) {
+                            operatorInput.value = profile.email;
+                            operatorInput.disabled = true;
+                        }
+                    }).catch(console.error);
 
-function getMainAppOrigin() {
-
-    /*
-     * GitHub Pages origin.
-     *
-     * Example:
-     * https://username.github.io
-     */
-
-    return window.location.origin;
-
-}
-
-
-// ================================================================
-// OPEN GOOGLE AUTHENTICATION POPUP
-// ================================================================
-
-function openGoogleAuthentication() {
-
-    const loginErr =
-        document.getElementById('loginError');
-
-
-    if (loginErr) {
-        loginErr.textContent = '';
-    }
-
-
-    const width = 520;
-    const height = 680;
-
-
-    const left =
-        Math.max(
-            0,
-            Math.round(
-                (window.screen.width - width) / 2
-            )
-        );
-
-
-    const top =
-        Math.max(
-            0,
-            Math.round(
-                (window.screen.height - height) / 2
-            )
-        );
-
-
-    const parentOrigin =
-        getMainAppOrigin();
-
-
-    const authUrl =
-        GOOGLE_APPS_SCRIPT_URL +
-        '?action=auth&parentOrigin=' +
-        encodeURIComponent(
-            parentOrigin
-        );
-
-
-    /*
-     * If an authentication popup is already open,
-     * bring it to the front instead of opening another.
-     */
-
-    if (
-        authWindow &&
-        !authWindow.closed
-    ) {
-
-        authWindow.focus();
-
-        return;
-
-    }
-
-
-    authWindow =
-        window.open(
-            authUrl,
-            'GoogleAppsScriptAuthentication',
-            [
-                `width=${width}`,
-                `height=${height}`,
-                `left=${left}`,
-                `top=${top}`,
-                'resizable=yes',
-                'scrollbars=yes'
-            ].join(',')
-        );
-
-
-    if (!authWindow) {
-
-        if (loginErr) {
-
-            loginErr.textContent =
-                'Please allow pop-ups for this website and try again.';
-
-        }
-
-        return;
-
-    }
-
-
-    /*
-     * Monitor popup.
-     */
-
-    clearInterval(
-        authCheckTimer
-    );
-
-
-    authCheckTimer =
-        setInterval(
-            function() {
-
-                if (
-                    !authWindow ||
-                    authWindow.closed
-                ) {
-
-                    clearInterval(
-                        authCheckTimer
-                    );
-
-
-                    authCheckTimer =
-                        null;
-
-
-                    authWindow =
-                        null;
-
+                    const loginScreen = document.getElementById('loginScreen');
+                    const mainApp = document.getElementById('mainApp');
+                    if (loginScreen) loginScreen.style.display = 'none';
+                    if (mainApp) mainApp.style.display = 'block';
+                    
+                    setupSystemEventHandlers();
+                    loadInventoryFromGoogleSheets();
+                } else {
+                    const loginErr = document.getElementById('loginError');
+                    if (loginErr) loginErr.textContent = 'Google Sign-In authorization failed.';
                 }
-
-            },
-            500
-        );
-
-}
-
-
-// ================================================================
-// HANDLE AUTHENTICATION RESULT
-// ================================================================
-
-function handleGoogleAuthResult(result) {
-
-    const loginErr =
-        document.getElementById(
-            'loginError'
-        );
-
-
-    console.log(
-        'Google Apps Script authentication result:',
-        result
-    );
-
-
-    if (!result) {
-
-        if (loginErr) {
-
-            loginErr.textContent =
-                'Google authentication failed. Please try again.';
-
-        }
-
-        return;
-
-    }
-
-
-    // ============================================================
-    // AUTHORIZED
-    // ============================================================
-
-    if (
-        result.status ===
-        'AUTHORIZED'
-    ) {
-
-        console.log(
-            'Authentication successful:',
-            result.email
-        );
-
-
-        isAuthenticated =
-            true;
-
-
-        loggedInUser =
-            String(
-                result.email ||
-                'System User'
-            ).trim();
-
-
-        if (loginErr) {
-
-            loginErr.textContent =
-                '';
-
-        }
-
-
-        /*
-         * --------------------------------------------------------
-         * IMPORTANT FIX
-         * --------------------------------------------------------
-         *
-         * Do not rely only on style.display.
-         *
-         * Some versions of the HTML/CSS may contain
-         * display:none !important.
-         *
-         * We therefore remove inline hiding and explicitly
-         * force the application to become visible.
-         */
-
-        const loginScreen =
-            document.getElementById(
-                'loginScreen'
-            );
-
-
-        const mainApp =
-            document.getElementById(
-                'mainApp'
-            );
-
-
-        if (loginScreen) {
-
-            loginScreen.style.setProperty(
-                'display',
-                'none',
-                'important'
-            );
-
-        }
-
-
-        if (mainApp) {
-
-            mainApp.style.setProperty(
-                'display',
-                'block',
-                'important'
-            );
-
-
-            mainApp.style.setProperty(
-                'visibility',
-                'visible',
-                'important'
-            );
-
-
-            mainApp.style.setProperty(
-                'opacity',
-                '1',
-                'important'
-            );
-
-        }
-
-
-        /*
-         * --------------------------------------------------------
-         * Operator name
-         * --------------------------------------------------------
-         */
-
-        const operatorInput =
-            document.getElementById(
-                'custom-operator-input'
-            );
-
-
-        if (
-            operatorInput &&
-            loggedInUser !==
-            'System User'
-        ) {
-
-            operatorInput.value =
-                loggedInUser;
-
-
-            operatorInput.disabled =
-                true;
-
-        }
-
-
-        /*
-         * --------------------------------------------------------
-         * Close authentication popup
-         * --------------------------------------------------------
-         */
-
-        if (
-            authWindow &&
-            !authWindow.closed
-        ) {
-
-            try {
-
-                authWindow.close();
-
-            } catch (error) {
-
-                console.warn(
-                    'Could not close authentication popup:',
-                    error
-                );
-
             }
-
-        }
-
-
-        authWindow =
-            null;
-
-
-        clearInterval(
-            authCheckTimer
-        );
-
-
-        authCheckTimer =
-            null;
-
-
-        /*
-         * --------------------------------------------------------
-         * Initialize the application
-         * --------------------------------------------------------
-         */
-
-        try {
-
-            setupSystemEventHandlers();
-
-        } catch (error) {
-
-            console.error(
-                'setupSystemEventHandlers error:',
-                error
-            );
-
-        }
-
-
-        /*
-         * Load Google Sheets data.
-         */
-
-        try {
-
-            loadInventoryFromGoogleSheets();
-
-        } catch (error) {
-
-            console.error(
-                'loadInventoryFromGoogleSheets error:',
-                error
-            );
-
-        }
-
-
-        /*
-         * Start idle timeout.
-         */
-
-        resetIdleTimer();
-
-
-        /*
-         * Make sure the browser is positioned at
-         * the beginning of the application.
-         */
-
-        window.scrollTo({
-            top: 0,
-            behavior: 'smooth'
         });
-
-
-        return;
-
     }
-
-
-    // ============================================================
-    // UNAUTHORIZED
-    // ============================================================
-
-    if (
-        result.status ===
-        'UNAUTHORIZED'
-    ) {
-
-        console.log(
-            'Google account is not authorized:',
-            result.email
-        );
-
-
-        isAuthenticated =
-            false;
-
-
-        if (loginErr) {
-
-            loginErr.textContent =
-                '';
-
-        }
-
-
-        /*
-         * Do not close the authentication popup.
-         *
-         * The Apps Script popup will display
-         * the Request Access interface.
-         */
-
-        return;
-
-    }
-
-
-    // ============================================================
-    // AUTHENTICATION ERROR
-    // ============================================================
-
-    isAuthenticated =
-        false;
-
-
-    if (loginErr) {
-
-        loginErr.textContent =
-            result.message ||
-            'Google authentication failed. Please try again.';
-
-    }
-
-
-    console.error(
-        'Authentication error:',
-        result
-    );
-
+    return tokenClient;
 }
-
-
-// ================================================================
-// RECEIVE MESSAGE FROM APPS SCRIPT POPUP
-// ================================================================
-
-window.addEventListener(
-    'message',
-    function(event) {
-
-        console.log(
-            'Message received from popup:',
-            event.origin,
-            event.data
-        );
-
-
-        /*
-         * --------------------------------------------------------
-         * SECURITY CHECK
-         * --------------------------------------------------------
-         *
-         * Apps Script may use either:
-         *
-         * https://script.google.com
-         *
-         * or
-         *
-         * https://script.googleusercontent.com
-         *
-         */
-
-        const allowedAuthOrigins = [
-
-            'https://script.google.com',
-
-            'https://script.googleusercontent.com'
-
-        ];
-
-
-        /*
-         * Ignore unrelated messages.
-         */
-
-        if (
-            !event.data ||
-            event.data.type !==
-                'GOOGLE_APPS_SCRIPT_AUTH'
-        ) {
-
-            return;
-
-        }
-
-
-        /*
-         * Ignore messages from unrelated origins.
-         */
-
-        if (
-            !allowedAuthOrigins.includes(
-                event.origin
-            )
-        ) {
-
-            console.warn(
-                'Ignored authentication message from:',
-                event.origin
-            );
-
-            return;
-
-        }
-
-
-        /*
-         * --------------------------------------------------------
-         * IMPORTANT FIX
-         * --------------------------------------------------------
-         *
-         * Do NOT require:
-         *
-         * event.source === authWindow
-         *
-         * Apps Script may navigate/redirect the popup during
-         * authentication and browsers can expose the WindowProxy
-         * differently after navigation.
-         *
-         * The message type + trusted Apps Script origin are
-         * sufficient for this authentication channel.
-         */
-
-
-        handleGoogleAuthResult(
-            event.data
-        );
-
-    },
-    false
-);
-
-
-
+// 🖱️ DASHBOARD CARD CLICK HANDLERS
+// 🖱️ DASHBOARD CARD CLICK HANDLERS
 function setupDashboardClickHandlers() {
     
     // 🧹 NEW: Helper function to clear search and dropdowns
@@ -964,9 +427,33 @@ const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card')
 function initApp() {
     initUIReferences();
 
+    // Try initializing immediately if the script is already loaded
+    getOrCreateTokenClient();
+
     const loginBtn = document.getElementById('customLoginBtn');
     if (loginBtn) {
-        loginBtn.addEventListener('click', openGoogleAuthentication);
+        loginBtn.addEventListener('click', () => {
+            let client = getOrCreateTokenClient();
+            if (client) {
+                const loginErr = document.getElementById('loginError');
+                if (loginErr) loginErr.textContent = '';
+                client.requestAccessToken();
+            } else {
+                // Fallback: If Google GSI script is still loading, retry after 500ms automatically
+                const loginErr = document.getElementById('loginError');
+                if (loginErr) loginErr.textContent = 'Connecting to Google Sign-In, please wait...';
+                
+                setTimeout(() => {
+                    client = getOrCreateTokenClient();
+                    if (client) {
+                        if (loginErr) loginErr.textContent = '';
+                        client.requestAccessToken();
+                    } else {
+                        if (loginErr) loginErr.textContent = 'Google Sign-In failed to load. Please check your network connection or refresh.';
+                    }
+                }, 600);
+            }
+        });
     }
 
     const backToTopBtn = document.getElementById('backToTopBtn');
@@ -1043,18 +530,30 @@ if (document.readyState === 'loading') {
 async function fetchAuthorizedImage(driveUrl) {
     if (!driveUrl || typeof driveUrl !== 'string') return null;
     const match = driveUrl.match(/[-\w]{25,}/);
-    if (!match) return driveUrl;
+    if (!match) return driveUrl; 
 
     const fileId = match[0];
     if (imageCache[fileId]) return imageCache[fileId];
 
-    // Browser-side OAuth tokens are intentionally no longer used.
-    // Use the existing public-thumbnail/direct-URL fallback.
-    const fallbackUrl = getDirectImageUrl(driveUrl, 'thumbnail') || driveUrl;
-    imageCache[fileId] = fallbackUrl;
-    return fallbackUrl;
-}
+    if (!accessToken) return getDirectImageUrl(driveUrl, 'thumbnail'); 
 
+    try {
+        const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`
+            }
+        });
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+        
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        imageCache[fileId] = objectUrl; 
+        return objectUrl;
+    } catch (e) {
+        console.warn("Failed to fetch image securely, falling back to thumbnail", e);
+        return getDirectImageUrl(driveUrl, 'thumbnail');
+    }
+}
 
 async function loadInventoryFromGoogleSheets(retainPage = false) {
     if (statusBanner) {
@@ -1066,7 +565,9 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
 
     try {
         const response = await fetch(GOOGLE_SHEET_CSV_URL, {
-            headers: {}
+            headers: accessToken ? {
+                'Authorization': `Bearer ${accessToken}`
+            } : {}
         });
         
         if (!response.ok) throw new Error("Could not connect to online Sheet feed.");
@@ -1076,178 +577,131 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
             header: true,
             skipEmptyLines: true,
             complete: function(results) {
-                // 🛠️ FIX: Added a safety net inside the callback to prevent silent freezes
-                try {
-                    if (results.data && results.data.length > 0) {
-                        rawHeaders = Object.keys(results.data[0]);
-                        headerMapping = {};
-                        
-                        targetHeadersLowercase.forEach(target => {
-                            const actualKey = rawHeaders.find(h => {
-                                const normH = h.toLowerCase().trim();
-                                const normT = target.toLowerCase().trim();
-                                
-                                if (normT === 'transfer_cert1' && (normH.includes('transfer') && normH.includes('1'))) return true;
-                                if (normT === 'transfer_cert2' && (normH.includes('transfer') && normH.includes('2'))) return true;
-                                if (normT === 'article/item' && (normH.includes('article') || normH.includes('tct') || normH.includes('item'))) return true;
-                                
-                                return normH.includes(normT) || normT.includes(normH);
-                            });
-                            headerMapping[target] = actualKey || target; 
+                if (results.data && results.data.length > 0) {
+                    rawHeaders = Object.keys(results.data[0]);
+                    headerMapping = {};
+                    
+                    targetHeadersLowercase.forEach(target => {
+                        const actualKey = rawHeaders.find(h => {
+                            const normH = h.toLowerCase().trim();
+                            const normT = target.toLowerCase().trim();
+                            
+                            if (normT === 'transfer_cert1' && (normH.includes('transfer') && normH.includes('1'))) return true;
+                            if (normT === 'transfer_cert2' && (normH.includes('transfer') && normH.includes('2'))) return true;
+                            if (normT === 'article/item' && (normH.includes('article') || normH.includes('tct') || normH.includes('item'))) return true;
+                            
+                            return normH.includes(normT) || normT.includes(normH);
                         });
-                        
-                        inventoryData = results.data.map((row, idx) => {
-                            row._rowId = idx;
-                            return row;
-                        });
-                        initializeSystemUI(retainPage);
-                    } else {
-                        throw new Error("Target dataset sheet contains no metrics.");
-                    }
-                    hideLoading();
-
-                } catch (innerError) {
-                    // 🛠️ FIX: If anything crashes here, hide the loading screen and show the error!
-                    hideLoading();
-                    alert("App Error during startup: " + innerError.message);
+                        headerMapping[target] = actualKey || target; 
+                    });
+                    
+                    inventoryData = results.data.map((row, idx) => {
+                        row._rowId = idx;
+                        return row;
+                    });
+                    initializeSystemUI(retainPage);
+                } else {
+                    throw new Error("Target dataset sheet contains no metrics.");
                 }
+                hideLoading();
             }
         });
-    } catch (err) {
-
+} catch (err) {
         hideLoading();
-
-        console.error(
-            "Google Sheets loading error:",
-            err
-        );
-
-
         if (statusBanner) {
+            statusBanner.style.backgroundColor = "#f8d7da";
+            statusBanner.style.color = "#721c24";
+            statusBanner.textContent = "Connection Error: Check Sheet spreadsheet access permission configuration.";
+        }
+        console.error(err);
 
-            statusBanner.style.backgroundColor =
-                "#f8d7da";
+        if (accessToken && loggedInUser !== "System User") {
+    const modal = document.getElementById("accessModal");
+    const modalText = document.getElementById("accessModalText");
+    const submitBtn = document.getElementById("submitRequestBtn");
+    const closeBtn = document.getElementById("closeModalBtn");
+    
+    // Grab your existing textarea by its exact ID
+    const noteInput = document.getElementById("requestNotesInput");
 
-            statusBanner.style.color =
-                "#721c24";
+    // Ensure the textarea is visible and empty when the modal first opens
+    if (noteInput) {
+        noteInput.style.display = "block";
+        noteInput.value = "";
+    }
 
-            statusBanner.textContent =
-                "Connection Error: Unable to load Google Sheets data.";
+    // Keep your dynamic text structure
+    modalText.innerHTML = "Your Gmail account (<b>" + loggedInUser + "</b>) does not have permission to view the Google Sheet.<br><br>Would you like to send an access request?";
+    modal.style.display = "flex";
 
+   submitBtn.onclick = function() {
+        // 1. Capture the note value
+        let noteValue = "No note provided";
+        if (noteInput) {
+            noteValue = noteInput.value.trim() || "No note provided";
+            noteInput.value = ""; // Reset input in the background for next time
         }
 
+        // 2. Target the entire modal content area or update both title and text together
+        const modalHeader = document.querySelector('.access-modal-header') || modalText.parentElement;
+        
+        // Update the content to show the clean success state with your phone number text
+        modalText.innerHTML = `
+            <div style="text-align: center;">
+                <h3 style="margin-top:0; margin-bottom: 12px; color: #155724; font-size: 22px;">✅ Request Access Sent</h3>
+                <p style="margin:0; line-height: 1.6; font-size: 15px; color: #333;">
+                    Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.
+                </p>
+            </div>
+        `;
+        
+        // 3. Hide the text area input
+        if (noteInput) {
+            noteInput.style.display = "none";
+        }
 
-        /*
-         * IMPORTANT:
-         *
-         * Do NOT call performLogout() here.
-         *
-         * Authentication and spreadsheet loading are
-         * separate operations.
-         */
+        // 4. Update buttons: Hide 'Submit', change 'Cancel' to a green 'OK' button
+        submitBtn.style.display = "none";
+        closeBtn.textContent = "OK";
+        closeBtn.style.background = "#28a745"; 
+        closeBtn.style.color = "white";
 
+        // 5. Prepare the URL for Apps Script
+        const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&name=" + encodeURIComponent(loggedInUser) + "&notes=" + encodeURIComponent(noteValue);
 
-        if (
-            isAuthenticated &&
-            loggedInUser !== "System User"
-        ) {
+        // 6. Create a hidden iframe to silently trigger the Apps Script
+        let iframe = document.createElement("iframe");
+        iframe.style.display = "none";
+        iframe.src = requestUrl;
+        document.body.appendChild(iframe);
 
-            const modal =
-                document.getElementById(
-                    "accessModal"
-                );
+        // 7. Clean up the iframe silently in the background after 2 seconds
+        setTimeout(function() {
+            if (document.body.contains(iframe)) {
+                document.body.removeChild(iframe);
+            }
+        }, 2000);
+    };
 
-
-            const modalText =
-                document.getElementById(
-                    "accessModalText"
-                );
-
-
-            if (
-                modal &&
-                modalText
-            ) {
-
-                modalText.innerHTML =
-                    "Google authentication was successful, " +
-                    "but the application could not load the " +
-                    "Google Sheets data.<br><br>" +
-                    "Please check the spreadsheet connection " +
-                    "and try again.";
-
-                modal.style.display =
-                    "flex";
-
-                submitBtn.onclick = function() {
-                    // 1. Capture the note value
-                    let noteValue = "No note provided";
-                    if (noteInput) {
-                        noteValue = noteInput.value.trim() || "No note provided";
-                        noteInput.value = ""; // Reset input in the background for next time
-                    }
-
-                    // 2. Target the entire modal content area or update both title and text together
-                    const modalHeader = document.querySelector('.access-modal-header') || modalText.parentElement;
-                    
-                    // Update the content to show the clean success state with your phone number text
-                    modalText.innerHTML = `
-                        <div style="text-align: center;">
-                            <h3 style="margin-top:0; margin-bottom: 12px; color: #155724; font-size: 22px;">✅ Request Access Sent</h3>
-                            <p style="margin:0; line-height: 1.6; font-size: 15px; color: #333;">
-                                Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.
-                            </p>
-                        </div>
-                    `;
-                    
-                    // 3. Hide the text area input
-                    if (noteInput) {
-                        noteInput.style.display = "none";
-                    }
-
-                    // 4. Update buttons: Hide 'Submit', change 'Cancel' to a green 'OK' button
-                    submitBtn.style.display = "none";
-                    closeBtn.textContent = "OK";
-                    closeBtn.style.background = "#28a745"; 
-                    closeBtn.style.color = "white";
-
-                    // 5. Prepare the URL for Apps Script
-                    const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&name=" + encodeURIComponent(loggedInUser) + "&notes=" + encodeURIComponent(noteValue);
-
-                    // 6. Create a hidden iframe to silently trigger the Apps Script
-                    let iframe = document.createElement("iframe");
-                    iframe.style.display = "none";
-                    iframe.src = requestUrl;
-                    document.body.appendChild(iframe);
-
-                    // 7. Clean up the iframe silently in the background after 2 seconds
-                    setTimeout(function() {
-                        if (document.body.contains(iframe)) {
-                            document.body.removeChild(iframe);
-                        }
-                    }, 2000);
-                };
-
-                closeBtn.onclick = function() {
-                    modal.style.display = "none";
-                    
-                    // Reset modal back to original prompt state when closed
-                    setTimeout(() => {
-                        // 2. Change the modal content to the "Success" window instead of closing it
-                        modalText.innerHTML = "<h3 style='margin-top:0; margin-bottom: 10px; color: #155724;'>✅ Request Access Sent</h3><p style='margin:0; line-height: 1.5;'>Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.</p>";
-                        submitBtn.style.display = "inline-block";
-                        closeBtn.textContent = "Cancel";
-                        closeBtn.style.background = "#6c757d";
-                        
-                        // Reset the textarea for the next time the modal is used
-                        if (noteInput) {
-                            noteInput.value = "";
-                            noteInput.style.display = "block";
-                        }
-                    }, 300);
-                };
-            } // <--- 🛠️ FIX: This closing brace was missing!
-        } else {
+    closeBtn.onclick = function() {
+        modal.style.display = "none";
+        
+        // Reset modal back to original prompt state when closed
+        setTimeout(() => {
+            // 2. Change the modal content to the "Success" window instead of closing it
+        modalText.innerHTML = "<h3 style='margin-top:0; margin-bottom: 10px; color: #155724;'>✅ Request Access Sent</h3><p style='margin:0; line-height: 1.5;'>Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.</p>";
+            submitBtn.style.display = "inline-block";
+            closeBtn.textContent = "Cancel";
+            closeBtn.style.background = "#6c757d";
+            
+            // Reset the textarea for the next time the modal is used
+            if (noteInput) {
+                noteInput.value = "";
+                noteInput.style.display = "block";
+            }
+        }, 300);
+    };
+} else {
             alert("Connection failed or you have been logged out from Google. Please log in again.");
         }
 
@@ -2108,6 +1562,11 @@ async function getBase64ImageFromUrl(imageUrl) {
         const match = imageUrl.match(/[-\w]{25,}/);
         let fetchUrl = imageUrl;
         let headers = {};
+        if (match && accessToken) {
+            const fileId = match[0];
+            fetchUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+            headers = { 'Authorization': `Bearer ${accessToken}` };
+        }
         
         let response = await fetch(fetchUrl, { headers }).catch(() => null);
         if (!response || !response.ok) {
@@ -2281,7 +1740,7 @@ const IDLE_TIME_LIMIT = 30 * 60 * 1000; // 30 minutes in milliseconds
 
 function performLogout() {
     // 1. Clear the access token to revoke privileges
-    isAuthenticated = false; 
+    accessToken = null; 
     
     // 2. Transition back to the login screen
     const loginScreen = document.getElementById('loginScreen');
@@ -2310,7 +1769,7 @@ function performLogout() {
 function resetIdleTimer() {
     clearTimeout(idleTimer);
     // Only run the idle countdown if the user is currently logged in
-    if (isAuthenticated) {
+    if (accessToken) {
         idleTimer = setTimeout(performLogout, IDLE_TIME_LIMIT);
     }
 }
@@ -2364,7 +1823,7 @@ window.addEventListener('DOMContentLoaded', () => {
         if (btn) {
             // Only display if we have an access token AND the main app screen is visible
             const isMainAppVisible = mainApp && mainApp.style.display !== 'none';
-            btn.style.display = (isAuthenticated && isMainAppVisible) ? 'block' : 'none';
+            btn.style.display = (accessToken && isMainAppVisible) ? 'block' : 'none';
         }
     }, 1000);
 });
