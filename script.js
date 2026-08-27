@@ -666,20 +666,11 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
         closeBtn.style.background = "#28a745"; 
         closeBtn.style.color = "white";
 
-     // 5. Prepare parameters for Apps Script POST request
-        const params = new URLSearchParams();
-        params.append('action', 'requestAccess');
-        params.append('email', loggedInUser);
-        params.append('name', loggedInUser);
-        params.append('notes', noteValue);
+        // 5. Prepare the URL for Apps Script
+        const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&name=" + encodeURIComponent(loggedInUser) + "&notes=" + encodeURIComponent(noteValue);
 
-        // 6. Send via POST fetch with no-cors (matching the app's backend architecture)
-        fetch(GOOGLE_APPS_SCRIPT_URL, {
-            method: 'POST',
-            body: params.toString(),
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            mode: 'no-cors'
-        }).catch(console.error);
+      // 6. Trigger the request silently using fetch (bypasses iframe blocks)
+        fetch(requestUrl, { method: 'GET', mode: 'no-cors' }).catch(err => console.error("Access request silent failure:", err));
     };
 
     closeBtn.onclick = function() {
