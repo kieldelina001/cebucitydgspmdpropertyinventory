@@ -410,8 +410,7 @@ function handleGoogleAuthResult(result) {
 
         console.log(
             'Authentication successful:',
-			loadInventoryFromGoogleSheets();
-            //result.email
+            result.email
         );
 
 
@@ -789,20 +788,7 @@ window.addEventListener(
     false
 );
 
-window.addEventListener('message', (event) => {
-    // The sender is the Apps Script popup, so event.origin is the Apps Script
-    // origin, not the GitHub page origin. Apps Script deployments may use either
-    // script.google.com or script.googleusercontent.com as the popup origin.
-    const allowedAuthOrigins = [
-        'https://script.google.com',
-        'https://script.googleusercontent.com'
-    ];
 
-    if (!allowedAuthOrigins.includes(event.origin)) return;
-    if (authWindow && event.source !== authWindow) return;
-    if (!event.data || event.data.type !== 'GOOGLE_APPS_SCRIPT_AUTH') return;
-    handleGoogleAuthResult(event.data);
-});
 
 function setupDashboardClickHandlers() {
     
