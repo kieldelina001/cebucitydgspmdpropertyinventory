@@ -410,7 +410,8 @@ function handleGoogleAuthResult(result) {
 
         console.log(
             'Authentication successful:',
-            result.email
+			loadInventoryFromGoogleSheets();
+            //result.email
         );
 
 
