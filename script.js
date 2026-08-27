@@ -1118,140 +1118,141 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
                 hideLoading();
             }
         });
-} catch (err) {
+    } catch (err) {
 
-    hideLoading();
+        hideLoading();
 
-    console.error(
-        "Google Sheets loading error:",
-        err
-    );
-
-
-    if (statusBanner) {
-
-        statusBanner.style.backgroundColor =
-            "#f8d7da";
-
-        statusBanner.style.color =
-            "#721c24";
-
-        statusBanner.textContent =
-            "Connection Error: Unable to load Google Sheets data.";
-
-    }
+        console.error(
+            "Google Sheets loading error:",
+            err
+        );
 
 
-    /*
-     * IMPORTANT:
-     *
-     * Do NOT call performLogout() here.
-     *
-     * Authentication and spreadsheet loading are
-     * separate operations.
-     */
+        if (statusBanner) {
+
+            statusBanner.style.backgroundColor =
+                "#f8d7da";
+
+            statusBanner.style.color =
+                "#721c24";
+
+            statusBanner.textContent =
+                "Connection Error: Unable to load Google Sheets data.";
+
+        }
 
 
-    if (
-        isAuthenticated &&
-        loggedInUser !== "System User"
-    ) {
-
-        const modal =
-            document.getElementById(
-                "accessModal"
-            );
-
-
-        const modalText =
-            document.getElementById(
-                "accessModalText"
-            );
+        /*
+         * IMPORTANT:
+         *
+         * Do NOT call performLogout() here.
+         *
+         * Authentication and spreadsheet loading are
+         * separate operations.
+         */
 
 
         if (
-            modal &&
-            modalText
+            isAuthenticated &&
+            loggedInUser !== "System User"
         ) {
 
-            modalText.innerHTML =
-                "Google authentication was successful, " +
-                "but the application could not load the " +
-                "Google Sheets data.<br><br>" +
-                "Please check the spreadsheet connection " +
-                "and try again.";
+            const modal =
+                document.getElementById(
+                    "accessModal"
+                );
 
-            modal.style.display =
-                "flex";
 
-   submitBtn.onclick = function() {
-        // 1. Capture the note value
-        let noteValue = "No note provided";
-        if (noteInput) {
-            noteValue = noteInput.value.trim() || "No note provided";
-            noteInput.value = ""; // Reset input in the background for next time
-        }
+            const modalText =
+                document.getElementById(
+                    "accessModalText"
+                );
 
-        // 2. Target the entire modal content area or update both title and text together
-        const modalHeader = document.querySelector('.access-modal-header') || modalText.parentElement;
-        
-        // Update the content to show the clean success state with your phone number text
-        modalText.innerHTML = `
-            <div style="text-align: center;">
-                <h3 style="margin-top:0; margin-bottom: 12px; color: #155724; font-size: 22px;">✅ Request Access Sent</h3>
-                <p style="margin:0; line-height: 1.6; font-size: 15px; color: #333;">
-                    Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.
-                </p>
-            </div>
-        `;
-        
-        // 3. Hide the text area input
-        if (noteInput) {
-            noteInput.style.display = "none";
-        }
 
-        // 4. Update buttons: Hide 'Submit', change 'Cancel' to a green 'OK' button
-        submitBtn.style.display = "none";
-        closeBtn.textContent = "OK";
-        closeBtn.style.background = "#28a745"; 
-        closeBtn.style.color = "white";
+            if (
+                modal &&
+                modalText
+            ) {
 
-        // 5. Prepare the URL for Apps Script
-        const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&name=" + encodeURIComponent(loggedInUser) + "&notes=" + encodeURIComponent(noteValue);
+                modalText.innerHTML =
+                    "Google authentication was successful, " +
+                    "but the application could not load the " +
+                    "Google Sheets data.<br><br>" +
+                    "Please check the spreadsheet connection " +
+                    "and try again.";
 
-        // 6. Create a hidden iframe to silently trigger the Apps Script
-        let iframe = document.createElement("iframe");
-        iframe.style.display = "none";
-        iframe.src = requestUrl;
-        document.body.appendChild(iframe);
+                modal.style.display =
+                    "flex";
 
-        // 7. Clean up the iframe silently in the background after 2 seconds
-        setTimeout(function() {
-            if (document.body.contains(iframe)) {
-                document.body.removeChild(iframe);
-            }
-        }, 2000);
-    };
+                submitBtn.onclick = function() {
+                    // 1. Capture the note value
+                    let noteValue = "No note provided";
+                    if (noteInput) {
+                        noteValue = noteInput.value.trim() || "No note provided";
+                        noteInput.value = ""; // Reset input in the background for next time
+                    }
 
-    closeBtn.onclick = function() {
-        modal.style.display = "none";
-        
-        // Reset modal back to original prompt state when closed
-        setTimeout(() => {
-            // 2. Change the modal content to the "Success" window instead of closing it
-        modalText.innerHTML = "<h3 style='margin-top:0; margin-bottom: 10px; color: #155724;'>✅ Request Access Sent</h3><p style='margin:0; line-height: 1.5;'>Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.</p>";
-            submitBtn.style.display = "inline-block";
-            closeBtn.textContent = "Cancel";
-            closeBtn.style.background = "#6c757d";
-            
-            // Reset the textarea for the next time the modal is used
-            if (noteInput) {
-                noteInput.value = "";
-                noteInput.style.display = "block";
-            }
-        }, 300);
-    };
-} else {
+                    // 2. Target the entire modal content area or update both title and text together
+                    const modalHeader = document.querySelector('.access-modal-header') || modalText.parentElement;
+                    
+                    // Update the content to show the clean success state with your phone number text
+                    modalText.innerHTML = `
+                        <div style="text-align: center;">
+                            <h3 style="margin-top:0; margin-bottom: 12px; color: #155724; font-size: 22px;">✅ Request Access Sent</h3>
+                            <p style="margin:0; line-height: 1.6; font-size: 15px; color: #333;">
+                                Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.
+                            </p>
+                        </div>
+                    `;
+                    
+                    // 3. Hide the text area input
+                    if (noteInput) {
+                        noteInput.style.display = "none";
+                    }
+
+                    // 4. Update buttons: Hide 'Submit', change 'Cancel' to a green 'OK' button
+                    submitBtn.style.display = "none";
+                    closeBtn.textContent = "OK";
+                    closeBtn.style.background = "#28a745"; 
+                    closeBtn.style.color = "white";
+
+                    // 5. Prepare the URL for Apps Script
+                    const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&name=" + encodeURIComponent(loggedInUser) + "&notes=" + encodeURIComponent(noteValue);
+
+                    // 6. Create a hidden iframe to silently trigger the Apps Script
+                    let iframe = document.createElement("iframe");
+                    iframe.style.display = "none";
+                    iframe.src = requestUrl;
+                    document.body.appendChild(iframe);
+
+                    // 7. Clean up the iframe silently in the background after 2 seconds
+                    setTimeout(function() {
+                        if (document.body.contains(iframe)) {
+                            document.body.removeChild(iframe);
+                        }
+                    }, 2000);
+                };
+
+                closeBtn.onclick = function() {
+                    modal.style.display = "none";
+                    
+                    // Reset modal back to original prompt state when closed
+                    setTimeout(() => {
+                        // 2. Change the modal content to the "Success" window instead of closing it
+                        modalText.innerHTML = "<h3 style='margin-top:0; margin-bottom: 10px; color: #155724;'>✅ Request Access Sent</h3><p style='margin:0; line-height: 1.5;'>Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.</p>";
+                        submitBtn.style.display = "inline-block";
+                        closeBtn.textContent = "Cancel";
+                        closeBtn.style.background = "#6c757d";
+                        
+                        // Reset the textarea for the next time the modal is used
+                        if (noteInput) {
+                            noteInput.value = "";
+                            noteInput.style.display = "block";
+                        }
+                    }, 300);
+                };
+            } // <--- 🛠️ FIX: This closing brace was missing!
+        } else {
             alert("Connection failed or you have been logged out from Google. Please log in again.");
         }
 
