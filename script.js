@@ -1347,12 +1347,15 @@ function openUploadWindow() {
     const itemCode = itemData[articleKey] || 'Unknown';
     const uploadUrl = GOOGLE_APPS_SCRIPT_URL + "?itemCode=" + encodeURIComponent(itemCode);
     
-    // Check if the user is on a mobile device
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    // Create a temporary hidden link element
+    const link = document.createElement('a');
+    link.href = uploadUrl;
+    link.target = '_blank';
     
-    // Use '_top' for mobile to ensure it opens, and '_blank' for desktop for a new tab
-    const target = isMobile ? '_top' : '_blank';
-    window.open(uploadUrl, target);
+    // Append it to the page, click it, and immediately remove it
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
     
     modalModified = true;
 }
