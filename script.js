@@ -1347,16 +1347,7 @@ function openUploadWindow() {
     const itemCode = itemData[articleKey] || 'Unknown';
     const uploadUrl = GOOGLE_APPS_SCRIPT_URL + "?itemCode=" + encodeURIComponent(itemCode);
     
-    // Create a temporary hidden link element
-    const link = document.createElement('a');
-    link.href = uploadUrl;
-    link.target = '_blank';
-    
-    // Append it to the page, click it, and immediately remove it
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
+    window.open(uploadUrl, '_blank');
     modalModified = true;
 }
 
