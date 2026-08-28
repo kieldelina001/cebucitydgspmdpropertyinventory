@@ -243,6 +243,32 @@
         
         .site-footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 14px; color: #64748b; }
         
+		/* =========================================================
+   🔘 NEUMORPHIC CTA BUTTONS
+   ========================================================= */
+.btn-neu {
+    background: #f6f7f8 !important; /* Soft gray background */
+    color: #475569 !important; /* Dark slate text to contrast the light background */
+    border: none !important;
+    border-radius: 8px !important; /* Slightly rounder for the soft UI effect */
+    cursor: pointer;
+    transition: all .25s ease !important;
+    /* The core neumorphic shadow (light on top left, dark on bottom right) */
+    box-shadow: 4px 4px 8px #d1d9e6, -4px -4px 8px #ffffff !important; 
+}
+
+.btn-neu:hover {
+    transform: translateY(-3px) !important;
+    color: #57a1e0 !important; /* Brand blue color on hover */
+    box-shadow: 6px 6px 12px #d1d9e6, -6px -6px 12px #ffffff !important;
+}
+
+.btn-neu:active {
+    transform: translateY(1px) !important;
+    /* Sunken inner shadow when clicked */
+    box-shadow: inset 4px 4px 8px #d1d9e6, inset -4px -4px 8px #ffffff !important;
+}
+		
         /* --- Modals & Split Layout --- */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); z-index: 100000; justify-content: center; align-items: center; }
         .modal-box { background-color: white; padding: 25px; border-radius: 8px; width: 1200px; max-width: 95%; box-shadow: 0 10px 30px rgba(0,0,0,0.4); border: 2px solid #57a1e0; box-sizing: border-box; max-height: 92vh; overflow-y: auto; position: relative; }
@@ -644,9 +670,9 @@
                     <label class="input-label" for="searchInput">Search:</label>
                     <div class="search-field-container">
                         <input type="text" id="searchInput" class="input-box" placeholder="Type keywords...">
-                        <button id="searchButton" class="search-btn">Search</button>
+                       <button id="searchButton" class="search-btn btn-neu">Search</button>
                     </div>
-					<button id="resetFiltersButton" class="reset-filter-btn">Reset Filters</button>
+					<button id="resetFiltersButton" class="reset-filter-btn btn-neu">Reset Filters</button>
                 </div>
                 
                 <div class="input-group">
@@ -678,8 +704,8 @@
                 <div class="table-label-row">
                     <span class="table-label">Table Dataset: <span id="foundCountDisplay" style="font-weight: normal; color: #57a1e0; font-size: 16px; margin-left: 5px;"></span></span>
                     <div class="export-group">
-                        <button id="exportButton" class="export-btn">Export All</button>
-                        <button id="exportFilteredButton" class="export-btn" style="background-color: #17a2b8;">Export Searched</button>
+                        <button id="exportButton" class="export-btn btn-neu">Export All</button>
+                        <button id="exportFilteredButton" class="export-btn btn-neu">Export Searched</button>
                     </div>
                 </div>
                 <div class="property-table-container">
