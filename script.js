@@ -1,6 +1,7 @@
 // 🔑 Google Sheets Cloud Gateway Architecture
 const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSCW2ZeIFBJaQ3qts8oNeWVxHDGMt4FOqQgTk4bswbbhfzi_e5prVc0-QWDKo2j7tIJg/exec";
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
+// Update: Changed to the official Google Drive Export endpoint to prevent CORS & redirect issues
 const GOOGLE_SHEET_CSV_URL = `https://www.googleapis.com/drive/v3/files/${SPREADSHEET_ID}/export?mimeType=text/csv`;
 
 // =========================================================================
@@ -10,7 +11,7 @@ const GOOGLE_SHEET_CSV_URL = `https://www.googleapis.com/drive/v3/files/${SPREAD
 const EXPORT_TABLE_CONFIG = [
     { display: "Article no./ TCT no.", key: "article/item" },
     { display: "Description", key: "description" },
-    { display: "Notes", key: "notes" },
+    { display: "Notes", key: "notes" }, /// add notes
     { display: "Remarks", key: "remarks" },
     { display: "Type", key: "type" },
     { display: "Photo 1", key: "photo 1" },
@@ -55,9 +56,9 @@ let countTotal, countExisting, countNotFound, countVerification, countWithPhotos
 let countBuilding, countAssetMod, countFlood, countHospital, countLand, countMarket, countOtherInfra, countOtherLand, countOtherStruct, countPark, countRoad, countSchool, countSlaughterhouse, countWater;
 let editModal, modalFormContainer, modalEditBtn, modalSaveBtn, modalCloseBtn, modalCloseX, uploadPhotoBtn;
 let tooltip, tooltipImg;
-let loadingOverlay, customNameModal, loggedOutModal;
+let loadingOverlay, customNameModal;
 let countInsured, countNotInsured, countExpiring;
-let activeInsuranceFilter = 'ALL'; 
+let activeInsuranceFilter = 'ALL'; // Tracks which card is currently clicked
 
 function resetAndFilterByItem(filterCategory, clickedValue) {
     if (searchInput) searchInput.value = "";
@@ -70,11 +71,10 @@ function resetAndFilterByItem(filterCategory, clickedValue) {
     } else if (filterCategory === 'remarks' && remarksFilter) {
         remarksFilter.value = clickedValue;
     }
-
     executeSearch(true); 
 }
 
-// ⏳ LOADING OVERLAY GENERATOR & UI REF INITIALIZER
+// ⏳ LOADING OVERLAY GENERATOR
 function initUIReferences() {
     searchInput = document.getElementById('searchInput');
     searchButton = document.getElementById('searchButton');
@@ -171,45 +171,6 @@ function initUIReferences() {
             alignItems: 'center', zIndex: '200000'
         });
         document.body.appendChild(customNameModal);
-    }
-
-    loggedOutModal = document.getElementById('loggedOutModal');
-    if (!loggedOutModal) {
-        loggedOutModal = document.createElement('div');
-        loggedOutModal.id = 'loggedOutModal';
-        loggedOutModal.innerHTML = `
-            <div style="background: #ffffff !important; padding: 30px !important; border-radius: 8px !important; box-shadow: 0 10px 30px rgba(0,0,0,0.4) !important; width: 90% !important; max-width: 420px !important; box-sizing: border-box !important; text-align: center !important; font-family: Arial, sans-serif !important;">
-                <div style="font-size: 42px !important; margin-bottom: 12px !important;">🔒</div>
-                <h3 style="margin-top:0 !important; margin-bottom: 12px !important; color: #dc3545 !important; font-size: 20px !important;">You Have Been Logged Out</h3>
-                <p id="loggedOutModalMessage" style="font-size: 14px !important; color: #475569 !important; line-height: 1.5 !important; margin-bottom: 22px !important;">
-                    Unable to connect to Google Sheets. You have been logged out.
-                </p>
-                <button id="loggedOutModalOkBtn" style="background: #57a1e0 !important; color: white !important; border: none !important; padding: 10px 24px !important; border-radius: 4px !important; cursor: pointer !important; font-weight: bold !important; font-size: 14px !important; width: 100% !important;">OK / Sign In Again</button>
-            </div>
-        `;
-        Object.assign(loggedOutModal.style, {
-            position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
-            backgroundColor: 'rgba(0, 0, 0, 0.65)', display: 'none', justifyContent: 'center',
-            alignItems: 'center', zIndex: '300000'
-        });
-        document.body.appendChild(loggedOutModal);
-
-        const okBtn = document.getElementById('loggedOutModalOkBtn');
-        if (okBtn) {
-            okBtn.addEventListener('click', () => {
-                loggedOutModal.style.display = 'none';
-            });
-        }
-    }
-}
-
-function showLoggedOutWindow(msg) {
-    const msgEl = document.getElementById('loggedOutModalMessage');
-    if (msgEl) {
-        msgEl.textContent = msg || "Unable to connect to Google Sheets. You have been logged out.";
-    }
-    if (loggedOutModal) {
-        loggedOutModal.style.display = 'flex';
     }
 }
 
@@ -344,9 +305,9 @@ function setupDashboardClickHandlers() {
         cardExisting.onclick = () => {
             resetAllFilters();
             if (remarksFilter) {
-                const found = setDropdownByText(remarksFilter, 'EXISTING');
-                if (!found && searchInput) searchInput.value = 'EXISTING';
-            }
+            const found = setDropdownByText(remarksFilter, 'EXISTING');
+            if (!found && searchInput) searchInput.value = 'EXISTING';
+        }
             executeSearch(true);
             scrollToTable();
         };
@@ -355,11 +316,11 @@ function setupDashboardClickHandlers() {
     const cardNotFound = document.getElementById('countNotFound')?.closest('.dash-card');
     if (cardNotFound) {
         cardNotFound.onclick = () => {
-            resetAllFilters();
+            resetAllFilters(); 
             if (remarksFilter) {
-                const found = setDropdownByText(remarksFilter, 'NOT FOUND');
-                if (!found && searchInput) searchInput.value = 'NOT FOUND';
-            }
+            const found = setDropdownByText(remarksFilter, 'NOT FOUND');
+            if (!found && searchInput) searchInput.value = 'NOT FOUND';
+        }
             executeSearch(true);
             scrollToTable();
         };
@@ -370,9 +331,9 @@ function setupDashboardClickHandlers() {
         cardVerification.onclick = () => {
             resetAllFilters();
             if (remarksFilter) {
-                const found = setDropdownByText(remarksFilter, 'VERIFICATION');
-                if (!found && searchInput) searchInput.value = 'VERIFICATION';
-            }
+            const found = setDropdownByText(remarksFilter, 'VERIFICATION');
+            if (!found && searchInput) searchInput.value = 'VERIFICATION';
+        }
             executeSearch(true);
             scrollToTable();
         };
@@ -383,7 +344,7 @@ function setupDashboardClickHandlers() {
         cardTaxDec.onclick = () => {
             resetAllFilters();
             if (photoFilter && photoFilter.options.length > 3) {
-                photoFilter.selectedIndex = 3;
+                photoFilter.selectedIndex = 3; 
             }
             executeSearch(true);
             scrollToTable();
@@ -393,7 +354,7 @@ function setupDashboardClickHandlers() {
     const cardPhotos = document.getElementById('countWithPhotos')?.closest('.dash-card');
     if (cardPhotos) {
         cardPhotos.onclick = () => {
-            resetAllFilters();
+            resetAllFilters(); 
             if (photoFilter && photoFilter.options.length > 1) {
                 photoFilter.selectedIndex = 1; 
             }
@@ -411,7 +372,7 @@ function setupDashboardClickHandlers() {
         { id: 'countMarket', keyword: 'MARKET' },
         { id: 'countOtherInfra', keyword: 'OTHER INFRASTRUCTURE' },
         { id: 'countOtherLand', keyword: 'OTHER LAND' },
-        { id: 'countOtherStruct', keyword: 'OTHER STRUCTURE' },
+        { id: 'countOtherStruct', keyword: 'OTHER STRUCTURE' }, 
         { id: 'countPark', keyword: 'PARK' },
         { id: 'countRoad', keyword: 'ROAD' },
         { id: 'countSchool', keyword: 'SCHOOL' },
@@ -425,7 +386,7 @@ function setupDashboardClickHandlers() {
             const card = countEl.closest('.type-card');
             if (card) {
                 card.onclick = () => {
-                    resetAllFilters();
+                    resetAllFilters(); 
                     if (typeFilter) {
                         const found = setDropdownByText(typeFilter, item.keyword);
                         if (!found && searchInput) {
@@ -442,6 +403,7 @@ function setupDashboardClickHandlers() {
 
 function initApp() {
     initUIReferences();
+
     getOrCreateTokenClient();
 
     const loginBtn = document.getElementById('customLoginBtn');
@@ -576,6 +538,8 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
     }
     showLoading("Syncing live spreadsheet grid...");
 
+    let isTokenExpired = false;
+
     try {
         const response = await fetch(GOOGLE_SHEET_CSV_URL, {
             headers: accessToken ? {
@@ -583,7 +547,11 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
             } : {}
         });
         
-        if (!response.ok) throw new Error("Could not connect to online Sheet feed.");
+        if (!response.ok) {
+            if (response.status === 401) isTokenExpired = true;
+            throw new Error("Could not connect to online Sheet feed.");
+        }
+        
         const rawCsvText = await response.text(); 
 
         Papa.parse(rawCsvText, {
@@ -624,12 +592,86 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
         if (statusBanner) {
             statusBanner.style.backgroundColor = "#f8d7da";
             statusBanner.style.color = "#721c24";
-            statusBanner.textContent = "Connection Error: Unable to sync with Google Sheet datastream.";
+            statusBanner.textContent = "Connection Error: Check Sheet spreadsheet access permission configuration.";
         }
-        console.error("Sheet sync failed:", err);
+        console.error(err);
 
-        // Perform logout and display the Logged Out notification window instead of the Request Access modal or alert
-        performLogout(true, "Unable to connect to Google Sheets. You have been logged out.");
+        if (isTokenExpired || !(accessToken && loggedInUser !== "System User")) {
+            const loggedOutModal = document.getElementById('loggedOutModal');
+            if (loggedOutModal) {
+                loggedOutModal.style.display = 'flex';
+                document.getElementById('loggedOutOkBtn').onclick = function() {
+                    loggedOutModal.style.display = 'none';
+                    if (typeof performLogout === 'function') performLogout();
+                    else location.reload();
+                };
+            } else {
+                if (typeof performLogout === 'function') performLogout();
+            }
+        } else {
+            const modal = document.getElementById("accessModal");
+            const modalText = document.getElementById("accessModalText");
+            const submitBtn = document.getElementById("submitRequestBtn");
+            const closeBtn = document.getElementById("closeModalBtn");
+            
+            const noteInput = document.getElementById("requestNotesInput");
+
+            if (noteInput) {
+                noteInput.style.display = "block";
+                noteInput.value = "";
+            }
+
+            modalText.innerHTML = "Your Gmail account (<b>" + loggedInUser + "</b>) does not have permission to view the Google Sheet.<br><br>Would you like to send an access request?";
+            modal.style.display = "flex";
+
+            submitBtn.onclick = function() {
+                let noteValue = "No note provided";
+                if (noteInput) {
+                    noteValue = noteInput.value.trim() || "No note provided";
+                    noteInput.value = ""; 
+                }
+
+                modalText.innerHTML = `
+                    <div style="text-align: center;">
+                        <h3 style="margin-top:0; margin-bottom: 12px; color: #155724; font-size: 22px;">✅ Request Access Sent</h3>
+                        <p style="margin:0; line-height: 1.6; font-size: 15px; color: #333;">
+                            Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.
+                        </p>
+                    </div>
+                `;
+                
+                if (noteInput) {
+                    noteInput.style.display = "none";
+                }
+
+                submitBtn.style.display = "none";
+                closeBtn.textContent = "OK";
+                closeBtn.style.background = "#28a745"; 
+                closeBtn.style.color = "white";
+
+                const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&name=" + encodeURIComponent(loggedInUser) + "&notes=" + encodeURIComponent(noteValue);
+
+                fetch(requestUrl, { method: 'GET', mode: 'no-cors' }).catch(err => console.error("Access request silent failure:", err));
+            };
+
+            closeBtn.onclick = function() {
+                modal.style.display = "none";
+                
+                setTimeout(() => {
+                    modalText.innerHTML = "<h3 style='margin-top:0; margin-bottom: 10px; color: #155724;'>✅ Request Access Sent</h3><p style='margin:0; line-height: 1.5;'>Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.</p>";
+                    submitBtn.style.display = "inline-block";
+                    closeBtn.textContent = "Cancel";
+                    closeBtn.style.background = "#6c757d";
+                    
+                    if (noteInput) {
+                        noteInput.value = "";
+                        noteInput.style.display = "block";
+                    }
+                }, 300);
+            };
+            
+            if (typeof performLogout === 'function') performLogout();
+        }
     }
 }
 
@@ -751,6 +793,7 @@ const tableImageObserver = new IntersectionObserver((entries, observer) => {
     rootMargin: "0px 0px 300px 0px"
 });
 
+
 function renderTable(data, page = 1) {
     if(!tableBody) return; tableBody.innerHTML = '';
     
@@ -791,7 +834,7 @@ function renderTable(data, page = 1) {
                     imgEl.alt = "Loading...";
                     imgEl.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'%3E%3Ccircle cx='25' cy='25' r='20' fill='none' stroke='%23ccc' stroke-width='4' stroke-dasharray='31.4 31.4'%3E%3CanimateTransform attributeName='transform' type='rotate' from='0 25 25' to='360 25 25' dur='1s' repeatCount='indefinite'/%3E%3C/circle%3E%3C/svg%3E";
                     
-                    imgEl.onclick = (event) => { event.stopPropagation(); openPopUp(row._rowId, tKey); };
+                imgEl.onclick = (event) => { event.stopPropagation(); openPopUp(row._rowId, tKey); };
                     
                     imgEl.dataset.src = url; 
                     td.appendChild(imgEl);
@@ -821,6 +864,7 @@ function calculateStaticDashboardTotals(items) {
     const pKey1 = headerMapping['photo 1'];
     const pKey2 = headerMapping['photo 2'];
     const pKey4 = headerMapping['tax declaration'];
+    const aKey = headerMapping['article/item'];
     const nKey = headerMapping['notes'];
     
     let insuredCount = 0, notInsuredCount = 0, expiringCount = 0;
@@ -861,15 +905,15 @@ function calculateStaticDashboardTotals(items) {
                     const daysDiff = timeDiff / (1000 * 3600 * 24);
                     
                     if (daysDiff <= 30) {
-                        expiringCount++;
+                        expiringCount++; 
                     } else {
-                        insuredCount++;
+                        insuredCount++; 
                     }
                 } else {
-                    insuredCount++;
+                    insuredCount++; 
                 }
             } else {
-                 insuredCount++;
+                 insuredCount++; 
             }
         }
         
@@ -925,6 +969,7 @@ function executeSearch(resetPage = true) {
     const pKey1 = headerMapping['photo 1'];
     const pKey2 = headerMapping['photo 2'];
     const pKey4 = headerMapping['tax declaration'];
+    const aKey = headerMapping['article/item'];
     const nKey = headerMapping['notes'];
 	
     const photo1Or2Keys = [pKey1, pKey2];
@@ -954,7 +999,6 @@ function executeSearch(resetPage = true) {
             if (phoF === 'NO_PHOTO') matchPhoto = !hasPhoto1Or2;
             if (phoF === 'WITH_TAX_DEC') matchPhoto = hasTaxDec;
         }
-
         if (activeInsuranceFilter !== 'ALL') {
             const notesVal = String(row[nKey] || '');
             const notesUpper = notesVal.toUpperCase();
@@ -1011,43 +1055,43 @@ function openPopUp(rowId, clickedPhotoKey = null) {
         const lbl = document.createElement('label');
         lbl.textContent = mappedKey || tKey;
         
-        let inp;
-        if(tKey === 'remarks') {
-            inp = document.createElement('select');
-            inp.id = 'modal_' + tKey;
-            inp.disabled = true;
-            let found = false;
-            parsedUniqueRemarks.forEach(r => {
-                const opt = document.createElement('option');
-                opt.value = r; opt.textContent = r;
-                if(r === val) { opt.selected = true; found = true; }
-                inp.appendChild(opt);
-            });
-            if(val && !found) {
-                const opt = document.createElement('option');
-                opt.value = val; opt.textContent = val;
-                opt.selected = true;
-                inp.appendChild(opt);
-            }
-        } else if(tKey === 'description') {
-            inp = document.createElement('textarea');
-            inp.id = 'modal_' + tKey;
-            inp.value = val;
-            inp.rows = 7;
-            inp.disabled = true;
-        } else if(tKey === 'notes') {
-            inp = document.createElement('textarea');
-            inp.id = 'modal_' + tKey;
-            inp.value = val;
-            inp.rows = 3;
-            inp.disabled = true;
-        } else {
-            inp = document.createElement('input');
-            inp.type = 'text';
-            inp.id = 'modal_' + tKey;
-            inp.value = val;
-            inp.disabled = true;
+       let inp;
+    if(tKey === 'remarks') {
+        inp = document.createElement('select');
+        inp.id = 'modal_' + tKey;
+        inp.disabled = true;
+        let found = false;
+        parsedUniqueRemarks.forEach(r => {
+            const opt = document.createElement('option');
+            opt.value = r; opt.textContent = r;
+            if(r === val) { opt.selected = true; found = true; }
+            inp.appendChild(opt);
+        });
+        if(val && !found) {
+            const opt = document.createElement('option');
+            opt.value = val; opt.textContent = val;
+            opt.selected = true;
+            inp.appendChild(opt);
         }
+    } else if(tKey === 'description') {
+        inp = document.createElement('textarea');
+        inp.id = 'modal_' + tKey;
+        inp.value = val;
+        inp.rows = 7; 
+        inp.disabled = true;
+    } else if(tKey === 'notes') {
+        inp = document.createElement('textarea');
+        inp.id = 'modal_' + tKey;
+        inp.value = val;
+        inp.rows = 3; 
+        inp.disabled = true;
+    } else {
+        inp = document.createElement('input');
+        inp.type = 'text';
+        inp.id = 'modal_' + tKey;
+        inp.value = val;
+        inp.disabled = true;
+    }
         
         fDiv.appendChild(lbl);
         fDiv.appendChild(inp);
@@ -1096,7 +1140,7 @@ function openPopUp(rowId, clickedPhotoKey = null) {
     modalCloseBtn.textContent = 'Close';
     modalCloseX.disabled = false;
     editModal.style.display = 'flex';
-	document.body.style.overflow = 'hidden';
+	document.body.style.overflow = 'hidden'; 
 }
 
 function renderModalPhotoViewer() {
@@ -1189,7 +1233,7 @@ function enableEditMode() {
 }
 
 function triggerSaveProcess() {
-    finalizeSaveData(loggedInUser);
+    finalizeSaveData(loggedInUser); 
 }
 
 function finalizeSaveData(operatorName) {
@@ -1272,7 +1316,6 @@ function closeModal() {
     modalModified = false;
 }
 
-// --- DASHBOARD CLICK-TO-FILTER FUNCTION ---
 function setInsuranceFilter(filterMode, cardId) {
     if (searchInput) searchInput.value = '';
     if (remarksFilter) remarksFilter.value = 'ALL';
@@ -1294,7 +1337,7 @@ function setInsuranceFilter(filterMode, cardId) {
         if (activeCard) {
             activeCard.style.transform = 'scale(1.05)';
             activeCard.style.boxShadow = '0 4px 10px rgba(0,0,0,0.15)';
-            activeCard.style.backgroundColor = '#ffffff';
+            activeCard.style.backgroundColor = '#ffffff'; 
         }
         if (clearBtn) clearBtn.style.display = 'inline';
     } else {
@@ -1317,12 +1360,24 @@ function setupSystemEventHandlers() {
     if(cardNotInsured) cardNotInsured.onclick = () => setInsuranceFilter('NOT_INSURED', 'cardNotInsured');
     if(cardExpiring) cardExpiring.onclick = () => setInsuranceFilter('EXPIRING', 'cardExpiring');
     if(clearInsFilterBtn) clearInsFilterBtn.onclick = () => setInsuranceFilter('ALL', '');
+
     if(resetFiltersButton) {
         resetFiltersButton.addEventListener('click', () => {
-            if (searchInput) searchInput.value = '';
-            if (remarksFilter) remarksFilter.selectedIndex = 0;
-            if (typeFilter) typeFilter.selectedIndex = 0;
-            if (photoFilter) photoFilter.selectedIndex = 0;
+            if (searchInput) {
+                searchInput.value = '';
+            }
+
+            if (remarksFilter) {
+                remarksFilter.selectedIndex = 0;
+            }
+
+            if (typeFilter) {
+                typeFilter.selectedIndex = 0;
+            }
+
+            if (photoFilter) {
+                photoFilter.selectedIndex = 0;
+            }
 
             activeInsuranceFilter = 'ALL';
 
@@ -1333,7 +1388,9 @@ function setupSystemEventHandlers() {
             });
 
             const clearBtn = document.getElementById('clearInsFilterBtn');
-            if (clearBtn) clearBtn.style.display = 'none';
+            if (clearBtn) {
+                clearBtn.style.display = 'none';
+            }
 
             currentPage = 1;
             currentFilteredData = [];
@@ -1343,341 +1400,8 @@ function setupSystemEventHandlers() {
             }
 
             if (tableBody) {
-                tableBody.innerHTML = `
-                    <tr>
-                        <td colspan="${displayHeaders.length}" class="no-data">
-                            Data loaded successfully. Apply a filter or search to view records.
-                        </td>
-                    </tr>
-                `;
+                tableBody.innerHTML = `<tr><td colspan="${displayHeaders.length}" class="no-data">Data loaded successfully. Apply a filter or search to view records.</td></tr>`;
             }
-
-            updatePaginationUI(0);
-        });
-    }
-    if(searchInput) searchInput.addEventListener('keypress', e => { if(e.key === 'Enter') executeSearch(true); });
-	if(searchButton) searchButton.addEventListener('click', () => executeSearch(true));
-    
-    if(remarksFilter) remarksFilter.addEventListener('change', () => executeSearch(true));
-    if(typeFilter) typeFilter.addEventListener('change', () => executeSearch(true));
-    if(photoFilter) photoFilter.addEventListener('change', () => executeSearch(true));
-    
-    if(exportButton) exportButton.addEventListener('click', () => downloadDatasetCSV(inventoryData, 'Full_Inventory'));
-    if(exportFilteredButton) exportFilteredButton.addEventListener('click', () => downloadSearchedHTML(currentFilteredData));
-    
-    if(uploadPhotoBtn) uploadPhotoBtn.addEventListener('click', openUploadWindow); 
-    
-    if(modalEditBtn) modalEditBtn.addEventListener('click', enableEditMode);
-    if(modalSaveBtn) modalSaveBtn.addEventListener('click', triggerSaveProcess);
-    
-    if(modalCloseBtn) modalCloseBtn.addEventListener('click', () => {
-        if (modalCloseBtn.textContent === 'Cancel') {
-            modalModified = false;
-            openPopUp(activeEditIndex);
-        } else {
-            closeModal();
-        }
-    });
-    if(modalCloseX) modalCloseX.addEventListener('click', closeModal); 
-    
-    const cancelNameBtn = document.getElementById('customCancelNameBtn');
-    if (cancelNameBtn) {
-        cancelNameBtn.addEventListener('click', () => {
-            if (customNameModal) customNameModal.style.display = 'none';
-        });
-    }
-    
-    const confirmNameBtn = document.getElementById('customConfirmNameBtn');
-    if (confirmNameBtn) {
-        confirmNameBtn.addEventListener('click', () => {
-            const operatorInput = document.getElementById('custom-operator-input');
-            const nameVal = operatorInput ? operatorInput.value.trim() : '';
-            if(!nameVal) { alert("Authorization Denied: Operator name required."); return; }
-            if (customNameModal) customNameModal.style.display = 'none';
-            finalizeSaveData(nameVal);
         });
     }
 }
-
-function downloadDatasetCSV(data, filenamePrefix) {
-    if(!data || data.length === 0) {
-        alert("Export Nullified: No dataset active for export.");
-        return;
-    }
-    const headerRow = rawHeaders.join(",");
-    const rows = data.map(r => rawHeaders.map(h => `"${(r[h] || '').replace(/"/g, '""')}"`).join(","));
-    const csvContent = [headerRow, ...rows].join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `${filenamePrefix}_${new Date().toISOString().slice(0,10)}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-
-// 🖼️ Helper to Convert Image URL to Base64 Data URL
-async function getBase64ImageFromUrl(imageUrl) {
-    if (!imageUrl) return '';
-    try {
-        const match = imageUrl.match(/[-\w]{25,}/);
-        let fetchUrl = imageUrl;
-        let headers = {};
-        if (match && accessToken) {
-            const fileId = match[0];
-            fetchUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
-            headers = { 'Authorization': `Bearer ${accessToken}` };
-        }
-        
-        let response = await fetch(fetchUrl, { headers }).catch(() => null);
-        if (!response || !response.ok) {
-            const thumbnailFallback = getDirectImageUrl(imageUrl, 'thumbnail') || imageUrl;
-            response = await fetch(thumbnailFallback).catch(() => null);
-        }
-        if (!response || !response.ok) return imageUrl;
-
-        const blob = await response.blob();
-        return await new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = () => resolve(imageUrl);
-            reader.readAsDataURL(blob);
-        });
-    } catch (e) {
-        console.warn("Base64 image embedding fallback failed:", e);
-        return imageUrl;
-    }
-}
-
-// 🌐 Export Searched HTML
-async function downloadSearchedHTML(data) {
-    if(!data || data.length === 0) {
-        alert("Export Nullified: No dataset active for export.");
-        return;
-    }
-
-    showLoading("Downloading and embedding photos into standalone report...");
-
-    let tableRowsHTML = '';
-    for (let i = 0; i < data.length; i++) {
-        const row = data[i];
-        tableRowsHTML += '<tr>';
-        for (let j = 0; j < EXPORT_TABLE_CONFIG.length; j++) {
-            const col = EXPORT_TABLE_CONFIG[j];
-            const tKey = col.key;
-            const resolvedKey = headerMapping[tKey];
-            const val = resolvedKey ? (row[resolvedKey] || '') : '';
-            
-            if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration') || tKey.includes('transfer_cert')) {
-                if (val.trim() !== '') {
-                    const base64Img = await getBase64ImageFromUrl(val);
-                    tableRowsHTML += `<td style="text-align: center;"><img src="${base64Img}" style="height: 250px; max-width: 250px; width: auto; object-fit: contain; border: 1px solid #94a3b8; border-radius: 4px; display: block; margin: 0 auto;" /></td>`;
-                } else {
-                    tableRowsHTML += `<td style="text-align: center; color: #64748b; font-style: italic;">No Photo</td>`;
-                }
-            } else {
-                let styleAttr = "";
-                if (tKey === "description") {
-                    styleAttr = ' style="width: 200px; min-width: 190px;"';
-                }
-                tableRowsHTML += `<td${styleAttr}>${escapeHtml(val)}</td>`;
-            }
-        }
-        tableRowsHTML += '</tr>';
-    }
-
-    hideLoading();
-
-    let headersHTML = '';
-    EXPORT_TABLE_CONFIG.forEach(col => {
-        headersHTML += `<th>${col.display}</th>`;
-    });
-
-    const htmlContent = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Searched Inventory Report</title>
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            margin: 20px; 
-            color: #0f172a; 
-            background: #ffffff; 
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
-        h1 { 
-            text-align: center; 
-            color: #0f172a; 
-            text-transform: uppercase; 
-            font-size: 24px;
-            margin-bottom: 5px;
-        }
-        .report-meta {
-            text-align: center;
-            font-size: 14px;
-            color: #334155;
-            margin-bottom: 25px;
-            font-weight: bold;
-        }
-        table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            margin-top: 10px; 
-            background: white; 
-        }
-        th, td { 
-            border: 1px solid #64748b; 
-            padding: 10px 12px; 
-            text-align: left; 
-            font-size: 16px; 
-            line-height: 1.4;
-            word-break: break-word; 
-            color: #0f172a;
-            vertical-align: middle;
-        }
-        th { 
-            background-color: #cbd5e1 !important; 
-            color: #0f172a;
-            font-weight: bold;
-            text-transform: uppercase;
-            font-size: 12px;
-            letter-spacing: 0.5px;
-        }
-        tr:nth-child(even) {
-            background-color: #f8fafc;
-        }
-        @media print {
-            body { margin: 10px; }
-            table { page-break-inside: auto; }
-            tr { page-break-inside: avoid; page-break-after: auto; }
-            th { background-color: #cbd5e1 !important; }
-        }
-    </style>
-</head>
-<body>
-    <h1>Real Estate Inventory Report</h1>
-    <div class="report-meta">
-        Exported On: ${new Date().toLocaleString()} &bull; Total Records: ${data.length}
-    </div>
-    <table>
-        <thead>
-            <tr>${headersHTML}</tr>
-        </thead>
-        <tbody>
-            ${tableRowsHTML}
-        </tbody>
-    </table>
-</body>
-</html>`;
-
-    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Searched_Inventory_Report_${new Date().toISOString().slice(0,10)}.html`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-
-function escapeHtml(str) {
-    return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
-
-// =========================================================================
-// 🚪 LOGOUT & IDLE TIMEOUT MODULE
-// =========================================================================
-let idleTimer;
-const IDLE_TIME_LIMIT = 30 * 60 * 1000;
-
-function performLogout(showNoticeWindow = false, noticeMessage = '') {
-    accessToken = null; 
-    
-    const loginScreen = document.getElementById('loginScreen');
-    const mainApp = document.getElementById('mainApp');
-    
-    if (loginScreen) loginScreen.style.display = '';
-    if (mainApp) mainApp.style.display = 'none';
-    
-    clearTimeout(idleTimer);
-    
-    const floatingLogoutBtn = document.getElementById('floatingLogoutBtn');
-    if (floatingLogoutBtn) floatingLogoutBtn.style.display = 'none';
-
-    const paginationContainer = document.getElementById('paginationContainer');
-    if (paginationContainer) paginationContainer.style.display = 'none';
-
-    const backToTopBtn = document.getElementById('backToTopBtn');
-    if (backToTopBtn) {
-        backToTopBtn.style.visibility = 'hidden';
-        backToTopBtn.style.opacity = '0';
-    }
-
-    if (showNoticeWindow) {
-        showLoggedOutWindow(noticeMessage);
-    }
-}
-
-function resetIdleTimer() {
-    clearTimeout(idleTimer);
-    if (accessToken) {
-        idleTimer = setTimeout(() => {
-            performLogout(true, "You have been logged out due to session inactivity.");
-        }, IDLE_TIME_LIMIT);
-    }
-}
-
-window.addEventListener('DOMContentLoaded', () => {
-    const logoutBtn = document.createElement('button');
-    logoutBtn.innerHTML = 'Log Out';
-    logoutBtn.id = 'floatingLogoutBtn';
-    
-    Object.assign(logoutBtn.style, {
-        position: 'fixed',
-        top: '20px',
-        right: '20px',
-        backgroundColor: '#dc3545',
-        color: 'white',
-        border: 'none',
-        padding: '10px 20px',
-        borderRadius: '5px',
-        fontWeight: 'bold',
-        cursor: 'pointer',
-        boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
-        zIndex: '999999',
-        display: 'none',
-        transition: 'background-color 0.2s'
-    });
-
-    logoutBtn.onmouseover = () => logoutBtn.style.backgroundColor = '#c82333';
-    logoutBtn.onmouseout = () => logoutBtn.style.backgroundColor = '#dc3545';
-    
-    logoutBtn.addEventListener('click', () => performLogout(false));
-    document.body.appendChild(logoutBtn);
-
-    const userActivityEvents = ['mousemove', 'keydown', 'scroll', 'click', 'touchstart'];
-    userActivityEvents.forEach(event => {
-        document.addEventListener(event, resetIdleTimer);
-    });
-
-    setInterval(() => {
-        const btn = document.getElementById('floatingLogoutBtn');
-        const mainApp = document.getElementById('mainApp');
-        
-        if (btn) {
-            const isMainAppVisible = mainApp && mainApp.style.display !== 'none';
-            btn.style.display = (accessToken && isMainAppVisible) ? 'block' : 'none';
-        }
-    }, 1000);
-});
-// =========================================================================
