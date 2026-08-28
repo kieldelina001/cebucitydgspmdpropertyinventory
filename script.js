@@ -1,7 +1,6 @@
 // 🔑 Google Sheets Cloud Gateway Architecture
 const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSCW2ZeIFBJaQ3qts8oNeWVxHDGMt4FOqQgTk4bswbbhfzi_e5prVc0-QWDKo2j7tIJg/exec";
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
-// Update: Changed to the official Google Drive Export endpoint to prevent CORS & redirect issues
 const GOOGLE_SHEET_CSV_URL = `https://www.googleapis.com/drive/v3/files/${SPREADSHEET_ID}/export?mimeType=text/csv`;
 
 // =========================================================================
@@ -11,7 +10,7 @@ const GOOGLE_SHEET_CSV_URL = `https://www.googleapis.com/drive/v3/files/${SPREAD
 const EXPORT_TABLE_CONFIG = [
     { display: "Article no./ TCT no.", key: "article/item" },
     { display: "Description", key: "description" },
-    { display: "Notes", key: "notes" }, /// add notes
+    { display: "Notes", key: "notes" },
     { display: "Remarks", key: "remarks" },
     { display: "Type", key: "type" },
     { display: "Photo 1", key: "photo 1" },
@@ -56,36 +55,26 @@ let countTotal, countExisting, countNotFound, countVerification, countWithPhotos
 let countBuilding, countAssetMod, countFlood, countHospital, countLand, countMarket, countOtherInfra, countOtherLand, countOtherStruct, countPark, countRoad, countSchool, countSlaughterhouse, countWater;
 let editModal, modalFormContainer, modalEditBtn, modalSaveBtn, modalCloseBtn, modalCloseX, uploadPhotoBtn;
 let tooltip, tooltipImg;
-let loadingOverlay, customNameModal;
+let loadingOverlay, customNameModal, loggedOutModal;
 let countInsured, countNotInsured, countExpiring;
-let activeInsuranceFilter = 'ALL'; // Tracks which card is currently clicked
+let activeInsuranceFilter = 'ALL'; 
 
 function resetAndFilterByItem(filterCategory, clickedValue) {
-    // 1. Reset all filters and search inputs to default
     if (searchInput) searchInput.value = "";
-    
-    // Assuming the default value for your dropdowns is an empty string "" 
-    // If your default value is something else, use that (e.g., "-- All Types --")
     if (remarksFilter) remarksFilter.value = ""; 
     if (typeFilter) typeFilter.value = "";
     if (photoFilter) photoFilter.value = "";
 
-    // 2. Set the specific filter to the value of the item clicked
     if (filterCategory === 'type' && typeFilter) {
         typeFilter.value = clickedValue;
     } else if (filterCategory === 'remarks' && remarksFilter) {
         remarksFilter.value = clickedValue;
     }
 
-    // Optional: Reset pagination to page 1 if you have a pagination variable
-    // currentPage = 1; 
-
-    // 3. Trigger your search function to update the table based on the new filter
-    // Passing 'true' based on your executeSearch(!retainPage) logic
     executeSearch(true); 
 }
 
-// ⏳ LOADING OVERLAY GENERATOR
+// ⏳ LOADING OVERLAY GENERATOR & UI REF INITIALIZER
 function initUIReferences() {
     searchInput = document.getElementById('searchInput');
     searchButton = document.getElementById('searchButton');
@@ -111,7 +100,7 @@ function initUIReferences() {
     countVerification = document.getElementById('countVerification');
     countWithPhotos = document.getElementById('countWithPhotos');
     countTaxDec = document.getElementById('countTaxDec');
-countInsured = document.getElementById('countInsured');
+    countInsured = document.getElementById('countInsured');
     countNotInsured = document.getElementById('countNotInsured');
 	countExpiring = document.getElementById('countExpiring');
 
@@ -183,6 +172,45 @@ countInsured = document.getElementById('countInsured');
         });
         document.body.appendChild(customNameModal);
     }
+
+    loggedOutModal = document.getElementById('loggedOutModal');
+    if (!loggedOutModal) {
+        loggedOutModal = document.createElement('div');
+        loggedOutModal.id = 'loggedOutModal';
+        loggedOutModal.innerHTML = `
+            <div style="background: #ffffff !important; padding: 30px !important; border-radius: 8px !important; box-shadow: 0 10px 30px rgba(0,0,0,0.4) !important; width: 90% !important; max-width: 420px !important; box-sizing: border-box !important; text-align: center !important; font-family: Arial, sans-serif !important;">
+                <div style="font-size: 42px !important; margin-bottom: 12px !important;">🔒</div>
+                <h3 style="margin-top:0 !important; margin-bottom: 12px !important; color: #dc3545 !important; font-size: 20px !important;">You Have Been Logged Out</h3>
+                <p id="loggedOutModalMessage" style="font-size: 14px !important; color: #475569 !important; line-height: 1.5 !important; margin-bottom: 22px !important;">
+                    Unable to connect to Google Sheets. You have been logged out.
+                </p>
+                <button id="loggedOutModalOkBtn" style="background: #57a1e0 !important; color: white !important; border: none !important; padding: 10px 24px !important; border-radius: 4px !important; cursor: pointer !important; font-weight: bold !important; font-size: 14px !important; width: 100% !important;">OK / Sign In Again</button>
+            </div>
+        `;
+        Object.assign(loggedOutModal.style, {
+            position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
+            backgroundColor: 'rgba(0, 0, 0, 0.65)', display: 'none', justifyContent: 'center',
+            alignItems: 'center', zIndex: '300000'
+        });
+        document.body.appendChild(loggedOutModal);
+
+        const okBtn = document.getElementById('loggedOutModalOkBtn');
+        if (okBtn) {
+            okBtn.addEventListener('click', () => {
+                loggedOutModal.style.display = 'none';
+            });
+        }
+    }
+}
+
+function showLoggedOutWindow(msg) {
+    const msgEl = document.getElementById('loggedOutModalMessage');
+    if (msgEl) {
+        msgEl.textContent = msg || "Unable to connect to Google Sheets. You have been logged out.";
+    }
+    if (loggedOutModal) {
+        loggedOutModal.style.display = 'flex';
+    }
 }
 
 function showLoading(msg) {
@@ -199,7 +227,6 @@ function hideLoading() {
 window.addEventListener('scroll', () => {
     const backToTopBtn = document.getElementById('backToTopBtn');
     if (backToTopBtn) {
-        // Add accessToken check to ensure it only shows when securely logged in
         if (accessToken && (document.body.scrollTop > 300 || document.documentElement.scrollTop > 300)) {
             backToTopBtn.style.visibility = "visible";
             backToTopBtn.style.opacity = "1";
@@ -210,7 +237,7 @@ window.addEventListener('scroll', () => {
     }
 });
 
-// 🔐 SECURE INITIALIZER & GOOGLE IDENTITY TOKEN INTEGRATION (ROBUST 1-CLICK FIX)
+// 🔐 SECURE INITIALIZER & GOOGLE IDENTITY TOKEN INTEGRATION
 function getOrCreateTokenClient() {
     if (!tokenClient && window.google && google.accounts && google.accounts.oauth2) {
         tokenClient = google.accounts.oauth2.initTokenClient({
@@ -226,7 +253,7 @@ function getOrCreateTokenClient() {
                     .then(res => res.json())
                     .then(profile => {
                         if (profile.email) {
-                            loggedInUser = profile.email; // <--- ADDED: Saves email globally
+                            loggedInUser = profile.email;
                         }
                         const operatorInput = document.getElementById('custom-operator-input');
                         if (operatorInput && profile.email) {
@@ -251,18 +278,15 @@ function getOrCreateTokenClient() {
     }
     return tokenClient;
 }
-// 🖱️ DASHBOARD CARD CLICK HANDLERS
+
 // 🖱️ DASHBOARD CARD CLICK HANDLERS
 function setupDashboardClickHandlers() {
-    
-    // 🧹 NEW: Helper function to clear search and dropdowns
     function resetAllFilters() {
         if (searchInput) searchInput.value = '';
         if (remarksFilter) remarksFilter.value = 'ALL';
         if (typeFilter) typeFilter.value = 'ALL';
         if (photoFilter) photoFilter.value = 'ALL';
         
-        // Clear insurance UI filter if active
         if (typeof activeInsuranceFilter !== 'undefined') {
             activeInsuranceFilter = 'ALL';
             document.querySelectorAll('.ins-card').forEach(c => {
@@ -275,12 +299,10 @@ function setupDashboardClickHandlers() {
         }
     }
 
-   // Helper function to set dropdown value (Exact Match first, then Partial Match)
     function setDropdownByText(selectEl, keyword) {
         if (!selectEl) return false;
         const keyUpper = keyword.toUpperCase().trim();
 
-        // Pass 1: Check for exact matches first (prevents 'STRUCTURE' matching 'INFRASTRUCTURE')
         for (let i = 0; i < selectEl.options.length; i++) {
             const optVal = selectEl.options[i].value.toUpperCase().trim();
             const optText = selectEl.options[i].text.toUpperCase().trim();
@@ -290,7 +312,6 @@ function setupDashboardClickHandlers() {
             }
         }
 
-        // Pass 2: Partial match fallback if exact match isn't found
         for (let i = 0; i < selectEl.options.length; i++) {
             const optVal = selectEl.options[i].value.toUpperCase();
             const optText = selectEl.options[i].text.toUpperCase();
@@ -302,7 +323,6 @@ function setupDashboardClickHandlers() {
         return false;
     }
 
-    // Helper function to smoothly scroll to the data table
     function scrollToTable() {
         const tableSec = document.querySelector('.table-section');
         if (tableSec) {
@@ -310,25 +330,23 @@ function setupDashboardClickHandlers() {
         }
     }
 
-    // --- 1. TOTAL PROPERTIES CARD (Reset all filters) ---
     const cardTotal = document.getElementById('countTotal')?.closest('.dash-card');
     if (cardTotal) {
         cardTotal.onclick = () => {
-            resetAllFilters(); // Just clear everything
+            resetAllFilters();
             executeSearch(true);
             scrollToTable();
         };
     }
 
-    // --- 2. STATUS DASHBOARD CARDS ---
     const cardExisting = document.getElementById('countExisting')?.closest('.dash-card');
     if (cardExisting) {
         cardExisting.onclick = () => {
-            resetAllFilters(); // Reset everything first!
+            resetAllFilters();
             if (remarksFilter) {
-            const found = setDropdownByText(remarksFilter, 'EXISTING');
-            if (!found && searchInput) searchInput.value = 'EXISTING';
-        }
+                const found = setDropdownByText(remarksFilter, 'EXISTING');
+                if (!found && searchInput) searchInput.value = 'EXISTING';
+            }
             executeSearch(true);
             scrollToTable();
         };
@@ -337,11 +355,11 @@ function setupDashboardClickHandlers() {
     const cardNotFound = document.getElementById('countNotFound')?.closest('.dash-card');
     if (cardNotFound) {
         cardNotFound.onclick = () => {
-            resetAllFilters(); // Reset everything first!
+            resetAllFilters();
             if (remarksFilter) {
-            const found = setDropdownByText(remarksFilter, 'NOT FOUND');
-            if (!found && searchInput) searchInput.value = 'NOT FOUND';
-        }
+                const found = setDropdownByText(remarksFilter, 'NOT FOUND');
+                if (!found && searchInput) searchInput.value = 'NOT FOUND';
+            }
             executeSearch(true);
             scrollToTable();
         };
@@ -350,22 +368,22 @@ function setupDashboardClickHandlers() {
     const cardVerification = document.getElementById('countVerification')?.closest('.dash-card');
     if (cardVerification) {
         cardVerification.onclick = () => {
-            resetAllFilters(); // Reset everything first!
+            resetAllFilters();
             if (remarksFilter) {
-            const found = setDropdownByText(remarksFilter, 'VERIFICATION');
-            if (!found && searchInput) searchInput.value = 'VERIFICATION';
-        }
+                const found = setDropdownByText(remarksFilter, 'VERIFICATION');
+                if (!found && searchInput) searchInput.value = 'VERIFICATION';
+            }
             executeSearch(true);
             scrollToTable();
         };
     }
 
-const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card');
+    const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card');
     if (cardTaxDec) {
         cardTaxDec.onclick = () => {
-            resetAllFilters(); // Reset everything first!
+            resetAllFilters();
             if (photoFilter && photoFilter.options.length > 3) {
-                photoFilter.selectedIndex = 3; // Index 3 is "With Tax Declaration"
+                photoFilter.selectedIndex = 3;
             }
             executeSearch(true);
             scrollToTable();
@@ -375,7 +393,7 @@ const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card')
     const cardPhotos = document.getElementById('countWithPhotos')?.closest('.dash-card');
     if (cardPhotos) {
         cardPhotos.onclick = () => {
-            resetAllFilters(); // Reset everything first!
+            resetAllFilters();
             if (photoFilter && photoFilter.options.length > 1) {
                 photoFilter.selectedIndex = 1; 
             }
@@ -384,23 +402,21 @@ const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card')
         };
     }
 
-   // --- 3. PROPERTY TYPE CARDS (Updated Keywords) ---
     const typeMappings = [
         { id: 'countBuilding', keyword: 'BUILDING' },
-        { id: 'countAssetMod', keyword: 'BUILDING MODIFICATION' }, // Changed from 'ASSET'
+        { id: 'countAssetMod', keyword: 'BUILDING MODIFICATION' },
         { id: 'countFlood', keyword: 'FLOOD' },
         { id: 'countHospital', keyword: 'HOSPITAL' },
         { id: 'countLand', keyword: 'LAND' },
         { id: 'countMarket', keyword: 'MARKET' },
         { id: 'countOtherInfra', keyword: 'OTHER INFRASTRUCTURE' },
         { id: 'countOtherLand', keyword: 'OTHER LAND' },
-        { id: 'countOtherStruct', keyword: 'OTHER STRUCTURE' }, // Changed from 'STRUCTURE'
+        { id: 'countOtherStruct', keyword: 'OTHER STRUCTURE' },
         { id: 'countPark', keyword: 'PARK' },
         { id: 'countRoad', keyword: 'ROAD' },
         { id: 'countSchool', keyword: 'SCHOOL' },
         { id: 'countSlaughterhouse', keyword: 'SLAUGHTERHOUSE' },
         { id: 'countWater', keyword: 'WATER' }
-		
     ];
 
     typeMappings.forEach(item => {
@@ -409,7 +425,7 @@ const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card')
             const card = countEl.closest('.type-card');
             if (card) {
                 card.onclick = () => {
-                    resetAllFilters(); // Reset everything first!
+                    resetAllFilters();
                     if (typeFilter) {
                         const found = setDropdownByText(typeFilter, item.keyword);
                         if (!found && searchInput) {
@@ -426,8 +442,6 @@ const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card')
 
 function initApp() {
     initUIReferences();
-
-    // Try initializing immediately if the script is already loaded
     getOrCreateTokenClient();
 
     const loginBtn = document.getElementById('customLoginBtn');
@@ -439,7 +453,6 @@ function initApp() {
                 if (loginErr) loginErr.textContent = '';
                 client.requestAccessToken();
             } else {
-                // Fallback: If Google GSI script is still loading, retry after 500ms automatically
                 const loginErr = document.getElementById('loginError');
                 if (loginErr) loginErr.textContent = 'Connecting to Google Sign-In, please wait...';
                 
@@ -526,7 +539,7 @@ if (document.readyState === 'loading') {
     initApp();
 }
 
-// 🌐 Secure Image Fetcher (Bypasses Google Drive Blocks)
+// 🌐 Secure Image Fetcher
 async function fetchAuthorizedImage(driveUrl) {
     if (!driveUrl || typeof driveUrl !== 'string') return null;
     const match = driveUrl.match(/[-\w]{25,}/);
@@ -606,96 +619,17 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
                 hideLoading();
             }
         });
-} catch (err) {
+    } catch (err) {
         hideLoading();
         if (statusBanner) {
             statusBanner.style.backgroundColor = "#f8d7da";
             statusBanner.style.color = "#721c24";
-            statusBanner.textContent = "Connection Error: Check Sheet spreadsheet access permission configuration.";
+            statusBanner.textContent = "Connection Error: Unable to sync with Google Sheet datastream.";
         }
-        console.error(err);
+        console.error("Sheet sync failed:", err);
 
-        if (accessToken && loggedInUser !== "System User") {
-    const modal = document.getElementById("accessModal");
-    const modalText = document.getElementById("accessModalText");
-    const submitBtn = document.getElementById("submitRequestBtn");
-    const closeBtn = document.getElementById("closeModalBtn");
-    
-    // Grab your existing textarea by its exact ID
-    const noteInput = document.getElementById("requestNotesInput");
-
-    // Ensure the textarea is visible and empty when the modal first opens
-    if (noteInput) {
-        noteInput.style.display = "block";
-        noteInput.value = "";
-    }
-
-    // Keep your dynamic text structure
-    modalText.innerHTML = "Your Gmail account (<b>" + loggedInUser + "</b>) does not have permission to view the Google Sheet.<br><br>Would you like to send an access request?";
-    modal.style.display = "flex";
-
-   submitBtn.onclick = function() {
-        // 1. Capture the note value
-        let noteValue = "No note provided";
-        if (noteInput) {
-            noteValue = noteInput.value.trim() || "No note provided";
-            noteInput.value = ""; // Reset input in the background for next time
-        }
-
-        // 2. Target the entire modal content area or update both title and text together
-        const modalHeader = document.querySelector('.access-modal-header') || modalText.parentElement;
-        
-        // Update the content to show the clean success state with your phone number text
-        modalText.innerHTML = `
-            <div style="text-align: center;">
-                <h3 style="margin-top:0; margin-bottom: 12px; color: #155724; font-size: 22px;">✅ Request Access Sent</h3>
-                <p style="margin:0; line-height: 1.6; font-size: 15px; color: #333;">
-                    Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.
-                </p>
-            </div>
-        `;
-        
-        // 3. Hide the text area input
-        if (noteInput) {
-            noteInput.style.display = "none";
-        }
-
-        // 4. Update buttons: Hide 'Submit', change 'Cancel' to a green 'OK' button
-        submitBtn.style.display = "none";
-        closeBtn.textContent = "OK";
-        closeBtn.style.background = "#28a745"; 
-        closeBtn.style.color = "white";
-
-        // 5. Prepare the URL for Apps Script
-        const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&name=" + encodeURIComponent(loggedInUser) + "&notes=" + encodeURIComponent(noteValue);
-
-      // 6. Trigger the request silently using fetch (bypasses iframe blocks)
-        fetch(requestUrl, { method: 'GET', mode: 'no-cors' }).catch(err => console.error("Access request silent failure:", err));
-    };
-
-    closeBtn.onclick = function() {
-        modal.style.display = "none";
-        
-        // Reset modal back to original prompt state when closed
-        setTimeout(() => {
-            // 2. Change the modal content to the "Success" window instead of closing it
-        modalText.innerHTML = "<h3 style='margin-top:0; margin-bottom: 10px; color: #155724;'>✅ Request Access Sent</h3><p style='margin:0; line-height: 1.5;'>Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.</p>";
-            submitBtn.style.display = "inline-block";
-            closeBtn.textContent = "Cancel";
-            closeBtn.style.background = "#6c757d";
-            
-            // Reset the textarea for the next time the modal is used
-            if (noteInput) {
-                noteInput.value = "";
-                noteInput.style.display = "block";
-            }
-        }, 300);
-    };
-} else {
-            alert("Connection failed or you have been logged out from Google. Please log in again.");
-        }
-
-        performLogout();
+        // Perform logout and display the Logged Out notification window instead of the Request Access modal or alert
+        performLogout(true, "Unable to connect to Google Sheets. You have been logged out.");
     }
 }
 
@@ -737,7 +671,6 @@ function initializeSystemUI(retainPage = false) {
 }
 
 function populateDropdown(type, selectEl, placeholderText) {
-    // ... [Rest of your code continues normally]
     if(!selectEl) return;
     const previousSelection = selectEl.value;
     selectEl.innerHTML = `<option value="ALL">${placeholderText}</option>`;
@@ -799,29 +732,24 @@ function updatePaginationUI(totalPages) {
 // 🖼️ LAZY LOADING OBSERVER FOR TABLE PHOTOS
 const tableImageObserver = new IntersectionObserver((entries, observer) => {
     entries.forEach(entry => {
-        // Check if the image has entered the viewport
         if (entry.isIntersecting) {
             const img = entry.target;
             const driveUrl = img.dataset.src;
             
             if (driveUrl) {
-                // Fetch the image securely now that it's in view
                 fetchAuthorizedImage(driveUrl).then(objectUrl => {
                     if (objectUrl) {
                         img.src = objectUrl;
                         img.alt = "Preview";
                     }
                 });
-                
-                // Stop observing this image once it's processing
                 observer.unobserve(img);
             }
         }
     });
 }, { 
-    rootMargin: "0px 0px 300px 0px" // Starts loading slightly before the user scrolls to it
+    rootMargin: "0px 0px 300px 0px"
 });
-
 
 function renderTable(data, page = 1) {
     if(!tableBody) return; tableBody.innerHTML = '';
@@ -863,13 +791,11 @@ function renderTable(data, page = 1) {
                     imgEl.alt = "Loading...";
                     imgEl.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'%3E%3Ccircle cx='25' cy='25' r='20' fill='none' stroke='%23ccc' stroke-width='4' stroke-dasharray='31.4 31.4'%3E%3CanimateTransform attributeName='transform' type='rotate' from='0 25 25' to='360 25 25' dur='1s' repeatCount='indefinite'/%3E%3C/circle%3E%3C/svg%3E";
                     
-                imgEl.onclick = (event) => { event.stopPropagation(); openPopUp(row._rowId, tKey); };
+                    imgEl.onclick = (event) => { event.stopPropagation(); openPopUp(row._rowId, tKey); };
                     
-                    // Assign the URL to a data attribute instead of fetching immediately
                     imgEl.dataset.src = url; 
                     td.appendChild(imgEl);
 
-                    // Tell the observer to watch this image placeholder
                     tableImageObserver.observe(imgEl);
                 } else {
                     td.textContent = 'No Photo';
@@ -895,11 +821,9 @@ function calculateStaticDashboardTotals(items) {
     const pKey1 = headerMapping['photo 1'];
     const pKey2 = headerMapping['photo 2'];
     const pKey4 = headerMapping['tax declaration'];
-const aKey = headerMapping['article/item'];
     const nKey = headerMapping['notes'];
     
     let insuredCount = 0, notInsuredCount = 0, expiringCount = 0;
-    
     let existing = 0, notfound = 0, verify = 0, photos = 0, taxdec = 0;
     
     let stats = {
@@ -920,42 +844,34 @@ const aKey = headerMapping['article/item'];
         if(row[pKey4] && row[pKey4].trim()!=='') taxdec++;
         
         const typeStr = String(row[tKey] || '').toUpperCase().trim();
-// --- BUILDING INSURANCE LOGIC ---
         const notesVal = String(row[nKey] || '');
         const notesUpper = notesVal.toUpperCase();
 
         if (notesUpper.includes('NOT INSURED')) {
             notInsuredCount++;
         } else if (notesUpper.includes('BUILDING INSURED')) {
-            // Regex looks for "Coverage [Date] - [Date]" and extracts the second date
             const dateMatch = notesVal.match(/Coverage\s+.*?\s+-\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})/i);
             
             if (dateMatch && dateMatch[1]) {
                 const endDate = new Date(dateMatch[1]);
                 const currentDate = new Date(); 
                 
-                // Verify the extracted date is valid
                 if (!isNaN(endDate.getTime())) {
                     const timeDiff = endDate.getTime() - currentDate.getTime();
                     const daysDiff = timeDiff / (1000 * 3600 * 24);
                     
-                   // 30 days is the threshold for "Almost Expire"
                     if (daysDiff <= 30) {
-                        expiringCount++; // Correctly count as Expiring
+                        expiringCount++;
                     } else {
-                        insuredCount++; // Active
+                        insuredCount++;
                     }
                 } else {
-                    insuredCount++; // Fallback if date is invalid but says insured
+                    insuredCount++;
                 }
             } else {
-                 insuredCount++; // Fallback if no date format is found but says insured
+                 insuredCount++;
             }
         }
-// --------------------------------
-
-
-
         
         if (typeStr.includes('BUILDING MOD') || typeStr.includes('ASSET MOD')) stats['Building Modifications']++;
         else if (typeStr.includes('SCHOOL')) stats['School Building']++;
@@ -993,7 +909,7 @@ const aKey = headerMapping['article/item'];
     if(countSchool) countSchool.textContent = stats['School Building'];
     if(countSlaughterhouse) countSlaughterhouse.textContent = stats['Slaughterhouse'];
     if(countWater) countWater.textContent = stats['Water Supplies'];
-if(countInsured) countInsured.textContent = insuredCount;
+    if(countInsured) countInsured.textContent = insuredCount;
     if(countNotInsured) countNotInsured.textContent = notInsuredCount;
 	if(countExpiring) countExpiring.textContent = expiringCount;
 }
@@ -1009,7 +925,6 @@ function executeSearch(resetPage = true) {
     const pKey1 = headerMapping['photo 1'];
     const pKey2 = headerMapping['photo 2'];
     const pKey4 = headerMapping['tax declaration'];
-    const aKey = headerMapping['article/item'];
     const nKey = headerMapping['notes'];
 	
     const photo1Or2Keys = [pKey1, pKey2];
@@ -1039,7 +954,7 @@ function executeSearch(resetPage = true) {
             if (phoF === 'NO_PHOTO') matchPhoto = !hasPhoto1Or2;
             if (phoF === 'WITH_TAX_DEC') matchPhoto = hasTaxDec;
         }
-       // --- INSURANCE CLICK FILTER LOGIC ---
+
         if (activeInsuranceFilter !== 'ALL') {
             const notesVal = String(row[nKey] || '');
             const notesUpper = notesVal.toUpperCase();
@@ -1059,7 +974,6 @@ function executeSearch(resetPage = true) {
             }
             matchInsurance = (status === activeInsuranceFilter);
         }
-        // ------------------------------------
         return matchText && matchRem && matchType && matchPhoto && matchInsurance;
     });
 
@@ -1097,43 +1011,43 @@ function openPopUp(rowId, clickedPhotoKey = null) {
         const lbl = document.createElement('label');
         lbl.textContent = mappedKey || tKey;
         
-       let inp;
-    if(tKey === 'remarks') {
-        inp = document.createElement('select');
-        inp.id = 'modal_' + tKey;
-        inp.disabled = true;
-        let found = false;
-        parsedUniqueRemarks.forEach(r => {
-            const opt = document.createElement('option');
-            opt.value = r; opt.textContent = r;
-            if(r === val) { opt.selected = true; found = true; }
-            inp.appendChild(opt);
-        });
-        if(val && !found) {
-            const opt = document.createElement('option');
-            opt.value = val; opt.textContent = val;
-            opt.selected = true;
-            inp.appendChild(opt);
+        let inp;
+        if(tKey === 'remarks') {
+            inp = document.createElement('select');
+            inp.id = 'modal_' + tKey;
+            inp.disabled = true;
+            let found = false;
+            parsedUniqueRemarks.forEach(r => {
+                const opt = document.createElement('option');
+                opt.value = r; opt.textContent = r;
+                if(r === val) { opt.selected = true; found = true; }
+                inp.appendChild(opt);
+            });
+            if(val && !found) {
+                const opt = document.createElement('option');
+                opt.value = val; opt.textContent = val;
+                opt.selected = true;
+                inp.appendChild(opt);
+            }
+        } else if(tKey === 'description') {
+            inp = document.createElement('textarea');
+            inp.id = 'modal_' + tKey;
+            inp.value = val;
+            inp.rows = 7;
+            inp.disabled = true;
+        } else if(tKey === 'notes') {
+            inp = document.createElement('textarea');
+            inp.id = 'modal_' + tKey;
+            inp.value = val;
+            inp.rows = 3;
+            inp.disabled = true;
+        } else {
+            inp = document.createElement('input');
+            inp.type = 'text';
+            inp.id = 'modal_' + tKey;
+            inp.value = val;
+            inp.disabled = true;
         }
-    } else if(tKey === 'description') {
-        inp = document.createElement('textarea');
-        inp.id = 'modal_' + tKey;
-        inp.value = val;
-        inp.rows = 7; // <--- CHANGED FROM 8 TO 7 (less 1 line)
-        inp.disabled = true;
-    } else if(tKey === 'notes') {
-        inp = document.createElement('textarea');
-        inp.id = 'modal_' + tKey;
-        inp.value = val;
-        inp.rows = 3; // <--- ADDED: Sets notes field height to 3 lines
-        inp.disabled = true;
-    } else {
-        inp = document.createElement('input');
-        inp.type = 'text';
-        inp.id = 'modal_' + tKey;
-        inp.value = val;
-        inp.disabled = true;
-    }
         
         fDiv.appendChild(lbl);
         fDiv.appendChild(inp);
@@ -1179,10 +1093,10 @@ function openPopUp(rowId, clickedPhotoKey = null) {
     modalSaveBtn.style.display = 'none';
     uploadPhotoBtn.style.display = 'inline-block';
     modalCloseBtn.disabled = false;
-    modalCloseBtn.textContent = 'Close'; // <--- ADD THIS LINE
+    modalCloseBtn.textContent = 'Close';
     modalCloseX.disabled = false;
     editModal.style.display = 'flex';
-	document.body.style.overflow = 'hidden'; // Locks the background scroll
+	document.body.style.overflow = 'hidden';
 }
 
 function renderModalPhotoViewer() {
@@ -1262,7 +1176,6 @@ function navigatePhoto(dir) {
 function enableEditMode() {
     popupOrderLowercase.forEach(tKey => {
         const el = document.getElementById('modal_' + tKey);
-        // <--- MODIFIED: Excludes both 'article/item' and 'description' from being enabled
         if (el && tKey !== 'article/item' && tKey !== 'description') {
             el.disabled = false;
         }
@@ -1276,7 +1189,7 @@ function enableEditMode() {
 }
 
 function triggerSaveProcess() {
-    finalizeSaveData(loggedInUser); // <--- MODIFIED: Bypasses popup and goes straight to save & refresh
+    finalizeSaveData(loggedInUser);
 }
 
 function finalizeSaveData(operatorName) {
@@ -1315,7 +1228,6 @@ function finalizeSaveData(operatorName) {
         if(updateMappedKey) itemData[updateMappedKey] = operatorName;
         if(dateMappedKey) itemData[dateMappedKey] = formattedTimestamp;
 
-        // Using 'no-cors' mode prevents the browser from throwing a 'Failed to fetch' error
         fetch(GOOGLE_APPS_SCRIPT_URL, {
             method: 'POST',
             body: params.toString(),
@@ -1323,17 +1235,14 @@ function finalizeSaveData(operatorName) {
             mode: 'no-cors' 
         })
         .then(() => {
-            // Silently hide the loading screen, close the modal, and refresh
             hideLoading();
             closeModal(); 
         })
         .catch(() => {
-            // Even if a background network drop occurs, hide loading, close, and refresh
             hideLoading();
             closeModal();
         });
     } else {
-        // If no changes were made, just close the modal
         closeModal(); 
     }
 }
@@ -1345,7 +1254,7 @@ function openUploadWindow() {
 
     const articleKey = headerMapping['article/item'];
     const itemCode = itemData[articleKey] || 'Unknown';
-    const uploadUrl = GOOGLE_APPS_SCRIPT_URL + "?itemCode=" + encodeURIComponent(itemCode) + "&authuser=0";
+    const uploadUrl = GOOGLE_APPS_SCRIPT_URL + "?itemCode=" + encodeURIComponent(itemCode);
     
     window.open(uploadUrl, '_blank');
     modalModified = true;
@@ -1353,8 +1262,6 @@ function openUploadWindow() {
 
 function closeModal() {
     if (editModal) editModal.style.display = 'none';
-    
-    // Unlocks the background scroll
     document.body.style.overflow = ''; 
     
     if (modalModified) {
@@ -1367,17 +1274,13 @@ function closeModal() {
 
 // --- DASHBOARD CLICK-TO-FILTER FUNCTION ---
 function setInsuranceFilter(filterMode, cardId) {
-    
-    // 🧹 Reset other text and dropdown filters so they don't block the results
     if (searchInput) searchInput.value = '';
     if (remarksFilter) remarksFilter.value = 'ALL';
     if (typeFilter) typeFilter.value = 'ALL';
     if (photoFilter) photoFilter.value = 'ALL';
 
-    // Set insurance filter mode directly
     activeInsuranceFilter = filterMode;
 
-    // Reset styles for all 3 cards
     document.querySelectorAll('.ins-card').forEach(card => {
         card.style.transform = 'scale(1)';
         card.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
@@ -1386,29 +1289,25 @@ function setInsuranceFilter(filterMode, cardId) {
 
     const clearBtn = document.getElementById('clearInsFilterBtn');
 
-    // Highlight the active card
     if (activeInsuranceFilter !== 'ALL') {
         const activeCard = document.getElementById(cardId);
         if (activeCard) {
             activeCard.style.transform = 'scale(1.05)';
             activeCard.style.boxShadow = '0 4px 10px rgba(0,0,0,0.15)';
-            activeCard.style.backgroundColor = '#ffffff'; // highlight color
+            activeCard.style.backgroundColor = '#ffffff';
         }
         if (clearBtn) clearBtn.style.display = 'inline';
     } else {
         if (clearBtn) clearBtn.style.display = 'none';
     }
 
-    // Trigger the table update
     executeSearch(true); 
     
-    // Smooth scroll down
     const tableSec = document.querySelector('.table-section');
     if (tableSec) tableSec.scrollIntoView({ behavior: 'smooth' });
 }
 
 function setupSystemEventHandlers() {
-	// Dashboard Filter Click Events
     const cardInsured = document.getElementById('cardInsured');
     const cardNotInsured = document.getElementById('cardNotInsured');
     const cardExpiring = document.getElementById('cardExpiring');
@@ -1418,70 +1317,44 @@ function setupSystemEventHandlers() {
     if(cardNotInsured) cardNotInsured.onclick = () => setInsuranceFilter('NOT_INSURED', 'cardNotInsured');
     if(cardExpiring) cardExpiring.onclick = () => setInsuranceFilter('EXPIRING', 'cardExpiring');
     if(clearInsFilterBtn) clearInsFilterBtn.onclick = () => setInsuranceFilter('ALL', '');
-if(resetFiltersButton) {
-    resetFiltersButton.addEventListener('click', () => {
+    if(resetFiltersButton) {
+        resetFiltersButton.addEventListener('click', () => {
+            if (searchInput) searchInput.value = '';
+            if (remarksFilter) remarksFilter.selectedIndex = 0;
+            if (typeFilter) typeFilter.selectedIndex = 0;
+            if (photoFilter) photoFilter.selectedIndex = 0;
 
-        // Clear search box
-        if (searchInput) {
-            searchInput.value = '';
-        }
+            activeInsuranceFilter = 'ALL';
 
-        // Reset all dropdowns to their default option
-        if (remarksFilter) {
-            remarksFilter.selectedIndex = 0;
-        }
+            document.querySelectorAll('.ins-card').forEach(card => {
+                card.style.transform = 'scale(1)';
+                card.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
+                card.style.backgroundColor = '#f8f9fa';
+            });
 
-        if (typeFilter) {
-            typeFilter.selectedIndex = 0;
-        }
+            const clearBtn = document.getElementById('clearInsFilterBtn');
+            if (clearBtn) clearBtn.style.display = 'none';
 
-        if (photoFilter) {
-            photoFilter.selectedIndex = 0;
-        }
+            currentPage = 1;
+            currentFilteredData = [];
 
-        // Clear insurance filter
-        activeInsuranceFilter = 'ALL';
+            if (foundCountDisplay) {
+                foundCountDisplay.textContent = '(0 items displayed)';
+            }
 
-        // Remove insurance card highlighting
-        document.querySelectorAll('.ins-card').forEach(card => {
-            card.style.transform = 'scale(1)';
-            card.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
-            card.style.backgroundColor = '#f8f9fa';
+            if (tableBody) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="${displayHeaders.length}" class="no-data">
+                            Data loaded successfully. Apply a filter or search to view records.
+                        </td>
+                    </tr>
+                `;
+            }
+
+            updatePaginationUI(0);
         });
-
-        // Hide insurance clear-filter link
-        const clearBtn = document.getElementById('clearInsFilterBtn');
-        if (clearBtn) {
-            clearBtn.style.display = 'none';
-        }
-
-        // Reset pagination
-        currentPage = 1;
-
-        // IMPORTANT:
-        // Clear the table data instead of showing all records
-        currentFilteredData = [];
-
-        // Display 0 records
-        if (foundCountDisplay) {
-            foundCountDisplay.textContent = '(0 items displayed)';
-        }
-
-        // Clear the table and show the default message
-        if (tableBody) {
-            tableBody.innerHTML = `
-                <tr>
-                    <td colspan="${displayHeaders.length}" class="no-data">
-                        Data loaded successfully. Apply a filter or search to view records.
-                    </td>
-                </tr>
-            `;
-        }
-
-        // Reset pagination display
-        updatePaginationUI(0);
-    });
-}
+    }
     if(searchInput) searchInput.addEventListener('keypress', e => { if(e.key === 'Enter') executeSearch(true); });
 	if(searchButton) searchButton.addEventListener('click', () => executeSearch(true));
     
@@ -1499,8 +1372,8 @@ if(resetFiltersButton) {
     
     if(modalCloseBtn) modalCloseBtn.addEventListener('click', () => {
         if (modalCloseBtn.textContent === 'Cancel') {
-            modalModified = false; // Prevents unnecessary data reload
-            openPopUp(activeEditIndex); // Re-opens the current item in View Mode
+            modalModified = false;
+            openPopUp(activeEditIndex);
         } else {
             closeModal();
         }
@@ -1545,7 +1418,7 @@ function downloadDatasetCSV(data, filenamePrefix) {
     document.body.removeChild(link);
 }
 
-// 🖼️ Helper to Convert Image URL to Base64 Data URL for Offline Inclusion
+// 🖼️ Helper to Convert Image URL to Base64 Data URL
 async function getBase64ImageFromUrl(imageUrl) {
     if (!imageUrl) return '';
     try {
@@ -1578,7 +1451,7 @@ async function getBase64ImageFromUrl(imageUrl) {
     }
 }
 
-// 🌐 Export Searched HTML with Photos Completely Downloaded & Embedded as Base64
+// 🌐 Export Searched HTML
 async function downloadSearchedHTML(data) {
     if(!data || data.length === 0) {
         alert("Export Nullified: No dataset active for export.");
@@ -1599,7 +1472,6 @@ async function downloadSearchedHTML(data) {
             
             if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration') || tKey.includes('transfer_cert')) {
                 if (val.trim() !== '') {
-                    // Fetch and convert image to Base64 so photos are fully embedded and downloaded
                     const base64Img = await getBase64ImageFromUrl(val);
                     tableRowsHTML += `<td style="text-align: center;"><img src="${base64Img}" style="height: 250px; max-width: 250px; width: auto; object-fit: contain; border: 1px solid #94a3b8; border-radius: 4px; display: block; margin: 0 auto;" /></td>`;
                 } else {
@@ -1726,23 +1598,19 @@ function escapeHtml(str) {
 // 🚪 LOGOUT & IDLE TIMEOUT MODULE
 // =========================================================================
 let idleTimer;
-const IDLE_TIME_LIMIT = 30 * 60 * 1000; // 30 minutes in milliseconds
+const IDLE_TIME_LIMIT = 30 * 60 * 1000;
 
-function performLogout() {
-    // 1. Clear the access token to revoke privileges
+function performLogout(showNoticeWindow = false, noticeMessage = '') {
     accessToken = null; 
     
-    // 2. Transition back to the login screen
     const loginScreen = document.getElementById('loginScreen');
     const mainApp = document.getElementById('mainApp');
     
     if (loginScreen) loginScreen.style.display = '';
     if (mainApp) mainApp.style.display = 'none';
     
-    // 3. Stop the timer
     clearTimeout(idleTimer);
     
-    // 4. Force hide all floating elements immediately
     const floatingLogoutBtn = document.getElementById('floatingLogoutBtn');
     if (floatingLogoutBtn) floatingLogoutBtn.style.display = 'none';
 
@@ -1754,24 +1622,26 @@ function performLogout() {
         backToTopBtn.style.visibility = 'hidden';
         backToTopBtn.style.opacity = '0';
     }
+
+    if (showNoticeWindow) {
+        showLoggedOutWindow(noticeMessage);
+    }
 }
 
 function resetIdleTimer() {
     clearTimeout(idleTimer);
-    // Only run the idle countdown if the user is currently logged in
     if (accessToken) {
-        idleTimer = setTimeout(performLogout, IDLE_TIME_LIMIT);
+        idleTimer = setTimeout(() => {
+            performLogout(true, "You have been logged out due to session inactivity.");
+        }, IDLE_TIME_LIMIT);
     }
 }
 
-// Initialize everything once the page loads
 window.addEventListener('DOMContentLoaded', () => {
-    // --- Create the Floating Logout Button ---
     const logoutBtn = document.createElement('button');
     logoutBtn.innerHTML = 'Log Out';
     logoutBtn.id = 'floatingLogoutBtn';
     
-    // Style the button so it floats in the upper right
     Object.assign(logoutBtn.style, {
         position: 'fixed',
         top: '20px',
@@ -1785,33 +1655,26 @@ window.addEventListener('DOMContentLoaded', () => {
         cursor: 'pointer',
         boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
         zIndex: '999999',
-        display: 'none', // Hidden by default on the login screen
+        display: 'none',
         transition: 'background-color 0.2s'
     });
 
-    // Add a slight hover effect for better UI
     logoutBtn.onmouseover = () => logoutBtn.style.backgroundColor = '#c82333';
     logoutBtn.onmouseout = () => logoutBtn.style.backgroundColor = '#dc3545';
     
-    logoutBtn.addEventListener('click', performLogout);
+    logoutBtn.addEventListener('click', () => performLogout(false));
     document.body.appendChild(logoutBtn);
 
-    // --- Setup the Idle Activity Trackers ---
-    // Any of these actions will reset the 30-minute timer
     const userActivityEvents = ['mousemove', 'keydown', 'scroll', 'click', 'touchstart'];
     userActivityEvents.forEach(event => {
         document.addEventListener(event, resetIdleTimer);
     });
 
-// --- Monitor Login State ---
-    // Checks every 1 second if the user logged in to display the button, 
-    // ensuring we don't have to alter your existing login functions.
     setInterval(() => {
         const btn = document.getElementById('floatingLogoutBtn');
         const mainApp = document.getElementById('mainApp');
         
         if (btn) {
-            // Only display if we have an access token AND the main app screen is visible
             const isMainAppVisible = mainApp && mainApp.style.display !== 'none';
             btn.style.display = (accessToken && isMainAppVisible) ? 'block' : 'none';
         }
