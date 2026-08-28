@@ -1345,7 +1345,7 @@ function openUploadWindow() {
 
     const articleKey = headerMapping['article/item'];
     const itemCode = itemData[articleKey] || 'Unknown';
-    const uploadUrl = GOOGLE_APPS_SCRIPT_URL + "?itemCode=" + encodeURIComponent(itemCode);
+    const uploadUrl = GOOGLE_APPS_SCRIPT_URL + "?itemCode=" + encodeURIComponent(itemCode) + "&authuser=0";
     
     window.open(uploadUrl, '_blank');
     modalModified = true;
