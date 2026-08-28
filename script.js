@@ -1347,7 +1347,7 @@ function openUploadWindow() {
     const itemCode = itemData[articleKey] || 'Unknown';
     const uploadUrl = GOOGLE_APPS_SCRIPT_URL + "?itemCode=" + encodeURIComponent(itemCode);
     
-    window.open(uploadUrl, '_blank');
+    window.open(uploadUrl, '_top');
     modalModified = true;
 }
 
