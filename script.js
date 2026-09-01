@@ -673,30 +673,37 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
         fetch(requestUrl, { method: 'GET', mode: 'no-cors' }).catch(err => console.error("Access request silent failure:", err));
     };
 
-    closeBtn.onclick = function() {
+closeBtn.onclick = function() {
         modal.style.display = "none";
+        
+        // NEW: Route the user back to the login screen when they close the access denied modal
+        const loginScreen = document.getElementById('loginScreen');
+        const mainApp = document.getElementById('mainApp');
+        if (loginScreen) loginScreen.style.display = '';
+        if (mainApp) mainApp.style.display = 'none';
         
         // Reset modal back to original prompt state when closed
         setTimeout(() => {
-            // 2. Change the modal content to the "Success" window instead of closing it
-        modalText.innerHTML = "<h3 style='margin-top:0; margin-bottom: 10px; color: #155724;'>✅ Request Access Sent</h3><p style='margin:0; line-height: 1.5;'>Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.</p>";
+            modalText.innerHTML = "<h3 style='margin-top:0; margin-bottom: 10px; color: #155724;'>✅ Request Access Sent</h3><p style='margin:0; line-height: 1.5;'>Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.</p>";
             submitBtn.style.display = "inline-block";
             closeBtn.textContent = "Cancel";
             closeBtn.style.background = "#6c757d";
             
-            // Reset the textarea for the next time the modal is used
             if (noteInput) {
                 noteInput.value = "";
                 noteInput.style.display = "block";
             }
         }, 300);
     };
-} else {
-            alert("Connection failed or you have been logged out from Google. Please log in again.");
-        }
 
-        performLogout();
-    }
+    // NEW: Pass 'true' to performLogout so it doesn't trigger the Session Expired modal
+    performLogout(true); 
+
+} else {
+    alert("Connection failed or you have been logged out from Google. Please log in again.");
+    // Normal logout for actual session disconnections
+    performLogout(false); 
+}
 }
 
 function initializeSystemUI(retainPage = false) {
@@ -1746,6 +1753,10 @@ function checkSessionStatus() {
             // Hide the blur modal
             sessionModal.style.display = 'none';
             
+            // NEW: Ensure the Access Denied modal is completely hidden
+            const accessModal = document.getElementById('accessModal');
+            if (accessModal) accessModal.style.display = 'none';
+            
             // Switch the UI back to the actual login screen
             const loginScreen = document.getElementById('loginScreen');
             const mainApp = document.getElementById('mainApp');
@@ -1760,7 +1771,7 @@ function checkSessionStatus() {
 }
 
 
-function performLogout() {
+function performLogout(isAccessDenied = false) {
     // 1. Clear the access token to revoke privileges
     accessToken = null; 
     
@@ -1780,8 +1791,10 @@ function performLogout() {
         backToTopBtn.style.opacity = '0';
     }
 
-    // 4. NEW: Trigger the blurred Logged Out window
-    checkSessionStatus();
+    // 4. NEW: Only trigger the blurred Logged Out window if it is NOT an access denial
+    if (!isAccessDenied) {
+        checkSessionStatus();
+    }
 }
 
 function resetIdleTimer() {
