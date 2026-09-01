@@ -704,7 +704,6 @@ closeBtn.onclick = function() {
     // Normal logout for actual session disconnections
     performLogout(false); 
 }
-}
 
 function initializeSystemUI(retainPage = false) {
     if (statusBanner) {
