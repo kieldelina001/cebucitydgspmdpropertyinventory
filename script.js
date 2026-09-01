@@ -1853,7 +1853,33 @@ window.addEventListener('DOMContentLoaded', () => {
     logoutBtn.onmouseover = () => logoutBtn.style.backgroundColor = '#c82333';
     logoutBtn.onmouseout = () => logoutBtn.style.backgroundColor = '#dc3545';
     
-    logoutBtn.addEventListener('click', performLogout);
+    logoutBtn.addEventListener('click', () => {
+    // 1. Securely revoke the Google Access Token
+    if (accessToken && window.google) {
+        google.accounts.oauth2.revoke(accessToken, () => {});
+    }
+    
+    // 2. Clear credentials and stop the idle timeout timer
+    accessToken = null;
+    clearTimeout(idleTimer);
+    
+    // 3. Hide floating UI components
+    document.getElementById('floatingLogoutBtn').style.display = 'none';
+    if (document.getElementById('paginationContainer')) {
+        document.getElementById('paginationContainer').style.display = 'none';
+    }
+    const backToTopBtn = document.getElementById('backToTopBtn');
+    if (backToTopBtn) {
+        backToTopBtn.style.visibility = 'hidden';
+        backToTopBtn.style.opacity = '0';
+    }
+    
+    // 4. Instantly switch the view back to the Login Screen
+    const loginScreen = document.getElementById('loginScreen');
+    const mainApp = document.getElementById('mainApp');
+    if (loginScreen) loginScreen.style.display = '';
+    if (mainApp) mainApp.style.display = 'none';
+});
     document.body.appendChild(logoutBtn);
 
     // --- Setup the Idle Activity Trackers ---
