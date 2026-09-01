@@ -221,33 +221,54 @@ function getOrCreateTokenClient() {
                     accessToken = tokenResponse.access_token;
                     
                    fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                        headers: { 'Authorization': `Bearer ${accessToken}` }
-                    })
-                    .then(res => res.json())
-                    .then(profile => {
-                        if (profile.email) {
-                            loggedInUser = profile.email; // <--- ADDED: Saves email globally
-                        }
-                        const operatorInput = document.getElementById('custom-operator-input');
-                        if (operatorInput && profile.email) {
-                            operatorInput.value = profile.email;
-                            operatorInput.disabled = true;
-                        }
-                    }).catch(console.error);
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+})
+.then(res => {
+    if (!res.ok) {
+        throw new Error("Unable to identify Google account.");
+    }
+    return res.json();
+})
+.then(profile => {
 
-                    const loginScreen = document.getElementById('loginScreen');
-                    const mainApp = document.getElementById('mainApp');
-                    if (loginScreen) loginScreen.style.display = 'none';
-                    if (mainApp) mainApp.style.display = 'block';
-                    
-                    setupSystemEventHandlers();
-                    loadInventoryFromGoogleSheets();
-                } else {
-                    const loginErr = document.getElementById('loginError');
-                    if (loginErr) loginErr.textContent = 'Google Sign-In authorization failed.';
-                }
-            }
-        });
+    // ============================================================
+    // IMPORTANT:
+    // Get the Gmail address BEFORE checking Google Sheet access.
+    // ============================================================
+    if (profile.email) {
+        loggedInUser = profile.email;
+    }
+
+    const operatorInput = document.getElementById('custom-operator-input');
+    if (operatorInput && profile.email) {
+        operatorInput.value = profile.email;
+        operatorInput.disabled = true;
+    }
+
+    // ============================================================
+    // ONLY AFTER loggedInUser IS KNOWN:
+    // Open the application and check the Google Sheet.
+    // ============================================================
+    const loginScreen = document.getElementById('loginScreen');
+    const mainApp = document.getElementById('mainApp');
+
+    if (loginScreen) loginScreen.style.display = 'none';
+    if (mainApp) mainApp.style.display = 'block';
+
+    setupSystemEventHandlers();
+    loadInventoryFromGoogleSheets();
+
+})
+.catch(err => {
+    console.error("Google account identification failed:", err);
+
+    accessToken = null;
+
+    const loginErr = document.getElementById('loginError');
+    if (loginErr) {
+        loginErr.textContent = 'Unable to identify your Google account. Please try again.';
+    }
+});
     }
     return tokenClient;
 }
