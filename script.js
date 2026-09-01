@@ -1728,21 +1728,46 @@ function escapeHtml(str) {
 let idleTimer;
 const IDLE_TIME_LIMIT = 30 * 60 * 1000; // 30 minutes in milliseconds
 
+// =========================================================================
+// 🔒 SESSION CHECKER FUNCTION
+// =========================================================================
+function checkSessionStatus() {
+    const sessionModal = document.getElementById('sessionExpiredModal');
+    
+    // 1. Show the blurred modal
+    if (sessionModal) {
+        sessionModal.style.display = 'flex';
+    }
+
+    // 2. Setup the "Log In Again" button behavior
+    const reLoginBtn = document.getElementById('reLoginBtn');
+    if (reLoginBtn) {
+        reLoginBtn.onclick = () => {
+            // Hide the blur modal
+            sessionModal.style.display = 'none';
+            
+            // Switch the UI back to the actual login screen
+            const loginScreen = document.getElementById('loginScreen');
+            const mainApp = document.getElementById('mainApp');
+            if (loginScreen) loginScreen.style.display = '';
+            if (mainApp) mainApp.style.display = 'none';
+
+            // Optional: Automatically trigger the Google Sign-In popup again
+            let client = getOrCreateTokenClient();
+            if (client) client.requestAccessToken();
+        };
+    }
+}
+
+
 function performLogout() {
     // 1. Clear the access token to revoke privileges
     accessToken = null; 
     
-    // 2. Transition back to the login screen
-    const loginScreen = document.getElementById('loginScreen');
-    const mainApp = document.getElementById('mainApp');
-    
-    if (loginScreen) loginScreen.style.display = '';
-    if (mainApp) mainApp.style.display = 'none';
-    
-    // 3. Stop the timer
+    // 2. Stop the timer
     clearTimeout(idleTimer);
     
-    // 4. Force hide all floating elements immediately
+    // 3. Force hide all floating elements immediately
     const floatingLogoutBtn = document.getElementById('floatingLogoutBtn');
     if (floatingLogoutBtn) floatingLogoutBtn.style.display = 'none';
 
@@ -1754,6 +1779,9 @@ function performLogout() {
         backToTopBtn.style.visibility = 'hidden';
         backToTopBtn.style.opacity = '0';
     }
+
+    // 4. NEW: Trigger the blurred Logged Out window
+    checkSessionStatus();
 }
 
 function resetIdleTimer() {
@@ -1816,51 +1844,5 @@ window.addEventListener('DOMContentLoaded', () => {
             btn.style.display = (accessToken && isMainAppVisible) ? 'block' : 'none';
         }
     }, 1000);
-	
-	// =========================================================================
-// 🔒 SESSION MANAGEMENT & LOGOUT HANDLING
-// =========================================================================
-
-// This function is called by the catch block in loadInventoryFromGoogleSheets()
-function performLogout() {
-    // 1. Clear the active credentials
-    accessToken = null;
-    loggedInUser = "System User";
-    
-    // 2. Hide the loading overlay if it got stuck
-    hideLoading();
-    
-    // 3. Hide the main app interface to protect data views
-    const mainApp = document.getElementById('mainApp');
-    if (mainApp) {
-        mainApp.style.display = 'none';
-    }
-    
-    // 4. Display the Session Expired Modal
-    const logoutModal = document.getElementById('logoutModal');
-    if (logoutModal) {
-        logoutModal.style.display = 'flex';
-    }
-}
-
-// 5. Attach event listener to the "Log In Again" button
-document.addEventListener('DOMContentLoaded', () => {
-    const reloginBtn = document.getElementById('reloginBtn');
-    if (reloginBtn) {
-        reloginBtn.addEventListener('click', () => {
-            // Hide the logout modal
-            document.getElementById('logoutModal').style.display = 'none';
-            
-            // Re-initialize the Google token client
-            let client = getOrCreateTokenClient();
-            if (client) {
-                client.requestAccessToken();
-            } else {
-                // Safe fallback: reload page to reset state completely
-                window.location.reload();
-            }
-        });
-    }
-});
 });
 // =========================================================================
