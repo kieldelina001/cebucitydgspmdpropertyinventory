@@ -18,6 +18,16 @@
     transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
+/* --- Denied Access Modal (Blurred Background) --- */
+#accessModal {
+    /* Ensures the blur applies properly to the background */
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important; /* For Safari compatibility */
+    
+    /* A semi-transparent dark background enhances the blur effect */
+    background-color: rgba(0, 0, 0, 0.6) !important; 
+}
+
 /* --- Session Expired Modal (Blurred Background) --- */
         #sessionExpiredModal {
             display: none;
