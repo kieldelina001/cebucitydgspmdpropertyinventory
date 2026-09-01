@@ -601,7 +601,12 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
                     });
                     initializeSystemUI(retainPage);
                 } else {
-                    throw new Error("Target dataset sheet contains no metrics.");
+                    console.error("Target dataset sheet contains no metrics.");
+                    if (statusBanner) {
+                        statusBanner.style.backgroundColor = "#f8d7da";
+                        statusBanner.style.color = "#721c24";
+                        statusBanner.textContent = "Error: Target dataset sheet contains no metrics.";
+                    }
                 }
                 hideLoading();
             }
@@ -703,6 +708,7 @@ closeBtn.onclick = function() {
     alert("Connection failed or you have been logged out from Google. Please log in again.");
     // Normal logout for actual session disconnections
     performLogout(false); 
+}
 }
 
 function initializeSystemUI(retainPage = false) {
