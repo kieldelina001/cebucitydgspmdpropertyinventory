@@ -220,7 +220,7 @@ function getOrCreateTokenClient() {
                 if (tokenResponse && tokenResponse.access_token) {
                     accessToken = tokenResponse.access_token;
                     
-                   fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+               fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
     headers: { 'Authorization': `Bearer ${accessToken}` }
 })
 .then(res => {
@@ -269,6 +269,12 @@ function getOrCreateTokenClient() {
         loginErr.textContent = 'Unable to identify your Google account. Please try again.';
     }
 });
+                } else {
+                    const loginErr = document.getElementById('loginError');
+                    if (loginErr) loginErr.textContent = 'Google Sign-In authorization failed.';
+                }
+            }
+        });
     }
     return tokenClient;
 }
