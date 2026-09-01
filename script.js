@@ -570,8 +570,60 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
             } : {}
         });
         
-        if (!response.ok) throw new Error("Could not connect to online Sheet feed.");
-        const rawCsvText = await response.text(); 
+       // ================================================================
+// 🔐 GOOGLE SESSION / SHEET ACCESS DETECTION
+// ================================================================
+
+if (!response.ok) {
+
+    const httpStatus = response.status;
+
+    console.warn(
+        "Google Sheets request failed. HTTP status:",
+        httpStatus
+    );
+
+    // ------------------------------------------------------------
+    // 401 = Google access token is expired/invalid
+    // User was logged out of Google or the token is no longer valid.
+    // ------------------------------------------------------------
+    if (httpStatus === 401) {
+
+        console.warn("Google session/token is no longer valid.");
+
+        // Clear the invalid token FIRST
+        accessToken = null;
+
+        // Show the existing "You have been logged out of Google"
+        // session-expired window.
+        performLogout(false);
+
+        return;
+    }
+
+    // ------------------------------------------------------------
+    // 403 = User is authenticated but does not have permission
+    // to access the Google Sheet.
+    // ------------------------------------------------------------
+    if (httpStatus === 403) {
+
+        console.warn(
+            "Google account is valid, but access to the Sheet was denied."
+        );
+
+        // Keep your existing Access Denied / Request Access flow.
+        throw new Error("SHEET_ACCESS_DENIED");
+    }
+
+    // ------------------------------------------------------------
+    // Any other HTTP error
+    // ------------------------------------------------------------
+    throw new Error(
+        "Could not connect to online Sheet feed. HTTP " + httpStatus
+    );
+}
+
+const rawCsvText = await response.text();
 
         Papa.parse(rawCsvText, {
             header: true,
@@ -615,7 +667,12 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
         }
         console.error(err);
 
-        if (accessToken && loggedInUser !== "System User") {
+        if (
+    err &&
+    err.message === "SHEET_ACCESS_DENIED" &&
+    accessToken &&
+    loggedInUser !== "System User"
+) {
     const modal = document.getElementById("accessModal");
     const modalText = document.getElementById("accessModalText");
     const submitBtn = document.getElementById("submitRequestBtn");
