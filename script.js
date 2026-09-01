@@ -601,12 +601,7 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
                     });
                     initializeSystemUI(retainPage);
                 } else {
-                    console.error("Target dataset sheet contains no metrics.");
-                    if (statusBanner) {
-                        statusBanner.style.backgroundColor = "#f8d7da";
-                        statusBanner.style.color = "#721c24";
-                        statusBanner.textContent = "Error: Target dataset sheet contains no metrics.";
-                    }
+                    throw new Error("Target dataset sheet contains no metrics.");
                 }
                 hideLoading();
             }
