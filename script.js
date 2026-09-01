@@ -703,7 +703,8 @@ closeBtn.onclick = function() {
     alert("Connection failed or you have been logged out from Google. Please log in again.");
     // Normal logout for actual session disconnections
     performLogout(false); 
-}
+        }
+    } 
 }
 
 function initializeSystemUI(retainPage = false) {
@@ -1857,6 +1858,5 @@ window.addEventListener('DOMContentLoaded', () => {
             btn.style.display = (accessToken && isMainAppVisible) ? 'block' : 'none';
         }
     }, 1000);
-});
 });
 // =========================================================================
