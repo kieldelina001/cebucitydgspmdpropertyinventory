@@ -220,55 +220,28 @@ function getOrCreateTokenClient() {
                 if (tokenResponse && tokenResponse.access_token) {
                     accessToken = tokenResponse.access_token;
                     
-               fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-    headers: { 'Authorization': `Bearer ${accessToken}` }
-})
-.then(res => {
-    if (!res.ok) {
-        throw new Error("Unable to identify Google account.");
-    }
-    return res.json();
-})
-.then(profile => {
+                   fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                        headers: { 'Authorization': `Bearer ${accessToken}` }
+                    })
+                    .then(res => res.json())
+                    .then(profile => {
+                        if (profile.email) {
+                            loggedInUser = profile.email; // <--- ADDED: Saves email globally
+                        }
+                        const operatorInput = document.getElementById('custom-operator-input');
+                        if (operatorInput && profile.email) {
+                            operatorInput.value = profile.email;
+                            operatorInput.disabled = true;
+                        }
+                    }).catch(console.error);
 
-    // ============================================================
-    // IMPORTANT:
-    // Get the Gmail address BEFORE checking Google Sheet access.
-    // ============================================================
-    if (profile.email) {
-        loggedInUser = profile.email;
-    }
-
-    const operatorInput = document.getElementById('custom-operator-input');
-    if (operatorInput && profile.email) {
-        operatorInput.value = profile.email;
-        operatorInput.disabled = true;
-    }
-
-    // ============================================================
-    // ONLY AFTER loggedInUser IS KNOWN:
-    // Open the application and check the Google Sheet.
-    // ============================================================
-    const loginScreen = document.getElementById('loginScreen');
-    const mainApp = document.getElementById('mainApp');
-
-    if (loginScreen) loginScreen.style.display = 'none';
-    if (mainApp) mainApp.style.display = 'block';
-
-    setupSystemEventHandlers();
-    loadInventoryFromGoogleSheets();
-
-})
-.catch(err => {
-    console.error("Google account identification failed:", err);
-
-    accessToken = null;
-
-    const loginErr = document.getElementById('loginError');
-    if (loginErr) {
-        loginErr.textContent = 'Unable to identify your Google account. Please try again.';
-    }
-});
+                    const loginScreen = document.getElementById('loginScreen');
+                    const mainApp = document.getElementById('mainApp');
+                    if (loginScreen) loginScreen.style.display = 'none';
+                    if (mainApp) mainApp.style.display = 'block';
+                    
+                    setupSystemEventHandlers();
+                    loadInventoryFromGoogleSheets();
                 } else {
                     const loginErr = document.getElementById('loginError');
                     if (loginErr) loginErr.textContent = 'Google Sign-In authorization failed.';
@@ -597,60 +570,13 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
             } : {}
         });
         
-       // ================================================================
-// 🔐 GOOGLE SESSION / SHEET ACCESS DETECTION
-// ================================================================
+        if (!response.ok) throw new Error("Could not connect to online Sheet feed.");
+        const rawCsvText = await response.text(); 
 
-if (!response.ok) {
-
-    const httpStatus = response.status;
-
-    console.warn(
-        "Google Sheets request failed. HTTP status:",
-        httpStatus
-    );
-
-    // ------------------------------------------------------------
-    // 401 = Google access token is expired/invalid
-    // User was logged out of Google or the token is no longer valid.
-    // ------------------------------------------------------------
-    if (httpStatus === 401) {
-
-        console.warn("Google session/token is no longer valid.");
-
-        // Clear the invalid token FIRST
-        accessToken = null;
-
-        // Show the existing "You have been logged out of Google"
-        // session-expired window.
-        performLogout(false);
-
-        return;
-    }
-
-    // ------------------------------------------------------------
-    // 403 = User is authenticated but does not have permission
-    // to access the Google Sheet.
-    // ------------------------------------------------------------
-    if (httpStatus === 403) {
-
-        console.warn(
-            "Google account is valid, but access to the Sheet was denied."
-        );
-
-        // Keep your existing Access Denied / Request Access flow.
-        throw new Error("SHEET_ACCESS_DENIED");
-    }
-
-    // ------------------------------------------------------------
-    // Any other HTTP error
-    // ------------------------------------------------------------
-    throw new Error(
-        "Could not connect to online Sheet feed. HTTP " + httpStatus
-    );
-}
-
-const rawCsvText = await response.text();
+        // ✅ NEW: If authorized and no counter exists, put counter for normal use
+        if (!sessionStorage.getItem('accessCounter')) {
+            sessionStorage.setItem('accessCounter', '1');
+        }
 
         Papa.parse(rawCsvText, {
             header: true,
@@ -694,14 +620,14 @@ const rawCsvText = await response.text();
         }
         console.error(err);
 
-        if (
-    err &&
-    err.message === "SHEET_ACCESS_DENIED" &&
-    accessToken &&
-    loggedInUser !== "System User"
-) {
-    const modal = document.getElementById("accessModal");
-    const modalText = document.getElementById("accessModalText");
+        // ✅ NEW: Check if the counter exists
+        const hasCounter = sessionStorage.getItem('accessCounter');
+
+        if (accessToken && loggedInUser !== "System User") {
+            if (!hasCounter) {
+                // 🚫 SCENARIO A: Not Authorized & No Counter -> Goto Request Access
+                const modal = document.getElementById("accessModal");
+                const modalText = document.getElementById("accessModalText");
     const submitBtn = document.getElementById("submitRequestBtn");
     const closeBtn = document.getElementById("closeModalBtn");
     
@@ -781,10 +707,15 @@ closeBtn.onclick = function() {
     };
 
     // NEW: Pass 'true' to performLogout so it doesn't trigger the Session Expired modal
-    performLogout(true); 
+                performLogout(true); 
+            
+            } else {
+                // ⚠️ SCENARIO B: Have Counter (Session Expired) -> Goto Log In Again
+                performLogout(false);
+            }
 
-} else {
-    alert("Connection failed or you have been logged out from Google. Please log in again.");
+        } else {
+            alert("Connection failed or you have been logged out from Google. Please log in again.");
     // Normal logout for actual session disconnections
     performLogout(false); 
         }
@@ -1835,6 +1766,9 @@ function checkSessionStatus() {
     const reLoginBtn = document.getElementById('reLoginBtn');
     if (reLoginBtn) {
         reLoginBtn.onclick = () => {
+            // ✅ NEW: Clear the counter so they start fresh
+            sessionStorage.removeItem('accessCounter');
+            
             // Hide the blur modal
             sessionModal.style.display = 'none';
             
