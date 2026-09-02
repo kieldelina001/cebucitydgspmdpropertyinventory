@@ -1,8 +1,11 @@
 // 🔑 Google Sheets Cloud Gateway Architecture
 const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSCW2ZeIFBJaQ3qts8oNeWVxHDGMt4FOqQgTk4bswbbhfzi_e5prVc0-QWDKo2j7tIJg/exec";
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
-// Update: Changed to the official Google Drive Export endpoint to prevent CORS & redirect issues
-const GOOGLE_SHEET_CSV_URL = `https://www.googleapis.com/drive/v3/files/${SPREADSHEET_ID}/export?mimeType=text/csv`;
+// 🔧 UPDATED: Google Sign-In is now used purely for identity (no Drive scope requested),
+// so the inventory sheet is read from its PUBLIC CSV export link instead of the
+// OAuth-gated Drive API export. Share this spreadsheet as "Anyone with the link - Viewer".
+const SPREADSHEET_GID = "0"; // Change this if your inventory data isn't on the first tab
+const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${SPREADSHEET_GID}`;
 
 // 🔐 NEW: "Authorized Accounts" Google Sheet used to gate login access.
 // This sheet must be shared as "Anyone with the link - Viewer" (or Published to the web)
@@ -223,7 +226,9 @@ function getOrCreateTokenClient() {
     if (!tokenClient && window.google && google.accounts && google.accounts.oauth2) {
         tokenClient = google.accounts.oauth2.initTokenClient({
             client_id: '84591548482-rfv15nf99g7nsdtlr3i57ms0fuln28s3.apps.googleusercontent.com',
-            scope: 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
+            // 🔧 UPDATED: Removed 'drive.readonly' - Google Sign-In is now identity-only
+            // (this is what was triggering the "Google hasn't verified this app" warning).
+            scope: 'https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
             callback: (tokenResponse) => {
                 if (tokenResponse && tokenResponse.access_token) {
                     accessToken = tokenResponse.access_token;
@@ -694,7 +699,7 @@ if (document.readyState === 'loading') {
     initApp();
 }
 
-// 🌐 Secure Image Fetcher (Bypasses Google Drive Blocks)
+// 🌐 Image URL Resolver (Public Link - no Drive scope required)
 async function fetchAuthorizedImage(driveUrl) {
     if (!driveUrl || typeof driveUrl !== 'string') return null;
     const match = driveUrl.match(/[-\w]{25,}/);
@@ -703,24 +708,12 @@ async function fetchAuthorizedImage(driveUrl) {
     const fileId = match[0];
     if (imageCache[fileId]) return imageCache[fileId];
 
-    if (!accessToken) return getDirectImageUrl(driveUrl, 'thumbnail'); 
-
-    try {
-        const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-            headers: {
-                'Authorization': `Bearer ${accessToken}`
-            }
-        });
-        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-        
-        const blob = await response.blob();
-        const objectUrl = URL.createObjectURL(blob);
-        imageCache[fileId] = objectUrl; 
-        return objectUrl;
-    } catch (e) {
-        console.warn("Failed to fetch image securely, falling back to thumbnail", e);
-        return getDirectImageUrl(driveUrl, 'thumbnail');
-    }
+    // 🔧 UPDATED: Login no longer requests Drive access. Uploaded photos are already
+    // shared "Anyone with the link - Viewer" (see processUpload in the Apps Script),
+    // so we just resolve the public full-resolution link directly - no token needed.
+    const publicUrl = getDirectImageUrl(driveUrl, 'view');
+    imageCache[fileId] = publicUrl;
+    return publicUrl;
 }
 
 async function loadInventoryFromGoogleSheets(retainPage = false) {
@@ -732,11 +725,9 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
     showLoading("Syncing live spreadsheet grid...");
 
     try {
-        const response = await fetch(GOOGLE_SHEET_CSV_URL, {
-            headers: accessToken ? {
-                'Authorization': `Bearer ${accessToken}`
-            } : {}
-        });
+        // 🔧 UPDATED: No OAuth header needed - the inventory sheet is read via its
+        // public CSV export link (no Drive scope is requested during login anymore).
+        const response = await fetch(GOOGLE_SHEET_CSV_URL, { cache: 'no-store' });
         
         if (!response.ok) throw new Error("Could not connect to online Sheet feed.");
         const rawCsvText = await response.text(); 
@@ -1743,16 +1734,10 @@ function downloadDatasetCSV(data, filenamePrefix) {
 async function getBase64ImageFromUrl(imageUrl) {
     if (!imageUrl) return '';
     try {
-        const match = imageUrl.match(/[-\w]{25,}/);
-        let fetchUrl = imageUrl;
-        let headers = {};
-        if (match && accessToken) {
-            const fileId = match[0];
-            fetchUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
-            headers = { 'Authorization': `Bearer ${accessToken}` };
-        }
-        
-        let response = await fetch(fetchUrl, { headers }).catch(() => null);
+        // 🔧 UPDATED: No Drive scope is requested at login anymore, so we fetch the
+        // public full-resolution link directly, with the thumbnail link as a fallback.
+        const viewUrl = getDirectImageUrl(imageUrl, 'view') || imageUrl;
+        let response = await fetch(viewUrl).catch(() => null);
         if (!response || !response.ok) {
             const thumbnailFallback = getDirectImageUrl(imageUrl, 'thumbnail') || imageUrl;
             response = await fetch(thumbnailFallback).catch(() => null);
