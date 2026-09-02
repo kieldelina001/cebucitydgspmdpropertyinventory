@@ -1531,8 +1531,20 @@ function openUploadWindow() {
     // can prefill "Your Name" (Session.getActiveUser() doesn't work for
     // regular Gmail accounts, so it has to be sent explicitly here).
     const uploadUrl = GOOGLE_APPS_SCRIPT_URL + "?itemCode=" + encodeURIComponent(itemCode) + "&userEmail=" + encodeURIComponent(loggedInUser || "");
-    
-    window.open(uploadUrl, '_blank');
+
+    // Open as an actual popup window (fixed size, no browser chrome) rather
+    // than a new tab. This also makes the auto-close-on-success behavior in
+    // UploadForm.html more reliable, since popups opened this way are
+    // reliably tracked by the browser as "opened by script".
+    const popupWidth = 460;
+    const popupHeight = 720;
+    const left = (window.screen.width - popupWidth) / 2;
+    const top = (window.screen.height - popupHeight) / 2;
+    const popupFeatures = "width=" + popupWidth + ",height=" + popupHeight +
+        ",left=" + left + ",top=" + top +
+        ",toolbar=no,location=no,menubar=no,status=no,scrollbars=yes,resizable=yes";
+
+    window.open(uploadUrl, "uploadPhotosWindow", popupFeatures);
     modalModified = true;
 }
 
