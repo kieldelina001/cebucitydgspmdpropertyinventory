@@ -1,12 +1,8 @@
 // 🔑 Google Sheets Cloud Gateway Architecture
 const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSCW2ZeIFBJaQ3qts8oNeWVxHDGMt4FOqQgTk4bswbbhfzi_e5prVc0-QWDKo2j7tIJg/exec";
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
-
-// Standard Web CSV Export (Does not require Google Drive Auth Tokens)
-const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv`;
-
-// 🛡️ Authorized Accounts Verification Data URL
-const AUTH_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1uWrtQB2wc65lHe-w1RkxvUuZTbRpjnqLMVkYbxas2I8/export?format=csv&gid=0";
+// Update: Changed to the official Google Drive Export endpoint to prevent CORS & redirect issues
+const GOOGLE_SHEET_CSV_URL = `https://www.googleapis.com/drive/v3/files/${SPREADSHEET_ID}/export?mimeType=text/csv`;
 
 // =========================================================================
 // 🛠️ MANUAL EXPORT TABLE ADJUSTMENT CONFIGURATION 🛠️
@@ -15,7 +11,7 @@ const AUTH_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1uWrtQB2wc65l
 const EXPORT_TABLE_CONFIG = [
     { display: "Article no./ TCT no.", key: "article/item" },
     { display: "Description", key: "description" },
-    { display: "Notes", key: "notes" }, 
+    { display: "Notes", key: "notes" }, /// add notes
     { display: "Remarks", key: "remarks" },
     { display: "Type", key: "type" },
     { display: "Photo 1", key: "photo 1" },
@@ -42,7 +38,11 @@ let modalModified = false;
 let loggedInUser = "System User";
 
 // 🔐 GIS Auth Architecture
-let accessToken = null; 
+let accessToken = null;
+let authInProgress = false;
+let authPopup = null;
+let authPollTimer = null;
+const AUTH_RETURN_TIMEOUT = 120000;
 const imageCache = {}; // Cache image blobs to avoid repeat fetches
 
 // Modal Photo Gallery State
@@ -61,20 +61,30 @@ let editModal, modalFormContainer, modalEditBtn, modalSaveBtn, modalCloseBtn, mo
 let tooltip, tooltipImg;
 let loadingOverlay, customNameModal;
 let countInsured, countNotInsured, countExpiring;
-let activeInsuranceFilter = 'ALL'; 
+let activeInsuranceFilter = 'ALL'; // Tracks which card is currently clicked
 
 function resetAndFilterByItem(filterCategory, clickedValue) {
+    // 1. Reset all filters and search inputs to default
     if (searchInput) searchInput.value = "";
+    
+    // Assuming the default value for your dropdowns is an empty string "" 
+    // If your default value is something else, use that (e.g., "-- All Types --")
     if (remarksFilter) remarksFilter.value = ""; 
     if (typeFilter) typeFilter.value = "";
     if (photoFilter) photoFilter.value = "";
 
+    // 2. Set the specific filter to the value of the item clicked
     if (filterCategory === 'type' && typeFilter) {
         typeFilter.value = clickedValue;
     } else if (filterCategory === 'remarks' && remarksFilter) {
         remarksFilter.value = clickedValue;
     }
 
+    // Optional: Reset pagination to page 1 if you have a pagination variable
+    // currentPage = 1; 
+
+    // 3. Trigger your search function to update the table based on the new filter
+    // Passing 'true' based on your executeSearch(!retainPage) logic
     executeSearch(true); 
 }
 
@@ -104,7 +114,7 @@ function initUIReferences() {
     countVerification = document.getElementById('countVerification');
     countWithPhotos = document.getElementById('countWithPhotos');
     countTaxDec = document.getElementById('countTaxDec');
-    countInsured = document.getElementById('countInsured');
+countInsured = document.getElementById('countInsured');
     countNotInsured = document.getElementById('countNotInsured');
 	countExpiring = document.getElementById('countExpiring');
 
@@ -188,9 +198,11 @@ function hideLoading() {
     if (loadingOverlay) loadingOverlay.style.setProperty('display', 'none', 'important');
 }
 
+// --- BACK TO TOP SCROLL LISTENER ---
 window.addEventListener('scroll', () => {
     const backToTopBtn = document.getElementById('backToTopBtn');
     if (backToTopBtn) {
+        // Add accessToken check to ensure it only shows when securely logged in
         if (loggedInUser !== "System User" && (document.body.scrollTop > 300 || document.documentElement.scrollTop > 300)) {
             backToTopBtn.style.visibility = "visible";
             backToTopBtn.style.opacity = "1";
@@ -201,155 +213,74 @@ window.addEventListener('scroll', () => {
     }
 });
 
-// 🔐 AUTHENTICATION: JWT Decode Utility
-function decodeJwtResponse(token) {
-    let base64Url = token.split('.')[1];
-    let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    let jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-    }).join(''));
-    return JSON.parse(jsonPayload);
+// 🔐 CLEAN GOOGLE LOGIN + AUTHORIZED ACCOUNTS CHECK
+// Google OAuth/GIS has intentionally been removed from this file.
+// The Google Apps Script Web App is used as the authentication gateway.
+
+function getAuthReturnUrl() { return window.location.origin + window.location.pathname; }
+function showLoginError(message) { const el=document.getElementById('loginError'); if(el) el.textContent=message||''; }
+function showLoginScreen() { const a=document.getElementById('loginScreen'), b=document.getElementById('mainApp'); if(a)a.style.display=''; if(b)b.style.display='none'; }
+function showMainApplication() { const a=document.getElementById('loginScreen'), b=document.getElementById('mainApp'); if(a)a.style.display='none'; if(b)b.style.display='block'; }
+function cleanupAuthPopup(){ authInProgress=false; if(authPollTimer){clearInterval(authPollTimer);authPollTimer=null;} if(authPopup&&!authPopup.closed){try{authPopup.close();}catch(e){}} authPopup=null; }
+
+function openGoogleLogin(){
+    if(authInProgress)return; showLoginError(''); authInProgress=true;
+    const authUrl=GOOGLE_APPS_SCRIPT_URL+'?action=auth&returnUrl='+encodeURIComponent(getAuthReturnUrl());
+    const w=520,h=700,left=Math.max(0,Math.round((screen.width-w)/2)),top=Math.max(0,Math.round((screen.height-h)/2));
+    authPopup=window.open(authUrl,'GoogleAccountLogin',`width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=yes`);
+    if(!authPopup){cleanupAuthPopup();showLoginError('Please allow pop-ups for this website, then click Sign in with Google again.');return;}
+    const started=Date.now();
+    authPollTimer=setInterval(()=>{
+        if(!authPopup||authPopup.closed){cleanupAuthPopup();if(loggedInUser==='System User')showLoginError('Google login was cancelled.');return;}
+        if(Date.now()-started>AUTH_RETURN_TIMEOUT){cleanupAuthPopup();showLoginError('Google login timed out. Please try again.');}
+    },500);
 }
 
-// 🔐 AUTHENTICATION: Handle Google Login Response & Verification
-async function handleCredentialResponse(response) {
-    const payload = decodeJwtResponse(response.credential);
-    loggedInUser = payload.email;
-    
-    const operatorInput = document.getElementById('custom-operator-input');
-    if (operatorInput && payload.name) {
-        operatorInput.value = payload.name;
-        operatorInput.disabled = true;
+function processAuthCallback(){
+    const p=new URLSearchParams(window.location.search), state=p.get('auth'); if(!state)return false;
+    const email=(p.get('email')||'').trim().toLowerCase(), authorized=p.get('authorized')==='true', message=p.get('message')||'';
+    try{window.history.replaceState({},document.title,window.location.origin+window.location.pathname);}catch(e){}
+    cleanupAuthPopup();
+    if(state==='success'&&email){
+        loggedInUser=email;
+        const op=document.getElementById('custom-operator-input'); if(op){op.value=email;op.disabled=true;}
+        if(!authorized){showAccessRequestModal(email);return true;}
+        sessionStorage.setItem('accessCounter','1'); showMainApplication(); setupSystemEventHandlers(); loadInventoryFromGoogleSheets(); resetIdleTimer(); return true;
     }
-
-    const loginErr = document.getElementById('loginError');
-    if (loginErr) loginErr.textContent = 'Verifying access...';
-
-    try {
-        // Fetch the authorized accounts sheet
-        const authRes = await fetch(AUTH_SHEET_CSV_URL);
-        if (!authRes.ok) throw new Error("Could not reach Authorized Accounts sheet.");
-        const authCsv = await authRes.text();
-        
-        Papa.parse(authCsv, {
-            header: true,
-            skipEmptyLines: true,
-            complete: function(results) {
-                // Check if user's email exists in the sheet
-                const hasAccess = results.data.some(row => 
-                    row['Gmail Account'] && row['Gmail Account'].trim().toLowerCase() === loggedInUser.toLowerCase()
-                );
-
-                if (hasAccess) {
-                    if (loginErr) loginErr.textContent = '';
-                    const loginScreen = document.getElementById('loginScreen');
-                    const mainApp = document.getElementById('mainApp');
-                    if (loginScreen) loginScreen.style.display = 'none';
-                    if (mainApp) mainApp.style.display = 'block';
-                    
-                    loadInventoryFromGoogleSheets();
-                } else {
-                    if (loginErr) loginErr.textContent = '';
-                    showAccessDeniedModal();
-                }
-            }
-        });
-    } catch (err) {
-        console.error(err);
-        if (loginErr) loginErr.textContent = 'Authorization check failed. Please ensure the Auth Google Sheet is public.';
-        setTimeout(() => performLogout(false), 3000);
-    }
+    showLoginScreen(); showLoginError(message||'Unable to identify the Google account. Please log in again.'); return true;
 }
 
-// 🛑 MODAL: Access Denied Flow
-function showAccessDeniedModal() {
-    const modal = document.getElementById("accessModal");
-    const modalText = document.getElementById("accessModalText");
-    const submitBtn = document.getElementById("submitRequestBtn");
-    const closeBtn = document.getElementById("closeModalBtn");
-    const noteInput = document.getElementById("requestNotesInput");
-
-    if (noteInput) {
-        noteInput.style.display = "block";
-        noteInput.value = "";
-    }
-
-    modalText.innerHTML = "Your Gmail account (<b>" + loggedInUser + "</b>) does not have permission to view the Google Sheet.<br><br>Would you like to send an access request?";
-    modal.style.display = "flex";
-
-    submitBtn.onclick = function() {
-        let noteValue = "No note provided";
-        if (noteInput) {
-            noteValue = noteInput.value.trim() || "No note provided";
-            noteInput.value = ""; 
-        }
-
-        modalText.innerHTML = `
-            <div style="text-align: center;">
-                <h3 style="margin-top:0; margin-bottom: 12px; color: #155724; font-size: 22px;">✅ Request Access Sent</h3>
-                <p style="margin:0; line-height: 1.6; font-size: 15px; color: #333;">
-                    Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.
-                </p>
-            </div>
-        `;
-        
-        if (noteInput) noteInput.style.display = "none";
-        submitBtn.style.display = "none";
-        closeBtn.textContent = "OK";
-        closeBtn.style.background = "#28a745"; 
-        closeBtn.style.color = "white";
-
-        const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&name=" + encodeURIComponent(loggedInUser) + "&notes=" + encodeURIComponent(noteValue);
-
-        fetch(requestUrl, { method: 'GET', mode: 'no-cors' }).catch(err => console.error("Access request silent failure:", err));
+function showAccessRequestModal(email){
+    const modal=document.getElementById('accessModal'), text=document.getElementById('accessModalText'), submit=document.getElementById('submitRequestBtn'), close=document.getElementById('closeModalBtn'), note=document.getElementById('requestNotesInput');
+    if(!modal||!text||!submit||!close){showLoginError('This account is not authorized, and the access request window is unavailable.');return;}
+    if(note){note.style.display='block';note.value='';}
+    text.innerHTML='Your Google account (<b>'+escapeHtml(email)+'</b>) is not authorized to access this application.<br><br>Would you like to send an access request?';
+    modal.style.display='flex'; submit.style.display='inline-block'; close.textContent='Cancel'; close.style.background='#6c757d'; close.style.color='white';
+    submit.onclick=function(){
+        const noteValue=note?(note.value.trim()||'No note provided'):'No note provided'; if(note)note.value='';
+        text.innerHTML='<div style="text-align:center;"><h3 style="margin-top:0;margin-bottom:12px;color:#155724;font-size:22px;">✅ Request Access Sent</h3><p style="margin:0;line-height:1.6;font-size:15px;color:#333;">Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.</p></div>';
+        if(note)note.style.display='none'; submit.style.display='none'; close.textContent='OK'; close.style.background='#28a745';
+        const u=GOOGLE_APPS_SCRIPT_URL+'?action=requestAccess&email='+encodeURIComponent(email)+'&name='+encodeURIComponent(email)+'&notes='+encodeURIComponent(noteValue);
+        fetch(u,{method:'GET',mode:'no-cors'}).catch(e=>console.error('Access request failure:',e));
     };
-
-    closeBtn.onclick = function() {
-        modal.style.display = "none";
-        performLogout(true);
-        
-        setTimeout(() => {
-            modalText.innerHTML = "Your Gmail account does not have permission to view the Google Sheet.";
-            submitBtn.style.display = "inline-block";
-            closeBtn.textContent = "Cancel";
-            closeBtn.style.background = "#6c757d";
-            if (noteInput) {
-                noteInput.value = "";
-                noteInput.style.display = "block";
-            }
-        }, 300);
-    };
+    close.onclick=function(){modal.style.display='none';sessionStorage.removeItem('accessCounter');loggedInUser='System User';showLoginScreen();setTimeout(()=>{text.innerHTML='Your Google account does not have permission to access this application.';submit.style.display='inline-block';close.textContent='Cancel';close.style.background='#6c757d';if(note){note.value='';note.style.display='block';}},300);};
 }
 
-// 🚪 SYSTEM: Logout Helper Function
-function performLogout(silent = false) {
-    loggedInUser = "System User";
-    const loginScreen = document.getElementById('loginScreen');
-    const mainApp = document.getElementById('mainApp');
-    if (loginScreen) loginScreen.style.display = 'flex';
-    if (mainApp) mainApp.style.display = 'none';
-
-    if (!silent) {
-        const sessionExpiredModal = document.getElementById('sessionExpiredModal');
-        if (sessionExpiredModal) sessionExpiredModal.style.display = 'flex';
-        
-        const reLoginBtn = document.getElementById('reLoginBtn');
-        if (reLoginBtn) {
-            reLoginBtn.onclick = () => {
-                sessionExpiredModal.style.display = 'none';
-            };
-        }
-    }
-}
+// Compatibility wrapper for any old HTML references. No Google OAuth is used.
+function getOrCreateTokenClient(){return null;}
 
 // 🖱️ DASHBOARD CARD CLICK HANDLERS
+// 🖱️ DASHBOARD CARD CLICK HANDLERS
 function setupDashboardClickHandlers() {
+    
+    // 🧹 NEW: Helper function to clear search and dropdowns
     function resetAllFilters() {
         if (searchInput) searchInput.value = '';
         if (remarksFilter) remarksFilter.value = 'ALL';
         if (typeFilter) typeFilter.value = 'ALL';
         if (photoFilter) photoFilter.value = 'ALL';
         
+        // Clear insurance UI filter if active
         if (typeof activeInsuranceFilter !== 'undefined') {
             activeInsuranceFilter = 'ALL';
             document.querySelectorAll('.ins-card').forEach(c => {
@@ -362,10 +293,12 @@ function setupDashboardClickHandlers() {
         }
     }
 
+   // Helper function to set dropdown value (Exact Match first, then Partial Match)
     function setDropdownByText(selectEl, keyword) {
         if (!selectEl) return false;
         const keyUpper = keyword.toUpperCase().trim();
 
+        // Pass 1: Check for exact matches first (prevents 'STRUCTURE' matching 'INFRASTRUCTURE')
         for (let i = 0; i < selectEl.options.length; i++) {
             const optVal = selectEl.options[i].value.toUpperCase().trim();
             const optText = selectEl.options[i].text.toUpperCase().trim();
@@ -375,6 +308,7 @@ function setupDashboardClickHandlers() {
             }
         }
 
+        // Pass 2: Partial match fallback if exact match isn't found
         for (let i = 0; i < selectEl.options.length; i++) {
             const optVal = selectEl.options[i].value.toUpperCase();
             const optText = selectEl.options[i].text.toUpperCase();
@@ -386,6 +320,7 @@ function setupDashboardClickHandlers() {
         return false;
     }
 
+    // Helper function to smoothly scroll to the data table
     function scrollToTable() {
         const tableSec = document.querySelector('.table-section');
         if (tableSec) {
@@ -393,19 +328,21 @@ function setupDashboardClickHandlers() {
         }
     }
 
+    // --- 1. TOTAL PROPERTIES CARD (Reset all filters) ---
     const cardTotal = document.getElementById('countTotal')?.closest('.dash-card');
     if (cardTotal) {
         cardTotal.onclick = () => {
-            resetAllFilters(); 
+            resetAllFilters(); // Just clear everything
             executeSearch(true);
             scrollToTable();
         };
     }
 
+    // --- 2. STATUS DASHBOARD CARDS ---
     const cardExisting = document.getElementById('countExisting')?.closest('.dash-card');
     if (cardExisting) {
         cardExisting.onclick = () => {
-            resetAllFilters();
+            resetAllFilters(); // Reset everything first!
             if (remarksFilter) {
             const found = setDropdownByText(remarksFilter, 'EXISTING');
             if (!found && searchInput) searchInput.value = 'EXISTING';
@@ -418,7 +355,7 @@ function setupDashboardClickHandlers() {
     const cardNotFound = document.getElementById('countNotFound')?.closest('.dash-card');
     if (cardNotFound) {
         cardNotFound.onclick = () => {
-            resetAllFilters(); 
+            resetAllFilters(); // Reset everything first!
             if (remarksFilter) {
             const found = setDropdownByText(remarksFilter, 'NOT FOUND');
             if (!found && searchInput) searchInput.value = 'NOT FOUND';
@@ -431,7 +368,7 @@ function setupDashboardClickHandlers() {
     const cardVerification = document.getElementById('countVerification')?.closest('.dash-card');
     if (cardVerification) {
         cardVerification.onclick = () => {
-            resetAllFilters(); 
+            resetAllFilters(); // Reset everything first!
             if (remarksFilter) {
             const found = setDropdownByText(remarksFilter, 'VERIFICATION');
             if (!found && searchInput) searchInput.value = 'VERIFICATION';
@@ -441,12 +378,12 @@ function setupDashboardClickHandlers() {
         };
     }
 
-    const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card');
+const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card');
     if (cardTaxDec) {
         cardTaxDec.onclick = () => {
-            resetAllFilters(); 
+            resetAllFilters(); // Reset everything first!
             if (photoFilter && photoFilter.options.length > 3) {
-                photoFilter.selectedIndex = 3;
+                photoFilter.selectedIndex = 3; // Index 3 is "With Tax Declaration"
             }
             executeSearch(true);
             scrollToTable();
@@ -456,7 +393,7 @@ function setupDashboardClickHandlers() {
     const cardPhotos = document.getElementById('countWithPhotos')?.closest('.dash-card');
     if (cardPhotos) {
         cardPhotos.onclick = () => {
-            resetAllFilters();
+            resetAllFilters(); // Reset everything first!
             if (photoFilter && photoFilter.options.length > 1) {
                 photoFilter.selectedIndex = 1; 
             }
@@ -465,21 +402,23 @@ function setupDashboardClickHandlers() {
         };
     }
 
+   // --- 3. PROPERTY TYPE CARDS (Updated Keywords) ---
     const typeMappings = [
         { id: 'countBuilding', keyword: 'BUILDING' },
-        { id: 'countAssetMod', keyword: 'BUILDING MODIFICATION' }, 
+        { id: 'countAssetMod', keyword: 'BUILDING MODIFICATION' }, // Changed from 'ASSET'
         { id: 'countFlood', keyword: 'FLOOD' },
         { id: 'countHospital', keyword: 'HOSPITAL' },
         { id: 'countLand', keyword: 'LAND' },
         { id: 'countMarket', keyword: 'MARKET' },
         { id: 'countOtherInfra', keyword: 'OTHER INFRASTRUCTURE' },
         { id: 'countOtherLand', keyword: 'OTHER LAND' },
-        { id: 'countOtherStruct', keyword: 'OTHER STRUCTURE' }, 
+        { id: 'countOtherStruct', keyword: 'OTHER STRUCTURE' }, // Changed from 'STRUCTURE'
         { id: 'countPark', keyword: 'PARK' },
         { id: 'countRoad', keyword: 'ROAD' },
         { id: 'countSchool', keyword: 'SCHOOL' },
         { id: 'countSlaughterhouse', keyword: 'SLAUGHTERHOUSE' },
         { id: 'countWater', keyword: 'WATER' }
+		
     ];
 
     typeMappings.forEach(item => {
@@ -488,7 +427,7 @@ function setupDashboardClickHandlers() {
             const card = countEl.closest('.type-card');
             if (card) {
                 card.onclick = () => {
-                    resetAllFilters(); 
+                    resetAllFilters(); // Reset everything first!
                     if (typeFilter) {
                         const found = setDropdownByText(typeFilter, item.keyword);
                         if (!found && searchInput) {
@@ -505,32 +444,9 @@ function setupDashboardClickHandlers() {
 
 function initApp() {
     initUIReferences();
-
-    // 🔒 CLEAN GOOGLE LOGIN (IDENTITY ONLY)
-    if (window.google && google.accounts && google.accounts.id) {
-        google.accounts.id.initialize({
-            client_id: '84591548482-rfv15nf99g7nsdtlr3i57ms0fuln28s3.apps.googleusercontent.com',
-            callback: handleCredentialResponse
-        });
-
-        const loginBtnContainer = document.getElementById('customLoginBtn');
-        if (loginBtnContainer) {
-            // Re-style custom wrapper for Google's native button iframe
-            loginBtnContainer.style.padding = '0';
-            loginBtnContainer.style.border = 'none';
-            loginBtnContainer.style.background = 'transparent';
-            loginBtnContainer.style.boxShadow = 'none';
-            loginBtnContainer.innerHTML = '';
-            
-            google.accounts.id.renderButton(
-                loginBtnContainer,
-                { theme: "outline", size: "large", text: "signin_with", width: 300 }
-            );
-        }
-    } else {
-        const loginErr = document.getElementById('loginError');
-        if (loginErr) loginErr.textContent = 'Connecting to Google Server... Check your connection.';
-    }
+    if (processAuthCallback()) return;
+    const loginBtn=document.getElementById('customLoginBtn');
+    if(loginBtn) loginBtn.addEventListener('click',openGoogleLogin);
 
     const backToTopBtn = document.getElementById('backToTopBtn');
     if (backToTopBtn) {
@@ -557,12 +473,6 @@ function initApp() {
             }
         });
     }
-    
-    // Modal Event Bindings
-    if (modalCloseBtn) modalCloseBtn.addEventListener('click', closeModal);
-    if (modalCloseX) modalCloseX.addEventListener('click', closeModal);
-    if (modalEditBtn) modalEditBtn.addEventListener('click', enableEditMode);
-    if (modalSaveBtn) modalSaveBtn.addEventListener('click', triggerSaveProcess);
     
     document.addEventListener('mouseover', function(e) {
         if (e.target && e.target.classList.contains('hover-preview-img')) {
@@ -608,25 +518,15 @@ if (document.readyState === 'loading') {
     initApp();
 }
 
-function closeModal() {
-    if (editModal) editModal.style.display = 'none';
-    document.body.style.overflow = 'auto'; // Restore normal scrolling
+// 🌐 Secure Image Fetcher (Bypasses Google Drive Blocks)
+async function fetchAuthorizedImage(driveUrl){
+    if(!driveUrl||typeof driveUrl!=='string')return null;
+    const match=driveUrl.match(/[-\w]{25,}/); if(!match)return driveUrl;
+    const fileId=match[0]; if(imageCache[fileId])return imageCache[fileId];
+    const direct=getDirectImageUrl(driveUrl,'view')||getDirectImageUrl(driveUrl,'thumbnail');
+    if(direct)imageCache[fileId]=direct; return direct;
 }
 
-// 🌐 Fallback Secure Image Fetcher
-async function fetchAuthorizedImage(driveUrl) {
-    if (!driveUrl || typeof driveUrl !== 'string') return null;
-    const match = driveUrl.match(/[-\w]{25,}/);
-    if (!match) return driveUrl; 
-
-    const fileId = match[0];
-    if (imageCache[fileId]) return imageCache[fileId];
-
-    // Standard public fetch
-    return getDirectImageUrl(driveUrl, 'thumbnail'); 
-}
-
-// 🚀 REFACTORED: Only pulls data. Auth check happens beforehand now.
 async function loadInventoryFromGoogleSheets(retainPage = false) {
     if (statusBanner) {
         statusBanner.style.backgroundColor = "#fff3cd";
@@ -637,8 +537,14 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
 
     try {
         const response = await fetch(GOOGLE_SHEET_CSV_URL);
+        
         if (!response.ok) throw new Error("Could not connect to online Sheet feed.");
         const rawCsvText = await response.text(); 
+
+        // ✅ NEW: If authorized and no counter exists, put counter for normal use
+        if (!sessionStorage.getItem('accessCounter')) {
+            sessionStorage.setItem('accessCounter', '1');
+        }
 
         Papa.parse(rawCsvText, {
             header: true,
@@ -673,16 +579,12 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
                 hideLoading();
             }
         });
-    } catch (err) {
+} catch (err) {
         hideLoading();
-        if (statusBanner) {
-            statusBanner.style.backgroundColor = "#f8d7da";
-            statusBanner.style.color = "#721c24";
-            statusBanner.textContent = "Connection Error: Cannot access data sheet.";
-        }
+        if(statusBanner){statusBanner.style.backgroundColor="#f8d7da";statusBanner.style.color="#721c24";statusBanner.textContent="Connection Error: Check Google Sheets access.";}
         console.error(err);
-        performLogout(false);
-    } 
+        if(loggedInUser!=="System User") performLogout(false); else {showLoginScreen();showLoginError("Cannot access Google Sheets. Please log in again.");}
+    }
 }
 
 function initializeSystemUI(retainPage = false) {
@@ -723,6 +625,7 @@ function initializeSystemUI(retainPage = false) {
 }
 
 function populateDropdown(type, selectEl, placeholderText) {
+    // ... [Rest of your code continues normally]
     if(!selectEl) return;
     const previousSelection = selectEl.value;
     selectEl.innerHTML = `<option value="ALL">${placeholderText}</option>`;
@@ -784,24 +687,29 @@ function updatePaginationUI(totalPages) {
 // 🖼️ LAZY LOADING OBSERVER FOR TABLE PHOTOS
 const tableImageObserver = new IntersectionObserver((entries, observer) => {
     entries.forEach(entry => {
+        // Check if the image has entered the viewport
         if (entry.isIntersecting) {
             const img = entry.target;
             const driveUrl = img.dataset.src;
             
             if (driveUrl) {
+                // Fetch the image securely now that it's in view
                 fetchAuthorizedImage(driveUrl).then(objectUrl => {
                     if (objectUrl) {
                         img.src = objectUrl;
                         img.alt = "Preview";
                     }
                 });
+                
+                // Stop observing this image once it's processing
                 observer.unobserve(img);
             }
         }
     });
 }, { 
-    rootMargin: "0px 0px 300px 0px"
+    rootMargin: "0px 0px 300px 0px" // Starts loading slightly before the user scrolls to it
 });
+
 
 function renderTable(data, page = 1) {
     if(!tableBody) return; tableBody.innerHTML = '';
@@ -843,9 +751,13 @@ function renderTable(data, page = 1) {
                     imgEl.alt = "Loading...";
                     imgEl.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'%3E%3Ccircle cx='25' cy='25' r='20' fill='none' stroke='%23ccc' stroke-width='4' stroke-dasharray='31.4 31.4'%3E%3CanimateTransform attributeName='transform' type='rotate' from='0 25 25' to='360 25 25' dur='1s' repeatCount='indefinite'/%3E%3C/circle%3E%3C/svg%3E";
                     
-                    imgEl.onclick = (event) => { event.stopPropagation(); openPopUp(row._rowId, tKey); };
+                imgEl.onclick = (event) => { event.stopPropagation(); openPopUp(row._rowId, tKey); };
+                    
+                    // Assign the URL to a data attribute instead of fetching immediately
                     imgEl.dataset.src = url; 
                     td.appendChild(imgEl);
+
+                    // Tell the observer to watch this image placeholder
                     tableImageObserver.observe(imgEl);
                 } else {
                     td.textContent = 'No Photo';
@@ -871,9 +783,11 @@ function calculateStaticDashboardTotals(items) {
     const pKey1 = headerMapping['photo 1'];
     const pKey2 = headerMapping['photo 2'];
     const pKey4 = headerMapping['tax declaration'];
+const aKey = headerMapping['article/item'];
     const nKey = headerMapping['notes'];
     
     let insuredCount = 0, notInsuredCount = 0, expiringCount = 0;
+    
     let existing = 0, notfound = 0, verify = 0, photos = 0, taxdec = 0;
     
     let stats = {
@@ -894,34 +808,42 @@ function calculateStaticDashboardTotals(items) {
         if(row[pKey4] && row[pKey4].trim()!=='') taxdec++;
         
         const typeStr = String(row[tKey] || '').toUpperCase().trim();
+// --- BUILDING INSURANCE LOGIC ---
         const notesVal = String(row[nKey] || '');
         const notesUpper = notesVal.toUpperCase();
 
         if (notesUpper.includes('NOT INSURED')) {
             notInsuredCount++;
         } else if (notesUpper.includes('BUILDING INSURED')) {
+            // Regex looks for "Coverage [Date] - [Date]" and extracts the second date
             const dateMatch = notesVal.match(/Coverage\s+.*?\s+-\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})/i);
             
             if (dateMatch && dateMatch[1]) {
                 const endDate = new Date(dateMatch[1]);
                 const currentDate = new Date(); 
                 
+                // Verify the extracted date is valid
                 if (!isNaN(endDate.getTime())) {
                     const timeDiff = endDate.getTime() - currentDate.getTime();
                     const daysDiff = timeDiff / (1000 * 3600 * 24);
                     
+                   // 30 days is the threshold for "Almost Expire"
                     if (daysDiff <= 30) {
-                        expiringCount++;
+                        expiringCount++; // Correctly count as Expiring
                     } else {
-                        insuredCount++;
+                        insuredCount++; // Active
                     }
                 } else {
-                    insuredCount++;
+                    insuredCount++; // Fallback if date is invalid but says insured
                 }
             } else {
-                 insuredCount++; 
+                 insuredCount++; // Fallback if no date format is found but says insured
             }
         }
+// --------------------------------
+
+
+
         
         if (typeStr.includes('BUILDING MOD') || typeStr.includes('ASSET MOD')) stats['Building Modifications']++;
         else if (typeStr.includes('SCHOOL')) stats['School Building']++;
@@ -959,7 +881,7 @@ function calculateStaticDashboardTotals(items) {
     if(countSchool) countSchool.textContent = stats['School Building'];
     if(countSlaughterhouse) countSlaughterhouse.textContent = stats['Slaughterhouse'];
     if(countWater) countWater.textContent = stats['Water Supplies'];
-    if(countInsured) countInsured.textContent = insuredCount;
+if(countInsured) countInsured.textContent = insuredCount;
     if(countNotInsured) countNotInsured.textContent = notInsuredCount;
 	if(countExpiring) countExpiring.textContent = expiringCount;
 }
@@ -975,6 +897,7 @@ function executeSearch(resetPage = true) {
     const pKey1 = headerMapping['photo 1'];
     const pKey2 = headerMapping['photo 2'];
     const pKey4 = headerMapping['tax declaration'];
+    const aKey = headerMapping['article/item'];
     const nKey = headerMapping['notes'];
 	
     const photo1Or2Keys = [pKey1, pKey2];
@@ -1004,7 +927,7 @@ function executeSearch(resetPage = true) {
             if (phoF === 'NO_PHOTO') matchPhoto = !hasPhoto1Or2;
             if (phoF === 'WITH_TAX_DEC') matchPhoto = hasTaxDec;
         }
-
+       // --- INSURANCE CLICK FILTER LOGIC ---
         if (activeInsuranceFilter !== 'ALL') {
             const notesVal = String(row[nKey] || '');
             const notesUpper = notesVal.toUpperCase();
@@ -1024,6 +947,7 @@ function executeSearch(resetPage = true) {
             }
             matchInsurance = (status === activeInsuranceFilter);
         }
+        // ------------------------------------
         return matchText && matchRem && matchType && matchPhoto && matchInsurance;
     });
 
@@ -1061,43 +985,43 @@ function openPopUp(rowId, clickedPhotoKey = null) {
         const lbl = document.createElement('label');
         lbl.textContent = mappedKey || tKey;
         
-        let inp;
-        if(tKey === 'remarks') {
-            inp = document.createElement('select');
-            inp.id = 'modal_' + tKey;
-            inp.disabled = true;
-            let found = false;
-            parsedUniqueRemarks.forEach(r => {
-                const opt = document.createElement('option');
-                opt.value = r; opt.textContent = r;
-                if(r === val) { opt.selected = true; found = true; }
-                inp.appendChild(opt);
-            });
-            if(val && !found) {
-                const opt = document.createElement('option');
-                opt.value = val; opt.textContent = val;
-                opt.selected = true;
-                inp.appendChild(opt);
-            }
-        } else if(tKey === 'description') {
-            inp = document.createElement('textarea');
-            inp.id = 'modal_' + tKey;
-            inp.value = val;
-            inp.rows = 7; 
-            inp.disabled = true;
-        } else if(tKey === 'notes') {
-            inp = document.createElement('textarea');
-            inp.id = 'modal_' + tKey;
-            inp.value = val;
-            inp.rows = 3;
-            inp.disabled = true;
-        } else {
-            inp = document.createElement('input');
-            inp.type = 'text';
-            inp.id = 'modal_' + tKey;
-            inp.value = val;
-            inp.disabled = true;
+       let inp;
+    if(tKey === 'remarks') {
+        inp = document.createElement('select');
+        inp.id = 'modal_' + tKey;
+        inp.disabled = true;
+        let found = false;
+        parsedUniqueRemarks.forEach(r => {
+            const opt = document.createElement('option');
+            opt.value = r; opt.textContent = r;
+            if(r === val) { opt.selected = true; found = true; }
+            inp.appendChild(opt);
+        });
+        if(val && !found) {
+            const opt = document.createElement('option');
+            opt.value = val; opt.textContent = val;
+            opt.selected = true;
+            inp.appendChild(opt);
         }
+    } else if(tKey === 'description') {
+        inp = document.createElement('textarea');
+        inp.id = 'modal_' + tKey;
+        inp.value = val;
+        inp.rows = 7; // <--- CHANGED FROM 8 TO 7 (less 1 line)
+        inp.disabled = true;
+    } else if(tKey === 'notes') {
+        inp = document.createElement('textarea');
+        inp.id = 'modal_' + tKey;
+        inp.value = val;
+        inp.rows = 3; // <--- ADDED: Sets notes field height to 3 lines
+        inp.disabled = true;
+    } else {
+        inp = document.createElement('input');
+        inp.type = 'text';
+        inp.id = 'modal_' + tKey;
+        inp.value = val;
+        inp.disabled = true;
+    }
         
         fDiv.appendChild(lbl);
         fDiv.appendChild(inp);
@@ -1143,10 +1067,10 @@ function openPopUp(rowId, clickedPhotoKey = null) {
     modalSaveBtn.style.display = 'none';
     uploadPhotoBtn.style.display = 'inline-block';
     modalCloseBtn.disabled = false;
-    modalCloseBtn.textContent = 'Close'; 
+    modalCloseBtn.textContent = 'Close'; // <--- ADD THIS LINE
     modalCloseX.disabled = false;
     editModal.style.display = 'flex';
-	document.body.style.overflow = 'hidden'; 
+	document.body.style.overflow = 'hidden'; // Locks the background scroll
 }
 
 function renderModalPhotoViewer() {
@@ -1226,6 +1150,7 @@ function navigatePhoto(dir) {
 function enableEditMode() {
     popupOrderLowercase.forEach(tKey => {
         const el = document.getElementById('modal_' + tKey);
+        // <--- MODIFIED: Excludes both 'article/item' and 'description' from being enabled
         if (el && tKey !== 'article/item' && tKey !== 'description') {
             el.disabled = false;
         }
@@ -1239,7 +1164,7 @@ function enableEditMode() {
 }
 
 function triggerSaveProcess() {
-    finalizeSaveData(loggedInUser);
+    finalizeSaveData(loggedInUser); // <--- MODIFIED: Bypasses popup and goes straight to save & refresh
 }
 
 function finalizeSaveData(operatorName) {
@@ -1278,6 +1203,7 @@ function finalizeSaveData(operatorName) {
         if(updateMappedKey) itemData[updateMappedKey] = operatorName;
         if(dateMappedKey) itemData[dateMappedKey] = formattedTimestamp;
 
+        // Using 'no-cors' mode prevents the browser from throwing a 'Failed to fetch' error
         fetch(GOOGLE_APPS_SCRIPT_URL, {
             method: 'POST',
             body: params.toString(),
@@ -1285,14 +1211,17 @@ function finalizeSaveData(operatorName) {
             mode: 'no-cors' 
         })
         .then(() => {
+            // Silently hide the loading screen, close the modal, and refresh
             hideLoading();
             closeModal(); 
         })
         .catch(() => {
+            // Even if a background network drop occurs, hide loading, close, and refresh
             hideLoading();
             closeModal();
         });
     } else {
+        // If no changes were made, just close the modal
         closeModal(); 
     }
 }
@@ -1511,11 +1440,7 @@ async function getBase64ImageFromUrl(imageUrl) {
         const match = imageUrl.match(/[-\w]{25,}/);
         let fetchUrl = imageUrl;
         let headers = {};
-        if (match && accessToken) {
-            const fileId = match[0];
-            fetchUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
-            headers = { 'Authorization': `Bearer ${accessToken}` };
-        }
+        // OAuth removed; use the original URL and existing thumbnail fallback.
         
         let response = await fetch(fetchUrl, { headers }).catch(() => null);
         if (!response || !response.ok) {
@@ -1719,8 +1644,7 @@ function checkSessionStatus() {
             if (mainApp) mainApp.style.display = 'none';
 
             // Optional: Automatically trigger the Google Sign-In popup again
-            let client = getOrCreateTokenClient();
-            if (client) client.requestAccessToken();
+            openGoogleLogin();
         };
     }
 }
@@ -1755,7 +1679,7 @@ function performLogout(isAccessDenied = false) {
 function resetIdleTimer() {
     clearTimeout(idleTimer);
     // Only run the idle countdown if the user is currently logged in
-    if (accessToken) {
+    if (loggedInUser !== "System User") {
         idleTimer = setTimeout(performLogout, IDLE_TIME_LIMIT);
     }
 }
@@ -1791,12 +1715,9 @@ window.addEventListener('DOMContentLoaded', () => {
     
     logoutBtn.addEventListener('click', () => {
     // 1. Securely revoke the Google Access Token
-    if (accessToken && window.google) {
-        google.accounts.oauth2.revoke(accessToken, () => {});
-    }
-    
-    // 2. Clear credentials and stop the idle timeout timer
     accessToken = null;
+    loggedInUser = "System User";
+    sessionStorage.removeItem('accessCounter');
     clearTimeout(idleTimer);
     
     // 3. Hide floating UI components
@@ -1835,7 +1756,7 @@ window.addEventListener('DOMContentLoaded', () => {
         if (btn) {
             // Only display if we have an access token AND the main app screen is visible
             const isMainAppVisible = mainApp && mainApp.style.display !== 'none';
-            btn.style.display = (accessToken && isMainAppVisible) ? 'block' : 'none';
+            btn.style.display = (loggedInUser !== "System User" && isMainAppVisible) ? 'block' : 'none';
         }
     }, 1000);
 });
