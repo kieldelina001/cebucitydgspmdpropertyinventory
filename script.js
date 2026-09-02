@@ -1532,36 +1532,35 @@ function openUploadWindow() {
     // regular Gmail accounts, so it has to be sent explicitly here).
     const uploadUrl = GOOGLE_APPS_SCRIPT_URL + "?itemCode=" + encodeURIComponent(itemCode) + "&userEmail=" + encodeURIComponent(loggedInUser || "");
 
-    // Show the upload form as an in-page "CSS window" (a modal with a blurred
-    // backdrop) instead of a real browser popup. A real popup is a separate
-    // OS window, so it can't be covered by our page's blur/overlay and sits
-    // outside #mainApp/#editModal — this way the upload form renders as an
-    // iframe inside our own DOM, so the backdrop blur covers everything
-    // behind it, including the property details modal.
-    const overlay = document.getElementById('uploadFormModalOverlay');
-    const iframe = document.getElementById('uploadFormIframe');
-    if (overlay && iframe) {
-        iframe.src = uploadUrl;
-        overlay.classList.add('active');
-    }
+    // NOTE: script.google.com sends its own X-Frame-Options/CSP headers that
+    // block it from being loaded inside an iframe on another site, so it has
+    // to be opened as a real popup window rather than embedded in-page.
+    const popupWidth = 460;
+    const popupHeight = 720;
+    const left = (window.screen.width - popupWidth) / 2;
+    const top = (window.screen.height - popupHeight) / 2;
+    const popupFeatures = "width=" + popupWidth + ",height=" + popupHeight +
+        ",left=" + left + ",top=" + top +
+        ",toolbar=no,location=no,menubar=no,status=no,scrollbars=yes,resizable=yes";
+
+    const popupRef = window.open(uploadUrl, "uploadPhotosWindow", popupFeatures);
     modalModified = true;
-}
 
-function closeUploadFormModal() {
-    const overlay = document.getElementById('uploadFormModalOverlay');
-    const iframe = document.getElementById('uploadFormIframe');
-    if (overlay) overlay.classList.remove('active');
-    if (iframe) iframe.src = 'about:blank'; // stop/reset the form for next time
-}
-
-// UploadForm.html posts this message (via window.top.postMessage) once the
-// upload finishes successfully, so we can close the modal automatically —
-// no need to poll for anything.
-window.addEventListener('message', function(event) {
-    if (event && event.data && event.data.type === 'ptmd_upload_complete') {
-        closeUploadFormModal();
+    // Blur the ENTIRE page (not just #mainApp) while the popup is open, since
+    // editModal (the property details modal) is a sibling of #mainApp, not a
+    // child of it, and needs to be covered too. Remove the blur automatically
+    // the instant the popup closes, whether it closed itself after a
+    // successful upload, via its own Close button, or the user closed it.
+    if (popupRef) {
+        document.body.classList.add('dashboard-blurred');
+        const watchPopup = setInterval(function() {
+            if (popupRef.closed) {
+                document.body.classList.remove('dashboard-blurred');
+                clearInterval(watchPopup);
+            }
+        }, 400);
     }
-});
+}
 
 function closeModal() {
     if (editModal) editModal.style.display = 'none';
@@ -1705,8 +1704,6 @@ if(resetFiltersButton) {
     if(exportFilteredButton) exportFilteredButton.addEventListener('click', () => downloadSearchedHTML(currentFilteredData));
     
     if(uploadPhotoBtn) uploadPhotoBtn.addEventListener('click', openUploadWindow); 
-    const uploadModalCloseBtn = document.getElementById('uploadModalCloseBtn');
-    if (uploadModalCloseBtn) uploadModalCloseBtn.addEventListener('click', closeUploadFormModal);
     
     if(modalEditBtn) modalEditBtn.addEventListener('click', enableEditMode);
     if(modalSaveBtn) modalSaveBtn.addEventListener('click', triggerSaveProcess);
