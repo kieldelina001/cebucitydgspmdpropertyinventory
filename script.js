@@ -695,39 +695,22 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
             sessionStorage.setItem('accessCounter', '1');
         }
 
+        // Keep your existing Papa.parse logic here exactly as it is...
         Papa.parse(rawCsvText, {
-            header: true,
-            skipEmptyLines: true,
-            complete: function(results) {
-                if (results.data && results.data.length > 0) {
-                    rawHeaders = Object.keys(results.data[0]);
-                    headerMapping = {};
-                    
-                    targetHeadersLowercase.forEach(target => {
-                        const actualKey = rawHeaders.find(h => {
-                            const normH = h.toLowerCase().trim();
-                            const normT = target.toLowerCase().trim();
-                            
-                            if (normT === 'transfer_cert1' && (normH.includes('transfer') && normH.includes('1'))) return true;
-                            if (normT === 'transfer_cert2' && (normH.includes('transfer') && normH.includes('2'))) return true;
-                            if (normT === 'article/item' && (normH.includes('article') || normH.includes('tct') || normH.includes('item'))) return true;
-                            
-                            return normH.includes(normT) || normT.includes(normH);
-                        });
-                        headerMapping[target] = actualKey || target; 
-                    });
-                    
-                    inventoryData = results.data.map((row, idx) => {
-                        row._rowId = idx;
-                        return row;
-                    });
-                    initializeSystemUI(retainPage);
-                } else {
-                    throw new Error("Target dataset sheet contains no metrics.");
-                }
-                hideLoading();
-            }
+            // ... your existing parsing code
         });
+    } catch (err) {
+        hideLoading();
+        if (statusBanner) {
+            statusBanner.style.backgroundColor = "#f8d7da";
+            statusBanner.style.color = "#721c24";
+            statusBanner.textContent = "Connection Error: Check Sheet spreadsheet access permission configuration.";
+        }
+        console.error(err);
+        performLogout(false);
+    } 
+}
+
 } catch (err) {
         hideLoading();
         if (statusBanner) {
