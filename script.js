@@ -1,10 +1,12 @@
 // 🔑 Google Sheets Cloud Gateway Architecture
 const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSCW2ZeIFBJaQ3qts8oNeWVxHDGMt4FOqQgTk4bswbbhfzi_e5prVc0-QWDKo2j7tIJg/exec";
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
-// Update: Changed to the official Google Drive Export endpoint to prevent CORS & redirect issues
-const GOOGLE_SHEET_CSV_URL = `https://www.googleapis.com/drive/v3/files/${SPREADSHEET_ID}/export?mimeType=text/csv`;
-const AUTH_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1uWrtQB2wc65lHe-w1RkxvUuZTbRpjnqLMVkYbxas2I8/gviz/tq?tqx=out:csv&sheet=Authorized%20Accounts";
 
+// Standard Web CSV Export (Does not require Google Drive Auth Tokens)
+const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv`;
+
+// 🛡️ Authorized Accounts Verification Data URL
+const AUTH_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1uWrtQB2wc65lHe-w1RkxvUuZTbRpjnqLMVkYbxas2I8/export?format=csv&gid=0";
 
 // =========================================================================
 // 🛠️ MANUAL EXPORT TABLE ADJUSTMENT CONFIGURATION 🛠️
@@ -13,7 +15,7 @@ const AUTH_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1uWrtQB2wc65l
 const EXPORT_TABLE_CONFIG = [
     { display: "Article no./ TCT no.", key: "article/item" },
     { display: "Description", key: "description" },
-    { display: "Notes", key: "notes" }, /// add notes
+    { display: "Notes", key: "notes" }, 
     { display: "Remarks", key: "remarks" },
     { display: "Type", key: "type" },
     { display: "Photo 1", key: "photo 1" },
@@ -39,70 +41,8 @@ let isAppInitialized = false;
 let modalModified = false;
 let loggedInUser = "System User";
 
-// ADD THIS utility function to decode Google's login token
-function decodeJwtResponse(token) {
-    let base64Url = token.split('.')[1];
-    let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    let jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-    }).join(''));
-    return JSON.parse(jsonPayload);
-}
-
-// ADD THESE FUNCTIONS
-async function handleCredentialResponse(response) {
-    const responsePayload = decodeJwtResponse(response.credential);
-    const userEmail = responsePayload.email;
-    loggedInUser = userEmail;
-
-    // Set operator input if available
-    const operatorInput = document.getElementById('custom-operator-input');
-    if (operatorInput) {
-        operatorInput.value = userEmail;
-        operatorInput.disabled = true;
-    }
-
-    checkAuthorizationAndLoad(userEmail);
-}
-
-async function checkAuthorizationAndLoad(email) {
-    const loginErr = document.getElementById('loginError');
-    if (loginErr) loginErr.textContent = 'Checking authorization...';
-
-    try {
-        const res = await fetch(AUTH_SHEET_CSV_URL);
-        if (!res.ok) throw new Error("Could not access Authorized Accounts sheet.");
-        const csvText = await res.text();
-        
-        Papa.parse(csvText, {
-            header: true,
-            skipEmptyLines: true,
-            complete: function(results) {
-                // Check if email exists in the sheet
-                const isAuthorized = results.data.some(row => 
-                    row['Gmail Account'] && row['Gmail Account'].trim().toLowerCase() === email.toLowerCase()
-                );
-
-                if (isAuthorized) {
-                    // Authorized -> Goto main page
-                    if (loginErr) loginErr.textContent = '';
-                    document.getElementById('loginScreen').style.display = 'none';
-                    document.getElementById('mainApp').style.display = 'block';
-                    loadInventoryFromGoogleSheets();
-                } else {
-                    // Not Authorized -> Goto Request Access
-                    if (loginErr) loginErr.textContent = '';
-                    triggerAccessDeniedModal(email);
-                }
-            }
-        });
-    } catch (err) {
-        console.error("Auth check failed", err);
-        if (loginErr) loginErr.textContent = 'Network error checking authorization.';
-        performLogout(true);
-    }
-}
-
+// 🔐 GIS Auth Architecture
+let accessToken = null; 
 const imageCache = {}; // Cache image blobs to avoid repeat fetches
 
 // Modal Photo Gallery State
@@ -121,30 +61,20 @@ let editModal, modalFormContainer, modalEditBtn, modalSaveBtn, modalCloseBtn, mo
 let tooltip, tooltipImg;
 let loadingOverlay, customNameModal;
 let countInsured, countNotInsured, countExpiring;
-let activeInsuranceFilter = 'ALL'; // Tracks which card is currently clicked
+let activeInsuranceFilter = 'ALL'; 
 
 function resetAndFilterByItem(filterCategory, clickedValue) {
-    // 1. Reset all filters and search inputs to default
     if (searchInput) searchInput.value = "";
-    
-    // Assuming the default value for your dropdowns is an empty string "" 
-    // If your default value is something else, use that (e.g., "-- All Types --")
     if (remarksFilter) remarksFilter.value = ""; 
     if (typeFilter) typeFilter.value = "";
     if (photoFilter) photoFilter.value = "";
 
-    // 2. Set the specific filter to the value of the item clicked
     if (filterCategory === 'type' && typeFilter) {
         typeFilter.value = clickedValue;
     } else if (filterCategory === 'remarks' && remarksFilter) {
         remarksFilter.value = clickedValue;
     }
 
-    // Optional: Reset pagination to page 1 if you have a pagination variable
-    // currentPage = 1; 
-
-    // 3. Trigger your search function to update the table based on the new filter
-    // Passing 'true' based on your executeSearch(!retainPage) logic
     executeSearch(true); 
 }
 
@@ -174,7 +104,7 @@ function initUIReferences() {
     countVerification = document.getElementById('countVerification');
     countWithPhotos = document.getElementById('countWithPhotos');
     countTaxDec = document.getElementById('countTaxDec');
-countInsured = document.getElementById('countInsured');
+    countInsured = document.getElementById('countInsured');
     countNotInsured = document.getElementById('countNotInsured');
 	countExpiring = document.getElementById('countExpiring');
 
@@ -258,12 +188,10 @@ function hideLoading() {
     if (loadingOverlay) loadingOverlay.style.setProperty('display', 'none', 'important');
 }
 
-// --- BACK TO TOP SCROLL LISTENER ---
 window.addEventListener('scroll', () => {
     const backToTopBtn = document.getElementById('backToTopBtn');
     if (backToTopBtn) {
-        // Add accessToken check to ensure it only shows when securely logged in
-        if (accessToken && (document.body.scrollTop > 300 || document.documentElement.scrollTop > 300)) {
+        if (loggedInUser !== "System User" && (document.body.scrollTop > 300 || document.documentElement.scrollTop > 300)) {
             backToTopBtn.style.visibility = "visible";
             backToTopBtn.style.opacity = "1";
         } else {
@@ -273,59 +201,155 @@ window.addEventListener('scroll', () => {
     }
 });
 
-// 🔐 SECURE INITIALIZER & GOOGLE IDENTITY TOKEN INTEGRATION (ROBUST 1-CLICK FIX)
-function getOrCreateTokenClient() {
-    if (!tokenClient && window.google && google.accounts && google.accounts.oauth2) {
-        tokenClient = google.accounts.oauth2.initTokenClient({
-            client_id: '84591548482-rfv15nf99g7nsdtlr3i57ms0fuln28s3.apps.googleusercontent.com',
-            scope: 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
-            callback: (tokenResponse) => {
-                if (tokenResponse && tokenResponse.access_token) {
-                    accessToken = tokenResponse.access_token;
-                    
-                   fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                        headers: { 'Authorization': `Bearer ${accessToken}` }
-                    })
-                    .then(res => res.json())
-                    .then(profile => {
-                        if (profile.email) {
-                            loggedInUser = profile.email; // <--- ADDED: Saves email globally
-                        }
-                        const operatorInput = document.getElementById('custom-operator-input');
-                        if (operatorInput && profile.email) {
-                            operatorInput.value = profile.email;
-                            operatorInput.disabled = true;
-                        }
-                    }).catch(console.error);
+// 🔐 AUTHENTICATION: JWT Decode Utility
+function decodeJwtResponse(token) {
+    let base64Url = token.split('.')[1];
+    let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    let jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    return JSON.parse(jsonPayload);
+}
 
+// 🔐 AUTHENTICATION: Handle Google Login Response & Verification
+async function handleCredentialResponse(response) {
+    const payload = decodeJwtResponse(response.credential);
+    loggedInUser = payload.email;
+    
+    const operatorInput = document.getElementById('custom-operator-input');
+    if (operatorInput && payload.name) {
+        operatorInput.value = payload.name;
+        operatorInput.disabled = true;
+    }
+
+    const loginErr = document.getElementById('loginError');
+    if (loginErr) loginErr.textContent = 'Verifying access...';
+
+    try {
+        // Fetch the authorized accounts sheet
+        const authRes = await fetch(AUTH_SHEET_CSV_URL);
+        if (!authRes.ok) throw new Error("Could not reach Authorized Accounts sheet.");
+        const authCsv = await authRes.text();
+        
+        Papa.parse(authCsv, {
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                // Check if user's email exists in the sheet
+                const hasAccess = results.data.some(row => 
+                    row['Gmail Account'] && row['Gmail Account'].trim().toLowerCase() === loggedInUser.toLowerCase()
+                );
+
+                if (hasAccess) {
+                    if (loginErr) loginErr.textContent = '';
                     const loginScreen = document.getElementById('loginScreen');
                     const mainApp = document.getElementById('mainApp');
                     if (loginScreen) loginScreen.style.display = 'none';
                     if (mainApp) mainApp.style.display = 'block';
                     
-                    setupSystemEventHandlers();
                     loadInventoryFromGoogleSheets();
                 } else {
-                    const loginErr = document.getElementById('loginError');
-                    if (loginErr) loginErr.textContent = 'Google Sign-In authorization failed.';
+                    if (loginErr) loginErr.textContent = '';
+                    showAccessDeniedModal();
                 }
             }
         });
+    } catch (err) {
+        console.error(err);
+        if (loginErr) loginErr.textContent = 'Authorization check failed. Please ensure the Auth Google Sheet is public.';
+        setTimeout(() => performLogout(false), 3000);
     }
-    return tokenClient;
 }
-// 🖱️ DASHBOARD CARD CLICK HANDLERS
+
+// 🛑 MODAL: Access Denied Flow
+function showAccessDeniedModal() {
+    const modal = document.getElementById("accessModal");
+    const modalText = document.getElementById("accessModalText");
+    const submitBtn = document.getElementById("submitRequestBtn");
+    const closeBtn = document.getElementById("closeModalBtn");
+    const noteInput = document.getElementById("requestNotesInput");
+
+    if (noteInput) {
+        noteInput.style.display = "block";
+        noteInput.value = "";
+    }
+
+    modalText.innerHTML = "Your Gmail account (<b>" + loggedInUser + "</b>) does not have permission to view the Google Sheet.<br><br>Would you like to send an access request?";
+    modal.style.display = "flex";
+
+    submitBtn.onclick = function() {
+        let noteValue = "No note provided";
+        if (noteInput) {
+            noteValue = noteInput.value.trim() || "No note provided";
+            noteInput.value = ""; 
+        }
+
+        modalText.innerHTML = `
+            <div style="text-align: center;">
+                <h3 style="margin-top:0; margin-bottom: 12px; color: #155724; font-size: 22px;">✅ Request Access Sent</h3>
+                <p style="margin:0; line-height: 1.6; font-size: 15px; color: #333;">
+                    Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.
+                </p>
+            </div>
+        `;
+        
+        if (noteInput) noteInput.style.display = "none";
+        submitBtn.style.display = "none";
+        closeBtn.textContent = "OK";
+        closeBtn.style.background = "#28a745"; 
+        closeBtn.style.color = "white";
+
+        const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&name=" + encodeURIComponent(loggedInUser) + "&notes=" + encodeURIComponent(noteValue);
+
+        fetch(requestUrl, { method: 'GET', mode: 'no-cors' }).catch(err => console.error("Access request silent failure:", err));
+    };
+
+    closeBtn.onclick = function() {
+        modal.style.display = "none";
+        performLogout(true);
+        
+        setTimeout(() => {
+            modalText.innerHTML = "Your Gmail account does not have permission to view the Google Sheet.";
+            submitBtn.style.display = "inline-block";
+            closeBtn.textContent = "Cancel";
+            closeBtn.style.background = "#6c757d";
+            if (noteInput) {
+                noteInput.value = "";
+                noteInput.style.display = "block";
+            }
+        }, 300);
+    };
+}
+
+// 🚪 SYSTEM: Logout Helper Function
+function performLogout(silent = false) {
+    loggedInUser = "System User";
+    const loginScreen = document.getElementById('loginScreen');
+    const mainApp = document.getElementById('mainApp');
+    if (loginScreen) loginScreen.style.display = 'flex';
+    if (mainApp) mainApp.style.display = 'none';
+
+    if (!silent) {
+        const sessionExpiredModal = document.getElementById('sessionExpiredModal');
+        if (sessionExpiredModal) sessionExpiredModal.style.display = 'flex';
+        
+        const reLoginBtn = document.getElementById('reLoginBtn');
+        if (reLoginBtn) {
+            reLoginBtn.onclick = () => {
+                sessionExpiredModal.style.display = 'none';
+            };
+        }
+    }
+}
+
 // 🖱️ DASHBOARD CARD CLICK HANDLERS
 function setupDashboardClickHandlers() {
-    
-    // 🧹 NEW: Helper function to clear search and dropdowns
     function resetAllFilters() {
         if (searchInput) searchInput.value = '';
         if (remarksFilter) remarksFilter.value = 'ALL';
         if (typeFilter) typeFilter.value = 'ALL';
         if (photoFilter) photoFilter.value = 'ALL';
         
-        // Clear insurance UI filter if active
         if (typeof activeInsuranceFilter !== 'undefined') {
             activeInsuranceFilter = 'ALL';
             document.querySelectorAll('.ins-card').forEach(c => {
@@ -338,12 +362,10 @@ function setupDashboardClickHandlers() {
         }
     }
 
-   // Helper function to set dropdown value (Exact Match first, then Partial Match)
     function setDropdownByText(selectEl, keyword) {
         if (!selectEl) return false;
         const keyUpper = keyword.toUpperCase().trim();
 
-        // Pass 1: Check for exact matches first (prevents 'STRUCTURE' matching 'INFRASTRUCTURE')
         for (let i = 0; i < selectEl.options.length; i++) {
             const optVal = selectEl.options[i].value.toUpperCase().trim();
             const optText = selectEl.options[i].text.toUpperCase().trim();
@@ -353,7 +375,6 @@ function setupDashboardClickHandlers() {
             }
         }
 
-        // Pass 2: Partial match fallback if exact match isn't found
         for (let i = 0; i < selectEl.options.length; i++) {
             const optVal = selectEl.options[i].value.toUpperCase();
             const optText = selectEl.options[i].text.toUpperCase();
@@ -365,7 +386,6 @@ function setupDashboardClickHandlers() {
         return false;
     }
 
-    // Helper function to smoothly scroll to the data table
     function scrollToTable() {
         const tableSec = document.querySelector('.table-section');
         if (tableSec) {
@@ -373,21 +393,19 @@ function setupDashboardClickHandlers() {
         }
     }
 
-    // --- 1. TOTAL PROPERTIES CARD (Reset all filters) ---
     const cardTotal = document.getElementById('countTotal')?.closest('.dash-card');
     if (cardTotal) {
         cardTotal.onclick = () => {
-            resetAllFilters(); // Just clear everything
+            resetAllFilters(); 
             executeSearch(true);
             scrollToTable();
         };
     }
 
-    // --- 2. STATUS DASHBOARD CARDS ---
     const cardExisting = document.getElementById('countExisting')?.closest('.dash-card');
     if (cardExisting) {
         cardExisting.onclick = () => {
-            resetAllFilters(); // Reset everything first!
+            resetAllFilters();
             if (remarksFilter) {
             const found = setDropdownByText(remarksFilter, 'EXISTING');
             if (!found && searchInput) searchInput.value = 'EXISTING';
@@ -400,7 +418,7 @@ function setupDashboardClickHandlers() {
     const cardNotFound = document.getElementById('countNotFound')?.closest('.dash-card');
     if (cardNotFound) {
         cardNotFound.onclick = () => {
-            resetAllFilters(); // Reset everything first!
+            resetAllFilters(); 
             if (remarksFilter) {
             const found = setDropdownByText(remarksFilter, 'NOT FOUND');
             if (!found && searchInput) searchInput.value = 'NOT FOUND';
@@ -413,7 +431,7 @@ function setupDashboardClickHandlers() {
     const cardVerification = document.getElementById('countVerification')?.closest('.dash-card');
     if (cardVerification) {
         cardVerification.onclick = () => {
-            resetAllFilters(); // Reset everything first!
+            resetAllFilters(); 
             if (remarksFilter) {
             const found = setDropdownByText(remarksFilter, 'VERIFICATION');
             if (!found && searchInput) searchInput.value = 'VERIFICATION';
@@ -423,12 +441,12 @@ function setupDashboardClickHandlers() {
         };
     }
 
-const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card');
+    const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card');
     if (cardTaxDec) {
         cardTaxDec.onclick = () => {
-            resetAllFilters(); // Reset everything first!
+            resetAllFilters(); 
             if (photoFilter && photoFilter.options.length > 3) {
-                photoFilter.selectedIndex = 3; // Index 3 is "With Tax Declaration"
+                photoFilter.selectedIndex = 3;
             }
             executeSearch(true);
             scrollToTable();
@@ -438,7 +456,7 @@ const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card')
     const cardPhotos = document.getElementById('countWithPhotos')?.closest('.dash-card');
     if (cardPhotos) {
         cardPhotos.onclick = () => {
-            resetAllFilters(); // Reset everything first!
+            resetAllFilters();
             if (photoFilter && photoFilter.options.length > 1) {
                 photoFilter.selectedIndex = 1; 
             }
@@ -447,23 +465,21 @@ const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card')
         };
     }
 
-   // --- 3. PROPERTY TYPE CARDS (Updated Keywords) ---
     const typeMappings = [
         { id: 'countBuilding', keyword: 'BUILDING' },
-        { id: 'countAssetMod', keyword: 'BUILDING MODIFICATION' }, // Changed from 'ASSET'
+        { id: 'countAssetMod', keyword: 'BUILDING MODIFICATION' }, 
         { id: 'countFlood', keyword: 'FLOOD' },
         { id: 'countHospital', keyword: 'HOSPITAL' },
         { id: 'countLand', keyword: 'LAND' },
         { id: 'countMarket', keyword: 'MARKET' },
         { id: 'countOtherInfra', keyword: 'OTHER INFRASTRUCTURE' },
         { id: 'countOtherLand', keyword: 'OTHER LAND' },
-        { id: 'countOtherStruct', keyword: 'OTHER STRUCTURE' }, // Changed from 'STRUCTURE'
+        { id: 'countOtherStruct', keyword: 'OTHER STRUCTURE' }, 
         { id: 'countPark', keyword: 'PARK' },
         { id: 'countRoad', keyword: 'ROAD' },
         { id: 'countSchool', keyword: 'SCHOOL' },
         { id: 'countSlaughterhouse', keyword: 'SLAUGHTERHOUSE' },
         { id: 'countWater', keyword: 'WATER' }
-		
     ];
 
     typeMappings.forEach(item => {
@@ -472,7 +488,7 @@ const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card')
             const card = countEl.closest('.type-card');
             if (card) {
                 card.onclick = () => {
-                    resetAllFilters(); // Reset everything first!
+                    resetAllFilters(); 
                     if (typeFilter) {
                         const found = setDropdownByText(typeFilter, item.keyword);
                         if (!found && searchInput) {
@@ -490,7 +506,7 @@ const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card')
 function initApp() {
     initUIReferences();
 
-    // Initialize Standard Google Identity Services
+    // 🔒 CLEAN GOOGLE LOGIN (IDENTITY ONLY)
     if (window.google && google.accounts && google.accounts.id) {
         google.accounts.id.initialize({
             client_id: '84591548482-rfv15nf99g7nsdtlr3i57ms0fuln28s3.apps.googleusercontent.com',
@@ -499,22 +515,21 @@ function initApp() {
 
         const loginBtnContainer = document.getElementById('customLoginBtn');
         if (loginBtnContainer) {
-            loginBtnContainer.innerHTML = ''; // Clear default text
+            // Re-style custom wrapper for Google's native button iframe
+            loginBtnContainer.style.padding = '0';
+            loginBtnContainer.style.border = 'none';
+            loginBtnContainer.style.background = 'transparent';
+            loginBtnContainer.style.boxShadow = 'none';
+            loginBtnContainer.innerHTML = '';
+            
             google.accounts.id.renderButton(
                 loginBtnContainer,
-                { theme: "outline", size: "large", width: "100%" }
+                { theme: "outline", size: "large", text: "signin_with", width: 300 }
             );
         }
     } else {
         const loginErr = document.getElementById('loginError');
-        if (loginErr) loginErr.textContent = 'Google Sign-In failed to load. Please refresh.';
-    }
-
-    const backToTopBtn = document.getElementById('backToTopBtn');
-    if (backToTopBtn) {
-        backToTopBtn.addEventListener('click', () => {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        });
+        if (loginErr) loginErr.textContent = 'Connecting to Google Server... Check your connection.';
     }
 
     const backToTopBtn = document.getElementById('backToTopBtn');
@@ -542,6 +557,12 @@ function initApp() {
             }
         });
     }
+    
+    // Modal Event Bindings
+    if (modalCloseBtn) modalCloseBtn.addEventListener('click', closeModal);
+    if (modalCloseX) modalCloseX.addEventListener('click', closeModal);
+    if (modalEditBtn) modalEditBtn.addEventListener('click', enableEditMode);
+    if (modalSaveBtn) modalSaveBtn.addEventListener('click', triggerSaveProcess);
     
     document.addEventListener('mouseover', function(e) {
         if (e.target && e.target.classList.contains('hover-preview-img')) {
@@ -587,7 +608,12 @@ if (document.readyState === 'loading') {
     initApp();
 }
 
-// 🌐 Secure Image Fetcher (Bypasses Google Drive Blocks)
+function closeModal() {
+    if (editModal) editModal.style.display = 'none';
+    document.body.style.overflow = 'auto'; // Restore normal scrolling
+}
+
+// 🌐 Fallback Secure Image Fetcher
 async function fetchAuthorizedImage(driveUrl) {
     if (!driveUrl || typeof driveUrl !== 'string') return null;
     const match = driveUrl.match(/[-\w]{25,}/);
@@ -596,86 +622,11 @@ async function fetchAuthorizedImage(driveUrl) {
     const fileId = match[0];
     if (imageCache[fileId]) return imageCache[fileId];
 
-    if (!accessToken) return getDirectImageUrl(driveUrl, 'thumbnail'); 
-
-    try {
-        const response = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-            headers: {
-                'Authorization': `Bearer ${accessToken}`
-            }
-        });
-        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
-        
-        const blob = await response.blob();
-        const objectUrl = URL.createObjectURL(blob);
-        imageCache[fileId] = objectUrl; 
-        return objectUrl;
-    } catch (e) {
-        console.warn("Failed to fetch image securely, falling back to thumbnail", e);
-        return getDirectImageUrl(driveUrl, 'thumbnail');
-    }
+    // Standard public fetch
+    return getDirectImageUrl(driveUrl, 'thumbnail'); 
 }
 
-function triggerAccessDeniedModal(email) {
-    const modal = document.getElementById("accessModal");
-    const modalText = document.getElementById("accessModalText");
-    const submitBtn = document.getElementById("submitRequestBtn");
-    const closeBtn = document.getElementById("closeModalBtn");
-    const noteInput = document.getElementById("requestNotesInput");
-
-    if (noteInput) {
-        noteInput.style.display = "block";
-        noteInput.value = "";
-    }
-
-    modalText.innerHTML = "Your Gmail account (<b>" + email + "</b>) does not have permission to view the Google Sheet.<br><br>Would you like to send an access request?";
-    modal.style.display = "flex";
-
-    submitBtn.onclick = function() {
-        let noteValue = noteInput ? (noteInput.value.trim() || "No note provided") : "No note provided";
-        
-        modalText.innerHTML = `
-            <div style="text-align: center;">
-                <h3 style="margin-top:0; margin-bottom: 12px; color: #155724; font-size: 22px;">✅ Request Access Sent</h3>
-                <p style="margin:0; line-height: 1.6; font-size: 15px; color: #333;">
-                    Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.
-                </p>
-            </div>
-        `;
-        
-        if (noteInput) noteInput.style.display = "none";
-        submitBtn.style.display = "none";
-        closeBtn.textContent = "OK";
-        closeBtn.style.background = "#28a745"; 
-        closeBtn.style.color = "white";
-
-        const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(email) + "&name=" + encodeURIComponent(email) + "&notes=" + encodeURIComponent(noteValue);
-        fetch(requestUrl, { method: 'GET', mode: 'no-cors' }).catch(err => console.error("Access request silent failure:", err));
-    };
-
-    closeBtn.onclick = function() {
-        modal.style.display = "none";
-        
-        const loginScreen = document.getElementById('loginScreen');
-        const mainApp = document.getElementById('mainApp');
-        if (loginScreen) loginScreen.style.display = '';
-        if (mainApp) mainApp.style.display = 'none';
-        
-        setTimeout(() => {
-            modalText.innerHTML = "<h3 style='margin-top:0; margin-bottom: 10px; color: #155724;'>✅ Request Access Sent</h3><p style='margin:0; line-height: 1.5;'>Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.</p>";
-            submitBtn.style.display = "inline-block";
-            closeBtn.textContent = "Cancel";
-            closeBtn.style.background = "#6c757d";
-            if (noteInput) {
-                noteInput.value = "";
-                noteInput.style.display = "block";
-            }
-        }, 300);
-    };
-
-    performLogout(true);
-}
-
+// 🚀 REFACTORED: Only pulls data. Auth check happens beforehand now.
 async function loadInventoryFromGoogleSheets(retainPage = false) {
     if (statusBanner) {
         statusBanner.style.backgroundColor = "#fff3cd";
@@ -685,140 +636,52 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
     showLoading("Syncing live spreadsheet grid...");
 
     try {
-        // REMOVED the accessToken header here
         const response = await fetch(GOOGLE_SHEET_CSV_URL);
-        
         if (!response.ok) throw new Error("Could not connect to online Sheet feed.");
         const rawCsvText = await response.text(); 
 
-        if (!sessionStorage.getItem('accessCounter')) {
-            sessionStorage.setItem('accessCounter', '1');
-        }
-
-        // Keep your existing Papa.parse logic here exactly as it is...
         Papa.parse(rawCsvText, {
-            // ... your existing parsing code
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                if (results.data && results.data.length > 0) {
+                    rawHeaders = Object.keys(results.data[0]);
+                    headerMapping = {};
+                    
+                    targetHeadersLowercase.forEach(target => {
+                        const actualKey = rawHeaders.find(h => {
+                            const normH = h.toLowerCase().trim();
+                            const normT = target.toLowerCase().trim();
+                            
+                            if (normT === 'transfer_cert1' && (normH.includes('transfer') && normH.includes('1'))) return true;
+                            if (normT === 'transfer_cert2' && (normH.includes('transfer') && normH.includes('2'))) return true;
+                            if (normT === 'article/item' && (normH.includes('article') || normH.includes('tct') || normH.includes('item'))) return true;
+                            
+                            return normH.includes(normT) || normT.includes(normH);
+                        });
+                        headerMapping[target] = actualKey || target; 
+                    });
+                    
+                    inventoryData = results.data.map((row, idx) => {
+                        row._rowId = idx;
+                        return row;
+                    });
+                    initializeSystemUI(retainPage);
+                } else {
+                    throw new Error("Target dataset sheet contains no metrics.");
+                }
+                hideLoading();
+            }
         });
     } catch (err) {
         hideLoading();
         if (statusBanner) {
             statusBanner.style.backgroundColor = "#f8d7da";
             statusBanner.style.color = "#721c24";
-            statusBanner.textContent = "Connection Error: Check Sheet spreadsheet access permission configuration.";
+            statusBanner.textContent = "Connection Error: Cannot access data sheet.";
         }
         console.error(err);
         performLogout(false);
-    } 
-}
-
-} catch (err) {
-        hideLoading();
-        if (statusBanner) {
-            statusBanner.style.backgroundColor = "#f8d7da";
-            statusBanner.style.color = "#721c24";
-            statusBanner.textContent = "Connection Error: Check Sheet spreadsheet access permission configuration.";
-        }
-        console.error(err);
-
-        // ✅ NEW: Check if the counter exists
-        const hasCounter = sessionStorage.getItem('accessCounter');
-
-        if (accessToken && loggedInUser !== "System User") {
-            if (!hasCounter) {
-                // 🚫 SCENARIO A: Not Authorized & No Counter -> Goto Request Access
-                const modal = document.getElementById("accessModal");
-                const modalText = document.getElementById("accessModalText");
-    const submitBtn = document.getElementById("submitRequestBtn");
-    const closeBtn = document.getElementById("closeModalBtn");
-    
-    // Grab your existing textarea by its exact ID
-    const noteInput = document.getElementById("requestNotesInput");
-
-    // Ensure the textarea is visible and empty when the modal first opens
-    if (noteInput) {
-        noteInput.style.display = "block";
-        noteInput.value = "";
-    }
-
-    // Keep your dynamic text structure
-    modalText.innerHTML = "Your Gmail account (<b>" + loggedInUser + "</b>) does not have permission to view the Google Sheet.<br><br>Would you like to send an access request?";
-    modal.style.display = "flex";
-
-   submitBtn.onclick = function() {
-        // 1. Capture the note value
-        let noteValue = "No note provided";
-        if (noteInput) {
-            noteValue = noteInput.value.trim() || "No note provided";
-            noteInput.value = ""; // Reset input in the background for next time
-        }
-
-        // 2. Target the entire modal content area or update both title and text together
-        const modalHeader = document.querySelector('.access-modal-header') || modalText.parentElement;
-        
-        // Update the content to show the clean success state with your phone number text
-        modalText.innerHTML = `
-            <div style="text-align: center;">
-                <h3 style="margin-top:0; margin-bottom: 12px; color: #155724; font-size: 22px;">✅ Request Access Sent</h3>
-                <p style="margin:0; line-height: 1.6; font-size: 15px; color: #333;">
-                    Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.
-                </p>
-            </div>
-        `;
-        
-        // 3. Hide the text area input
-        if (noteInput) {
-            noteInput.style.display = "none";
-        }
-
-        // 4. Update buttons: Hide 'Submit', change 'Cancel' to a green 'OK' button
-        submitBtn.style.display = "none";
-        closeBtn.textContent = "OK";
-        closeBtn.style.background = "#28a745"; 
-        closeBtn.style.color = "white";
-
-        // 5. Prepare the URL for Apps Script
-        const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(loggedInUser) + "&name=" + encodeURIComponent(loggedInUser) + "&notes=" + encodeURIComponent(noteValue);
-
-      // 6. Trigger the request silently using fetch (bypasses iframe blocks)
-        fetch(requestUrl, { method: 'GET', mode: 'no-cors' }).catch(err => console.error("Access request silent failure:", err));
-    };
-
-closeBtn.onclick = function() {
-        modal.style.display = "none";
-        
-        // NEW: Route the user back to the login screen when they close the access denied modal
-        const loginScreen = document.getElementById('loginScreen');
-        const mainApp = document.getElementById('mainApp');
-        if (loginScreen) loginScreen.style.display = '';
-        if (mainApp) mainApp.style.display = 'none';
-        
-        // Reset modal back to original prompt state when closed
-        setTimeout(() => {
-            modalText.innerHTML = "<h3 style='margin-top:0; margin-bottom: 10px; color: #155724;'>✅ Request Access Sent</h3><p style='margin:0; line-height: 1.5;'>Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.</p>";
-            submitBtn.style.display = "inline-block";
-            closeBtn.textContent = "Cancel";
-            closeBtn.style.background = "#6c757d";
-            
-            if (noteInput) {
-                noteInput.value = "";
-                noteInput.style.display = "block";
-            }
-        }, 300);
-    };
-
-    // NEW: Pass 'true' to performLogout so it doesn't trigger the Session Expired modal
-                performLogout(true); 
-            
-            } else {
-                // ⚠️ SCENARIO B: Have Counter (Session Expired) -> Goto Log In Again
-                performLogout(false);
-            }
-
-        } else {
-            alert("Connection failed or you have been logged out from Google. Please log in again.");
-    // Normal logout for actual session disconnections
-    performLogout(false); 
-        }
     } 
 }
 
@@ -860,7 +723,6 @@ function initializeSystemUI(retainPage = false) {
 }
 
 function populateDropdown(type, selectEl, placeholderText) {
-    // ... [Rest of your code continues normally]
     if(!selectEl) return;
     const previousSelection = selectEl.value;
     selectEl.innerHTML = `<option value="ALL">${placeholderText}</option>`;
@@ -922,29 +784,24 @@ function updatePaginationUI(totalPages) {
 // 🖼️ LAZY LOADING OBSERVER FOR TABLE PHOTOS
 const tableImageObserver = new IntersectionObserver((entries, observer) => {
     entries.forEach(entry => {
-        // Check if the image has entered the viewport
         if (entry.isIntersecting) {
             const img = entry.target;
             const driveUrl = img.dataset.src;
             
             if (driveUrl) {
-                // Fetch the image securely now that it's in view
                 fetchAuthorizedImage(driveUrl).then(objectUrl => {
                     if (objectUrl) {
                         img.src = objectUrl;
                         img.alt = "Preview";
                     }
                 });
-                
-                // Stop observing this image once it's processing
                 observer.unobserve(img);
             }
         }
     });
 }, { 
-    rootMargin: "0px 0px 300px 0px" // Starts loading slightly before the user scrolls to it
+    rootMargin: "0px 0px 300px 0px"
 });
-
 
 function renderTable(data, page = 1) {
     if(!tableBody) return; tableBody.innerHTML = '';
@@ -986,13 +843,9 @@ function renderTable(data, page = 1) {
                     imgEl.alt = "Loading...";
                     imgEl.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 50'%3E%3Ccircle cx='25' cy='25' r='20' fill='none' stroke='%23ccc' stroke-width='4' stroke-dasharray='31.4 31.4'%3E%3CanimateTransform attributeName='transform' type='rotate' from='0 25 25' to='360 25 25' dur='1s' repeatCount='indefinite'/%3E%3C/circle%3E%3C/svg%3E";
                     
-                imgEl.onclick = (event) => { event.stopPropagation(); openPopUp(row._rowId, tKey); };
-                    
-                    // Assign the URL to a data attribute instead of fetching immediately
+                    imgEl.onclick = (event) => { event.stopPropagation(); openPopUp(row._rowId, tKey); };
                     imgEl.dataset.src = url; 
                     td.appendChild(imgEl);
-
-                    // Tell the observer to watch this image placeholder
                     tableImageObserver.observe(imgEl);
                 } else {
                     td.textContent = 'No Photo';
@@ -1018,11 +871,9 @@ function calculateStaticDashboardTotals(items) {
     const pKey1 = headerMapping['photo 1'];
     const pKey2 = headerMapping['photo 2'];
     const pKey4 = headerMapping['tax declaration'];
-const aKey = headerMapping['article/item'];
     const nKey = headerMapping['notes'];
     
     let insuredCount = 0, notInsuredCount = 0, expiringCount = 0;
-    
     let existing = 0, notfound = 0, verify = 0, photos = 0, taxdec = 0;
     
     let stats = {
@@ -1043,42 +894,34 @@ const aKey = headerMapping['article/item'];
         if(row[pKey4] && row[pKey4].trim()!=='') taxdec++;
         
         const typeStr = String(row[tKey] || '').toUpperCase().trim();
-// --- BUILDING INSURANCE LOGIC ---
         const notesVal = String(row[nKey] || '');
         const notesUpper = notesVal.toUpperCase();
 
         if (notesUpper.includes('NOT INSURED')) {
             notInsuredCount++;
         } else if (notesUpper.includes('BUILDING INSURED')) {
-            // Regex looks for "Coverage [Date] - [Date]" and extracts the second date
             const dateMatch = notesVal.match(/Coverage\s+.*?\s+-\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})/i);
             
             if (dateMatch && dateMatch[1]) {
                 const endDate = new Date(dateMatch[1]);
                 const currentDate = new Date(); 
                 
-                // Verify the extracted date is valid
                 if (!isNaN(endDate.getTime())) {
                     const timeDiff = endDate.getTime() - currentDate.getTime();
                     const daysDiff = timeDiff / (1000 * 3600 * 24);
                     
-                   // 30 days is the threshold for "Almost Expire"
                     if (daysDiff <= 30) {
-                        expiringCount++; // Correctly count as Expiring
+                        expiringCount++;
                     } else {
-                        insuredCount++; // Active
+                        insuredCount++;
                     }
                 } else {
-                    insuredCount++; // Fallback if date is invalid but says insured
+                    insuredCount++;
                 }
             } else {
-                 insuredCount++; // Fallback if no date format is found but says insured
+                 insuredCount++; 
             }
         }
-// --------------------------------
-
-
-
         
         if (typeStr.includes('BUILDING MOD') || typeStr.includes('ASSET MOD')) stats['Building Modifications']++;
         else if (typeStr.includes('SCHOOL')) stats['School Building']++;
@@ -1116,7 +959,7 @@ const aKey = headerMapping['article/item'];
     if(countSchool) countSchool.textContent = stats['School Building'];
     if(countSlaughterhouse) countSlaughterhouse.textContent = stats['Slaughterhouse'];
     if(countWater) countWater.textContent = stats['Water Supplies'];
-if(countInsured) countInsured.textContent = insuredCount;
+    if(countInsured) countInsured.textContent = insuredCount;
     if(countNotInsured) countNotInsured.textContent = notInsuredCount;
 	if(countExpiring) countExpiring.textContent = expiringCount;
 }
@@ -1132,7 +975,6 @@ function executeSearch(resetPage = true) {
     const pKey1 = headerMapping['photo 1'];
     const pKey2 = headerMapping['photo 2'];
     const pKey4 = headerMapping['tax declaration'];
-    const aKey = headerMapping['article/item'];
     const nKey = headerMapping['notes'];
 	
     const photo1Or2Keys = [pKey1, pKey2];
@@ -1162,7 +1004,7 @@ function executeSearch(resetPage = true) {
             if (phoF === 'NO_PHOTO') matchPhoto = !hasPhoto1Or2;
             if (phoF === 'WITH_TAX_DEC') matchPhoto = hasTaxDec;
         }
-       // --- INSURANCE CLICK FILTER LOGIC ---
+
         if (activeInsuranceFilter !== 'ALL') {
             const notesVal = String(row[nKey] || '');
             const notesUpper = notesVal.toUpperCase();
@@ -1182,7 +1024,6 @@ function executeSearch(resetPage = true) {
             }
             matchInsurance = (status === activeInsuranceFilter);
         }
-        // ------------------------------------
         return matchText && matchRem && matchType && matchPhoto && matchInsurance;
     });
 
@@ -1220,43 +1061,43 @@ function openPopUp(rowId, clickedPhotoKey = null) {
         const lbl = document.createElement('label');
         lbl.textContent = mappedKey || tKey;
         
-       let inp;
-    if(tKey === 'remarks') {
-        inp = document.createElement('select');
-        inp.id = 'modal_' + tKey;
-        inp.disabled = true;
-        let found = false;
-        parsedUniqueRemarks.forEach(r => {
-            const opt = document.createElement('option');
-            opt.value = r; opt.textContent = r;
-            if(r === val) { opt.selected = true; found = true; }
-            inp.appendChild(opt);
-        });
-        if(val && !found) {
-            const opt = document.createElement('option');
-            opt.value = val; opt.textContent = val;
-            opt.selected = true;
-            inp.appendChild(opt);
+        let inp;
+        if(tKey === 'remarks') {
+            inp = document.createElement('select');
+            inp.id = 'modal_' + tKey;
+            inp.disabled = true;
+            let found = false;
+            parsedUniqueRemarks.forEach(r => {
+                const opt = document.createElement('option');
+                opt.value = r; opt.textContent = r;
+                if(r === val) { opt.selected = true; found = true; }
+                inp.appendChild(opt);
+            });
+            if(val && !found) {
+                const opt = document.createElement('option');
+                opt.value = val; opt.textContent = val;
+                opt.selected = true;
+                inp.appendChild(opt);
+            }
+        } else if(tKey === 'description') {
+            inp = document.createElement('textarea');
+            inp.id = 'modal_' + tKey;
+            inp.value = val;
+            inp.rows = 7; 
+            inp.disabled = true;
+        } else if(tKey === 'notes') {
+            inp = document.createElement('textarea');
+            inp.id = 'modal_' + tKey;
+            inp.value = val;
+            inp.rows = 3;
+            inp.disabled = true;
+        } else {
+            inp = document.createElement('input');
+            inp.type = 'text';
+            inp.id = 'modal_' + tKey;
+            inp.value = val;
+            inp.disabled = true;
         }
-    } else if(tKey === 'description') {
-        inp = document.createElement('textarea');
-        inp.id = 'modal_' + tKey;
-        inp.value = val;
-        inp.rows = 7; // <--- CHANGED FROM 8 TO 7 (less 1 line)
-        inp.disabled = true;
-    } else if(tKey === 'notes') {
-        inp = document.createElement('textarea');
-        inp.id = 'modal_' + tKey;
-        inp.value = val;
-        inp.rows = 3; // <--- ADDED: Sets notes field height to 3 lines
-        inp.disabled = true;
-    } else {
-        inp = document.createElement('input');
-        inp.type = 'text';
-        inp.id = 'modal_' + tKey;
-        inp.value = val;
-        inp.disabled = true;
-    }
         
         fDiv.appendChild(lbl);
         fDiv.appendChild(inp);
@@ -1302,10 +1143,10 @@ function openPopUp(rowId, clickedPhotoKey = null) {
     modalSaveBtn.style.display = 'none';
     uploadPhotoBtn.style.display = 'inline-block';
     modalCloseBtn.disabled = false;
-    modalCloseBtn.textContent = 'Close'; // <--- ADD THIS LINE
+    modalCloseBtn.textContent = 'Close'; 
     modalCloseX.disabled = false;
     editModal.style.display = 'flex';
-	document.body.style.overflow = 'hidden'; // Locks the background scroll
+	document.body.style.overflow = 'hidden'; 
 }
 
 function renderModalPhotoViewer() {
@@ -1385,7 +1226,6 @@ function navigatePhoto(dir) {
 function enableEditMode() {
     popupOrderLowercase.forEach(tKey => {
         const el = document.getElementById('modal_' + tKey);
-        // <--- MODIFIED: Excludes both 'article/item' and 'description' from being enabled
         if (el && tKey !== 'article/item' && tKey !== 'description') {
             el.disabled = false;
         }
@@ -1399,7 +1239,7 @@ function enableEditMode() {
 }
 
 function triggerSaveProcess() {
-    finalizeSaveData(loggedInUser); // <--- MODIFIED: Bypasses popup and goes straight to save & refresh
+    finalizeSaveData(loggedInUser);
 }
 
 function finalizeSaveData(operatorName) {
@@ -1438,7 +1278,6 @@ function finalizeSaveData(operatorName) {
         if(updateMappedKey) itemData[updateMappedKey] = operatorName;
         if(dateMappedKey) itemData[dateMappedKey] = formattedTimestamp;
 
-        // Using 'no-cors' mode prevents the browser from throwing a 'Failed to fetch' error
         fetch(GOOGLE_APPS_SCRIPT_URL, {
             method: 'POST',
             body: params.toString(),
@@ -1446,561 +1285,14 @@ function finalizeSaveData(operatorName) {
             mode: 'no-cors' 
         })
         .then(() => {
-            // Silently hide the loading screen, close the modal, and refresh
             hideLoading();
             closeModal(); 
         })
         .catch(() => {
-            // Even if a background network drop occurs, hide loading, close, and refresh
             hideLoading();
             closeModal();
         });
     } else {
-        // If no changes were made, just close the modal
         closeModal(); 
     }
 }
-
-function openUploadWindow() {
-    if (activeEditIndex === null) return;
-    const itemData = inventoryData.find(r => r._rowId === activeEditIndex);
-    if (!itemData) return;
-
-    const articleKey = headerMapping['article/item'];
-    const itemCode = itemData[articleKey] || 'Unknown';
-    const uploadUrl = GOOGLE_APPS_SCRIPT_URL + "?itemCode=" + encodeURIComponent(itemCode);
-    
-    window.open(uploadUrl, '_blank');
-    modalModified = true;
-}
-
-function closeModal() {
-    if (editModal) editModal.style.display = 'none';
-    
-    // Unlocks the background scroll
-    document.body.style.overflow = ''; 
-    
-    if (modalModified) {
-        loadInventoryFromGoogleSheets(true);
-    }
-    
-    activeEditIndex = null;
-    modalModified = false;
-}
-
-// --- DASHBOARD CLICK-TO-FILTER FUNCTION ---
-function setInsuranceFilter(filterMode, cardId) {
-    
-    // 🧹 Reset other text and dropdown filters so they don't block the results
-    if (searchInput) searchInput.value = '';
-    if (remarksFilter) remarksFilter.value = 'ALL';
-    if (typeFilter) typeFilter.value = 'ALL';
-    if (photoFilter) photoFilter.value = 'ALL';
-
-    // Set insurance filter mode directly
-    activeInsuranceFilter = filterMode;
-
-    // Reset styles for all 3 cards
-    document.querySelectorAll('.ins-card').forEach(card => {
-        card.style.transform = 'scale(1)';
-        card.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
-        card.style.backgroundColor = '#f8f9fa';
-    });
-
-    const clearBtn = document.getElementById('clearInsFilterBtn');
-
-    // Highlight the active card
-    if (activeInsuranceFilter !== 'ALL') {
-        const activeCard = document.getElementById(cardId);
-        if (activeCard) {
-            activeCard.style.transform = 'scale(1.05)';
-            activeCard.style.boxShadow = '0 4px 10px rgba(0,0,0,0.15)';
-            activeCard.style.backgroundColor = '#ffffff'; // highlight color
-        }
-        if (clearBtn) clearBtn.style.display = 'inline';
-    } else {
-        if (clearBtn) clearBtn.style.display = 'none';
-    }
-
-    // Trigger the table update
-    executeSearch(true); 
-    
-    // Smooth scroll down
-    const tableSec = document.querySelector('.table-section');
-    if (tableSec) tableSec.scrollIntoView({ behavior: 'smooth' });
-}
-
-function setupSystemEventHandlers() {
-	// Dashboard Filter Click Events
-    const cardInsured = document.getElementById('cardInsured');
-    const cardNotInsured = document.getElementById('cardNotInsured');
-    const cardExpiring = document.getElementById('cardExpiring');
-    const clearInsFilterBtn = document.getElementById('clearInsFilterBtn');
-
-    if(cardInsured) cardInsured.onclick = () => setInsuranceFilter('INSURED', 'cardInsured');
-    if(cardNotInsured) cardNotInsured.onclick = () => setInsuranceFilter('NOT_INSURED', 'cardNotInsured');
-    if(cardExpiring) cardExpiring.onclick = () => setInsuranceFilter('EXPIRING', 'cardExpiring');
-    if(clearInsFilterBtn) clearInsFilterBtn.onclick = () => setInsuranceFilter('ALL', '');
-if(resetFiltersButton) {
-    resetFiltersButton.addEventListener('click', () => {
-
-        // Clear search box
-        if (searchInput) {
-            searchInput.value = '';
-        }
-
-        // Reset all dropdowns to their default option
-        if (remarksFilter) {
-            remarksFilter.selectedIndex = 0;
-        }
-
-        if (typeFilter) {
-            typeFilter.selectedIndex = 0;
-        }
-
-        if (photoFilter) {
-            photoFilter.selectedIndex = 0;
-        }
-
-        // Clear insurance filter
-        activeInsuranceFilter = 'ALL';
-
-        // Remove insurance card highlighting
-        document.querySelectorAll('.ins-card').forEach(card => {
-            card.style.transform = 'scale(1)';
-            card.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
-            card.style.backgroundColor = '#f8f9fa';
-        });
-
-        // Hide insurance clear-filter link
-        const clearBtn = document.getElementById('clearInsFilterBtn');
-        if (clearBtn) {
-            clearBtn.style.display = 'none';
-        }
-
-        // Reset pagination
-        currentPage = 1;
-
-        // IMPORTANT:
-        // Clear the table data instead of showing all records
-        currentFilteredData = [];
-
-        // Display 0 records
-        if (foundCountDisplay) {
-            foundCountDisplay.textContent = '(0 items displayed)';
-        }
-
-        // Clear the table and show the default message
-        if (tableBody) {
-            tableBody.innerHTML = `
-                <tr>
-                    <td colspan="${displayHeaders.length}" class="no-data">
-                        Data loaded successfully. Apply a filter or search to view records.
-                    </td>
-                </tr>
-            `;
-        }
-
-        // Reset pagination display
-        updatePaginationUI(0);
-    });
-}
-    if(searchInput) searchInput.addEventListener('keypress', e => { if(e.key === 'Enter') executeSearch(true); });
-	if(searchButton) searchButton.addEventListener('click', () => executeSearch(true));
-    
-    if(remarksFilter) remarksFilter.addEventListener('change', () => executeSearch(true));
-    if(typeFilter) typeFilter.addEventListener('change', () => executeSearch(true));
-    if(photoFilter) photoFilter.addEventListener('change', () => executeSearch(true));
-    
-    if(exportButton) exportButton.addEventListener('click', () => downloadDatasetCSV(inventoryData, 'Full_Inventory'));
-    if(exportFilteredButton) exportFilteredButton.addEventListener('click', () => downloadSearchedHTML(currentFilteredData));
-    
-    if(uploadPhotoBtn) uploadPhotoBtn.addEventListener('click', openUploadWindow); 
-    
-    if(modalEditBtn) modalEditBtn.addEventListener('click', enableEditMode);
-    if(modalSaveBtn) modalSaveBtn.addEventListener('click', triggerSaveProcess);
-    
-    if(modalCloseBtn) modalCloseBtn.addEventListener('click', () => {
-        if (modalCloseBtn.textContent === 'Cancel') {
-            modalModified = false; // Prevents unnecessary data reload
-            openPopUp(activeEditIndex); // Re-opens the current item in View Mode
-        } else {
-            closeModal();
-        }
-    });
-    if(modalCloseX) modalCloseX.addEventListener('click', closeModal); 
-    
-    const cancelNameBtn = document.getElementById('customCancelNameBtn');
-    if (cancelNameBtn) {
-        cancelNameBtn.addEventListener('click', () => {
-            if (customNameModal) customNameModal.style.display = 'none';
-        });
-    }
-    
-    const confirmNameBtn = document.getElementById('customConfirmNameBtn');
-    if (confirmNameBtn) {
-        confirmNameBtn.addEventListener('click', () => {
-            const operatorInput = document.getElementById('custom-operator-input');
-            const nameVal = operatorInput ? operatorInput.value.trim() : '';
-            if(!nameVal) { alert("Authorization Denied: Operator name required."); return; }
-            if (customNameModal) customNameModal.style.display = 'none';
-            finalizeSaveData(nameVal);
-        });
-    }
-}
-
-function downloadDatasetCSV(data, filenamePrefix) {
-    if(!data || data.length === 0) {
-        alert("Export Nullified: No dataset active for export.");
-        return;
-    }
-    const headerRow = rawHeaders.join(",");
-    const rows = data.map(r => rawHeaders.map(h => `"${(r[h] || '').replace(/"/g, '""')}"`).join(","));
-    const csvContent = [headerRow, ...rows].join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `${filenamePrefix}_${new Date().toISOString().slice(0,10)}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-
-// 🖼️ Helper to Convert Image URL to Base64 Data URL for Offline Inclusion
-async function getBase64ImageFromUrl(imageUrl) {
-    if (!imageUrl) return '';
-    try {
-        const match = imageUrl.match(/[-\w]{25,}/);
-        let fetchUrl = imageUrl;
-        let headers = {};
-        if (match && accessToken) {
-            const fileId = match[0];
-            fetchUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
-            headers = { 'Authorization': `Bearer ${accessToken}` };
-        }
-        
-        let response = await fetch(fetchUrl, { headers }).catch(() => null);
-        if (!response || !response.ok) {
-            const thumbnailFallback = getDirectImageUrl(imageUrl, 'thumbnail') || imageUrl;
-            response = await fetch(thumbnailFallback).catch(() => null);
-        }
-        if (!response || !response.ok) return imageUrl;
-
-        const blob = await response.blob();
-        return await new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = () => resolve(imageUrl);
-            reader.readAsDataURL(blob);
-        });
-    } catch (e) {
-        console.warn("Base64 image embedding fallback failed:", e);
-        return imageUrl;
-    }
-}
-
-// 🌐 Export Searched HTML with Photos Completely Downloaded & Embedded as Base64
-async function downloadSearchedHTML(data) {
-    if(!data || data.length === 0) {
-        alert("Export Nullified: No dataset active for export.");
-        return;
-    }
-
-    showLoading("Downloading and embedding photos into standalone report...");
-
-    let tableRowsHTML = '';
-    for (let i = 0; i < data.length; i++) {
-        const row = data[i];
-        tableRowsHTML += '<tr>';
-        for (let j = 0; j < EXPORT_TABLE_CONFIG.length; j++) {
-            const col = EXPORT_TABLE_CONFIG[j];
-            const tKey = col.key;
-            const resolvedKey = headerMapping[tKey];
-            const val = resolvedKey ? (row[resolvedKey] || '') : '';
-            
-            if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration') || tKey.includes('transfer_cert')) {
-                if (val.trim() !== '') {
-                    // Fetch and convert image to Base64 so photos are fully embedded and downloaded
-                    const base64Img = await getBase64ImageFromUrl(val);
-                    tableRowsHTML += `<td style="text-align: center;"><img src="${base64Img}" style="height: 250px; max-width: 250px; width: auto; object-fit: contain; border: 1px solid #94a3b8; border-radius: 4px; display: block; margin: 0 auto;" /></td>`;
-                } else {
-                    tableRowsHTML += `<td style="text-align: center; color: #64748b; font-style: italic;">No Photo</td>`;
-                }
-            } else {
-                let styleAttr = "";
-                if (tKey === "description") {
-                    styleAttr = ' style="width: 200px; min-width: 190px;"';
-                }
-                tableRowsHTML += `<td${styleAttr}>${escapeHtml(val)}</td>`;
-            }
-        }
-        tableRowsHTML += '</tr>';
-    }
-
-    hideLoading();
-
-    let headersHTML = '';
-    EXPORT_TABLE_CONFIG.forEach(col => {
-        headersHTML += `<th>${col.display}</th>`;
-    });
-
-    const htmlContent = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Searched Inventory Report</title>
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            margin: 20px; 
-            color: #0f172a; 
-            background: #ffffff; 
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
-        h1 { 
-            text-align: center; 
-            color: #0f172a; 
-            text-transform: uppercase; 
-            font-size: 24px;
-            margin-bottom: 5px;
-        }
-        .report-meta {
-            text-align: center;
-            font-size: 14px;
-            color: #334155;
-            margin-bottom: 25px;
-            font-weight: bold;
-        }
-        table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            margin-top: 10px; 
-            background: white; 
-        }
-        th, td { 
-            border: 1px solid #64748b; 
-            padding: 10px 12px; 
-            text-align: left; 
-            font-size: 16px; 
-            line-height: 1.4;
-            word-break: break-word; 
-            color: #0f172a;
-            vertical-align: middle;
-        }
-        th { 
-            background-color: #cbd5e1 !important; 
-            color: #0f172a;
-            font-weight: bold;
-            text-transform: uppercase;
-            font-size: 12px;
-            letter-spacing: 0.5px;
-        }
-        tr:nth-child(even) {
-            background-color: #f8fafc;
-        }
-        @media print {
-            body { margin: 10px; }
-            table { page-break-inside: auto; }
-            tr { page-break-inside: avoid; page-break-after: auto; }
-            th { background-color: #cbd5e1 !important; }
-        }
-    </style>
-</head>
-<body>
-    <h1>Real Estate Inventory Report</h1>
-    <div class="report-meta">
-        Exported On: ${new Date().toLocaleString()} &bull; Total Records: ${data.length}
-    </div>
-    <table>
-        <thead>
-            <tr>${headersHTML}</tr>
-        </thead>
-        <tbody>
-            ${tableRowsHTML}
-        </tbody>
-    </table>
-</body>
-</html>`;
-
-    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Searched_Inventory_Report_${new Date().toISOString().slice(0,10)}.html`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-
-function escapeHtml(str) {
-    return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
-
-// =========================================================================
-// 🚪 LOGOUT & IDLE TIMEOUT MODULE
-// =========================================================================
-let idleTimer;
-const IDLE_TIME_LIMIT = 30 * 60 * 1000; // 30 minutes in milliseconds
-
-// =========================================================================
-// 🔒 SESSION CHECKER FUNCTION
-// =========================================================================
-function checkSessionStatus() {
-    const sessionModal = document.getElementById('sessionExpiredModal');
-    
-    // 1. Show the blurred modal
-    if (sessionModal) {
-        sessionModal.style.display = 'flex';
-    }
-
-    // 2. Setup the "Log In Again" button behavior
-    const reLoginBtn = document.getElementById('reLoginBtn');
-    if (reLoginBtn) {
-        reLoginBtn.onclick = () => {
-            // ✅ NEW: Clear the counter so they start fresh
-            sessionStorage.removeItem('accessCounter');
-            
-            // Hide the blur modal
-            sessionModal.style.display = 'none';
-            
-            // NEW: Ensure the Access Denied modal is completely hidden
-            const accessModal = document.getElementById('accessModal');
-            if (accessModal) accessModal.style.display = 'none';
-            
-            // Switch the UI back to the actual login screen
-            const loginScreen = document.getElementById('loginScreen');
-            const mainApp = document.getElementById('mainApp');
-            if (loginScreen) loginScreen.style.display = '';
-            if (mainApp) mainApp.style.display = 'none';
-
-            // Optional: Automatically trigger the Google Sign-In popup again
-            let client = getOrCreateTokenClient();
-            if (client) client.requestAccessToken();
-        };
-    }
-}
-
-
-function performLogout(isAccessDenied = false) {
-    // 1. Clear the access token to revoke privileges
-    accessToken = null; 
-    
-    // 2. Stop the timer
-    clearTimeout(idleTimer);
-    
-    // 3. Force hide all floating elements immediately
-    const floatingLogoutBtn = document.getElementById('floatingLogoutBtn');
-    if (floatingLogoutBtn) floatingLogoutBtn.style.display = 'none';
-
-    const paginationContainer = document.getElementById('paginationContainer');
-    if (paginationContainer) paginationContainer.style.display = 'none';
-
-    const backToTopBtn = document.getElementById('backToTopBtn');
-    if (backToTopBtn) {
-        backToTopBtn.style.visibility = 'hidden';
-        backToTopBtn.style.opacity = '0';
-    }
-
-    // 4. NEW: Only trigger the blurred Logged Out window if it is NOT an access denial
-    if (!isAccessDenied) {
-        checkSessionStatus();
-    }
-}
-
-function resetIdleTimer() {
-    clearTimeout(idleTimer);
-    // Only run the idle countdown if the user is currently logged in
-    if (accessToken) {
-        idleTimer = setTimeout(performLogout, IDLE_TIME_LIMIT);
-    }
-}
-
-// Initialize everything once the page loads
-window.addEventListener('DOMContentLoaded', () => {
-    // --- Create the Floating Logout Button ---
-    const logoutBtn = document.createElement('button');
-    logoutBtn.innerHTML = 'Log Out';
-    logoutBtn.id = 'floatingLogoutBtn';
-    
-    // Style the button so it floats in the upper right
-    Object.assign(logoutBtn.style, {
-        position: 'fixed',
-        top: '20px',
-        right: '20px',
-        backgroundColor: '#dc3545',
-        color: 'white',
-        border: 'none',
-        padding: '10px 20px',
-        borderRadius: '5px',
-        fontWeight: 'bold',
-        cursor: 'pointer',
-        boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
-        zIndex: '999999',
-        display: 'none', // Hidden by default on the login screen
-        transition: 'background-color 0.2s'
-    });
-
-    // Add a slight hover effect for better UI
-    logoutBtn.onmouseover = () => logoutBtn.style.backgroundColor = '#c82333';
-    logoutBtn.onmouseout = () => logoutBtn.style.backgroundColor = '#dc3545';
-    
-    logoutBtn.addEventListener('click', () => {
-    // 1. Securely revoke the Google Access Token
-    if (accessToken && window.google) {
-        google.accounts.oauth2.revoke(accessToken, () => {});
-    }
-    
-    // 2. Clear credentials and stop the idle timeout timer
-    accessToken = null;
-    clearTimeout(idleTimer);
-    
-    // 3. Hide floating UI components
-    document.getElementById('floatingLogoutBtn').style.display = 'none';
-    if (document.getElementById('paginationContainer')) {
-        document.getElementById('paginationContainer').style.display = 'none';
-    }
-    const backToTopBtn = document.getElementById('backToTopBtn');
-    if (backToTopBtn) {
-        backToTopBtn.style.visibility = 'hidden';
-        backToTopBtn.style.opacity = '0';
-    }
-    
-    // 4. Instantly switch the view back to the Login Screen
-    const loginScreen = document.getElementById('loginScreen');
-    const mainApp = document.getElementById('mainApp');
-    if (loginScreen) loginScreen.style.display = '';
-    if (mainApp) mainApp.style.display = 'none';
-});
-    document.body.appendChild(logoutBtn);
-
-    // --- Setup the Idle Activity Trackers ---
-    // Any of these actions will reset the 30-minute timer
-    const userActivityEvents = ['mousemove', 'keydown', 'scroll', 'click', 'touchstart'];
-    userActivityEvents.forEach(event => {
-        document.addEventListener(event, resetIdleTimer);
-    });
-
-// --- Monitor Login State ---
-    // Checks every 1 second if the user logged in to display the button, 
-    // ensuring we don't have to alter your existing login functions.
-    setInterval(() => {
-        const btn = document.getElementById('floatingLogoutBtn');
-        const mainApp = document.getElementById('mainApp');
-        
-        if (btn) {
-            // Only display if we have an access token AND the main app screen is visible
-            const isMainAppVisible = mainApp && mainApp.style.display !== 'none';
-            btn.style.display = (accessToken && isMainAppVisible) ? 'block' : 'none';
-        }
-    }, 1000);
-});
-// =========================================================================
