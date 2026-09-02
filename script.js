@@ -1536,7 +1536,10 @@ function openUploadWindow() {
 
     const articleKey = headerMapping['article/item'];
     const itemCode = itemData[articleKey] || 'Unknown';
-    const uploadUrl = GOOGLE_APPS_SCRIPT_URL + "?itemCode=" + encodeURIComponent(itemCode);
+    // 🔧 FIX: pass the signed-in Gmail account so the Apps Script upload page
+    // can prefill "Your Name" (Session.getActiveUser() doesn't work for
+    // regular Gmail accounts, so it has to be sent explicitly here).
+    const uploadUrl = GOOGLE_APPS_SCRIPT_URL + "?itemCode=" + encodeURIComponent(itemCode) + "&userEmail=" + encodeURIComponent(loggedInUser || "");
     
     window.open(uploadUrl, '_blank');
     modalModified = true;
