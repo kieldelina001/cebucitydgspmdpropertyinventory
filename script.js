@@ -1544,8 +1544,23 @@ function openUploadWindow() {
         ",left=" + left + ",top=" + top +
         ",toolbar=no,location=no,menubar=no,status=no,scrollbars=yes,resizable=yes";
 
-    window.open(uploadUrl, "uploadPhotosWindow", popupFeatures);
+    const popupRef = window.open(uploadUrl, "uploadPhotosWindow", popupFeatures);
     modalModified = true;
+
+    // Blur the dashboard behind the popup while it's open, and remove the
+    // blur automatically the moment the popup closes — whether it closed
+    // itself after a successful upload, via its own Close button, or the
+    // user closed it manually.
+    const mainAppEl = document.getElementById('mainApp');
+    if (mainAppEl && popupRef) {
+        mainAppEl.classList.add('dashboard-blurred');
+        const watchPopup = setInterval(function() {
+            if (popupRef.closed) {
+                mainAppEl.classList.remove('dashboard-blurred');
+                clearInterval(watchPopup);
+            }
+        }, 400);
+    }
 }
 
 function closeModal() {
