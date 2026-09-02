@@ -3,6 +3,8 @@ const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSCW2Ze
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
 // Update: Changed to the official Google Drive Export endpoint to prevent CORS & redirect issues
 const GOOGLE_SHEET_CSV_URL = `https://www.googleapis.com/drive/v3/files/${SPREADSHEET_ID}/export?mimeType=text/csv`;
+const AUTH_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1uWrtQB2wc65lHe-w1RkxvUuZTbRpjnqLMVkYbxas2I8/gviz/tq?tqx=out:csv&sheet=Authorized%20Accounts";
+
 
 // =========================================================================
 // 🛠️ MANUAL EXPORT TABLE ADJUSTMENT CONFIGURATION 🛠️
@@ -37,9 +39,70 @@ let isAppInitialized = false;
 let modalModified = false;
 let loggedInUser = "System User";
 
-// 🔐 GIS Auth Architecture
-let tokenClient;
-let accessToken = null;
+// ADD THIS utility function to decode Google's login token
+function decodeJwtResponse(token) {
+    let base64Url = token.split('.')[1];
+    let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    let jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    return JSON.parse(jsonPayload);
+}
+
+// ADD THESE FUNCTIONS
+async function handleCredentialResponse(response) {
+    const responsePayload = decodeJwtResponse(response.credential);
+    const userEmail = responsePayload.email;
+    loggedInUser = userEmail;
+
+    // Set operator input if available
+    const operatorInput = document.getElementById('custom-operator-input');
+    if (operatorInput) {
+        operatorInput.value = userEmail;
+        operatorInput.disabled = true;
+    }
+
+    checkAuthorizationAndLoad(userEmail);
+}
+
+async function checkAuthorizationAndLoad(email) {
+    const loginErr = document.getElementById('loginError');
+    if (loginErr) loginErr.textContent = 'Checking authorization...';
+
+    try {
+        const res = await fetch(AUTH_SHEET_CSV_URL);
+        if (!res.ok) throw new Error("Could not access Authorized Accounts sheet.");
+        const csvText = await res.text();
+        
+        Papa.parse(csvText, {
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                // Check if email exists in the sheet
+                const isAuthorized = results.data.some(row => 
+                    row['Gmail Account'] && row['Gmail Account'].trim().toLowerCase() === email.toLowerCase()
+                );
+
+                if (isAuthorized) {
+                    // Authorized -> Goto main page
+                    if (loginErr) loginErr.textContent = '';
+                    document.getElementById('loginScreen').style.display = 'none';
+                    document.getElementById('mainApp').style.display = 'block';
+                    loadInventoryFromGoogleSheets();
+                } else {
+                    // Not Authorized -> Goto Request Access
+                    if (loginErr) loginErr.textContent = '';
+                    triggerAccessDeniedModal(email);
+                }
+            }
+        });
+    } catch (err) {
+        console.error("Auth check failed", err);
+        if (loginErr) loginErr.textContent = 'Network error checking authorization.';
+        performLogout(true);
+    }
+}
+
 const imageCache = {}; // Cache image blobs to avoid repeat fetches
 
 // Modal Photo Gallery State
@@ -427,32 +490,30 @@ const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card')
 function initApp() {
     initUIReferences();
 
-    // Try initializing immediately if the script is already loaded
-    getOrCreateTokenClient();
+    // Initialize Standard Google Identity Services
+    if (window.google && google.accounts && google.accounts.id) {
+        google.accounts.id.initialize({
+            client_id: '84591548482-rfv15nf99g7nsdtlr3i57ms0fuln28s3.apps.googleusercontent.com',
+            callback: handleCredentialResponse
+        });
 
-    const loginBtn = document.getElementById('customLoginBtn');
-    if (loginBtn) {
-        loginBtn.addEventListener('click', () => {
-            let client = getOrCreateTokenClient();
-            if (client) {
-                const loginErr = document.getElementById('loginError');
-                if (loginErr) loginErr.textContent = '';
-                client.requestAccessToken();
-            } else {
-                // Fallback: If Google GSI script is still loading, retry after 500ms automatically
-                const loginErr = document.getElementById('loginError');
-                if (loginErr) loginErr.textContent = 'Connecting to Google Sign-In, please wait...';
-                
-                setTimeout(() => {
-                    client = getOrCreateTokenClient();
-                    if (client) {
-                        if (loginErr) loginErr.textContent = '';
-                        client.requestAccessToken();
-                    } else {
-                        if (loginErr) loginErr.textContent = 'Google Sign-In failed to load. Please check your network connection or refresh.';
-                    }
-                }, 600);
-            }
+        const loginBtnContainer = document.getElementById('customLoginBtn');
+        if (loginBtnContainer) {
+            loginBtnContainer.innerHTML = ''; // Clear default text
+            google.accounts.id.renderButton(
+                loginBtnContainer,
+                { theme: "outline", size: "large", width: "100%" }
+            );
+        }
+    } else {
+        const loginErr = document.getElementById('loginError');
+        if (loginErr) loginErr.textContent = 'Google Sign-In failed to load. Please refresh.';
+    }
+
+    const backToTopBtn = document.getElementById('backToTopBtn');
+    if (backToTopBtn) {
+        backToTopBtn.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         });
     }
 
@@ -555,6 +616,66 @@ async function fetchAuthorizedImage(driveUrl) {
     }
 }
 
+function triggerAccessDeniedModal(email) {
+    const modal = document.getElementById("accessModal");
+    const modalText = document.getElementById("accessModalText");
+    const submitBtn = document.getElementById("submitRequestBtn");
+    const closeBtn = document.getElementById("closeModalBtn");
+    const noteInput = document.getElementById("requestNotesInput");
+
+    if (noteInput) {
+        noteInput.style.display = "block";
+        noteInput.value = "";
+    }
+
+    modalText.innerHTML = "Your Gmail account (<b>" + email + "</b>) does not have permission to view the Google Sheet.<br><br>Would you like to send an access request?";
+    modal.style.display = "flex";
+
+    submitBtn.onclick = function() {
+        let noteValue = noteInput ? (noteInput.value.trim() || "No note provided") : "No note provided";
+        
+        modalText.innerHTML = `
+            <div style="text-align: center;">
+                <h3 style="margin-top:0; margin-bottom: 12px; color: #155724; font-size: 22px;">✅ Request Access Sent</h3>
+                <p style="margin:0; line-height: 1.6; font-size: 15px; color: #333;">
+                    Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.
+                </p>
+            </div>
+        `;
+        
+        if (noteInput) noteInput.style.display = "none";
+        submitBtn.style.display = "none";
+        closeBtn.textContent = "OK";
+        closeBtn.style.background = "#28a745"; 
+        closeBtn.style.color = "white";
+
+        const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(email) + "&name=" + encodeURIComponent(email) + "&notes=" + encodeURIComponent(noteValue);
+        fetch(requestUrl, { method: 'GET', mode: 'no-cors' }).catch(err => console.error("Access request silent failure:", err));
+    };
+
+    closeBtn.onclick = function() {
+        modal.style.display = "none";
+        
+        const loginScreen = document.getElementById('loginScreen');
+        const mainApp = document.getElementById('mainApp');
+        if (loginScreen) loginScreen.style.display = '';
+        if (mainApp) mainApp.style.display = 'none';
+        
+        setTimeout(() => {
+            modalText.innerHTML = "<h3 style='margin-top:0; margin-bottom: 10px; color: #155724;'>✅ Request Access Sent</h3><p style='margin:0; line-height: 1.5;'>Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.</p>";
+            submitBtn.style.display = "inline-block";
+            closeBtn.textContent = "Cancel";
+            closeBtn.style.background = "#6c757d";
+            if (noteInput) {
+                noteInput.value = "";
+                noteInput.style.display = "block";
+            }
+        }, 300);
+    };
+
+    performLogout(true);
+}
+
 async function loadInventoryFromGoogleSheets(retainPage = false) {
     if (statusBanner) {
         statusBanner.style.backgroundColor = "#fff3cd";
@@ -564,16 +685,12 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
     showLoading("Syncing live spreadsheet grid...");
 
     try {
-        const response = await fetch(GOOGLE_SHEET_CSV_URL, {
-            headers: accessToken ? {
-                'Authorization': `Bearer ${accessToken}`
-            } : {}
-        });
+        // REMOVED the accessToken header here
+        const response = await fetch(GOOGLE_SHEET_CSV_URL);
         
         if (!response.ok) throw new Error("Could not connect to online Sheet feed.");
         const rawCsvText = await response.text(); 
 
-        // ✅ NEW: If authorized and no counter exists, put counter for normal use
         if (!sessionStorage.getItem('accessCounter')) {
             sessionStorage.setItem('accessCounter', '1');
         }
