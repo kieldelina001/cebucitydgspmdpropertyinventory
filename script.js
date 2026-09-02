@@ -1535,8 +1535,8 @@ function openUploadWindow() {
     // NOTE: script.google.com sends its own X-Frame-Options/CSP headers that
     // block it from being loaded inside an iframe on another site, so it has
     // to be opened as a real popup window rather than embedded in-page.
-    const popupWidth = 460;
-    const popupHeight = 720;
+    const popupWidth = 520;
+    const popupHeight = 840;
     const left = (window.screen.width - popupWidth) / 2;
     const top = (window.screen.height - popupHeight) / 2;
     const popupFeatures = "width=" + popupWidth + ",height=" + popupHeight +
