@@ -1296,3 +1296,547 @@ function finalizeSaveData(operatorName) {
         closeModal(); 
     }
 }
+
+function openUploadWindow() {
+    if (activeEditIndex === null) return;
+    const itemData = inventoryData.find(r => r._rowId === activeEditIndex);
+    if (!itemData) return;
+
+    const articleKey = headerMapping['article/item'];
+    const itemCode = itemData[articleKey] || 'Unknown';
+    const uploadUrl = GOOGLE_APPS_SCRIPT_URL + "?itemCode=" + encodeURIComponent(itemCode);
+    
+    window.open(uploadUrl, '_blank');
+    modalModified = true;
+}
+
+function closeModal() {
+    if (editModal) editModal.style.display = 'none';
+    
+    // Unlocks the background scroll
+    document.body.style.overflow = ''; 
+    
+    if (modalModified) {
+        loadInventoryFromGoogleSheets(true);
+    }
+    
+    activeEditIndex = null;
+    modalModified = false;
+}
+
+// --- DASHBOARD CLICK-TO-FILTER FUNCTION ---
+function setInsuranceFilter(filterMode, cardId) {
+    
+    // 🧹 Reset other text and dropdown filters so they don't block the results
+    if (searchInput) searchInput.value = '';
+    if (remarksFilter) remarksFilter.value = 'ALL';
+    if (typeFilter) typeFilter.value = 'ALL';
+    if (photoFilter) photoFilter.value = 'ALL';
+
+    // Set insurance filter mode directly
+    activeInsuranceFilter = filterMode;
+
+    // Reset styles for all 3 cards
+    document.querySelectorAll('.ins-card').forEach(card => {
+        card.style.transform = 'scale(1)';
+        card.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
+        card.style.backgroundColor = '#f8f9fa';
+    });
+
+    const clearBtn = document.getElementById('clearInsFilterBtn');
+
+    // Highlight the active card
+    if (activeInsuranceFilter !== 'ALL') {
+        const activeCard = document.getElementById(cardId);
+        if (activeCard) {
+            activeCard.style.transform = 'scale(1.05)';
+            activeCard.style.boxShadow = '0 4px 10px rgba(0,0,0,0.15)';
+            activeCard.style.backgroundColor = '#ffffff'; // highlight color
+        }
+        if (clearBtn) clearBtn.style.display = 'inline';
+    } else {
+        if (clearBtn) clearBtn.style.display = 'none';
+    }
+
+    // Trigger the table update
+    executeSearch(true); 
+    
+    // Smooth scroll down
+    const tableSec = document.querySelector('.table-section');
+    if (tableSec) tableSec.scrollIntoView({ behavior: 'smooth' });
+}
+
+function setupSystemEventHandlers() {
+	// Dashboard Filter Click Events
+    const cardInsured = document.getElementById('cardInsured');
+    const cardNotInsured = document.getElementById('cardNotInsured');
+    const cardExpiring = document.getElementById('cardExpiring');
+    const clearInsFilterBtn = document.getElementById('clearInsFilterBtn');
+
+    if(cardInsured) cardInsured.onclick = () => setInsuranceFilter('INSURED', 'cardInsured');
+    if(cardNotInsured) cardNotInsured.onclick = () => setInsuranceFilter('NOT_INSURED', 'cardNotInsured');
+    if(cardExpiring) cardExpiring.onclick = () => setInsuranceFilter('EXPIRING', 'cardExpiring');
+    if(clearInsFilterBtn) clearInsFilterBtn.onclick = () => setInsuranceFilter('ALL', '');
+if(resetFiltersButton) {
+    resetFiltersButton.addEventListener('click', () => {
+
+        // Clear search box
+        if (searchInput) {
+            searchInput.value = '';
+        }
+
+        // Reset all dropdowns to their default option
+        if (remarksFilter) {
+            remarksFilter.selectedIndex = 0;
+        }
+
+        if (typeFilter) {
+            typeFilter.selectedIndex = 0;
+        }
+
+        if (photoFilter) {
+            photoFilter.selectedIndex = 0;
+        }
+
+        // Clear insurance filter
+        activeInsuranceFilter = 'ALL';
+
+        // Remove insurance card highlighting
+        document.querySelectorAll('.ins-card').forEach(card => {
+            card.style.transform = 'scale(1)';
+            card.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
+            card.style.backgroundColor = '#f8f9fa';
+        });
+
+        // Hide insurance clear-filter link
+        const clearBtn = document.getElementById('clearInsFilterBtn');
+        if (clearBtn) {
+            clearBtn.style.display = 'none';
+        }
+
+        // Reset pagination
+        currentPage = 1;
+
+        // IMPORTANT:
+        // Clear the table data instead of showing all records
+        currentFilteredData = [];
+
+        // Display 0 records
+        if (foundCountDisplay) {
+            foundCountDisplay.textContent = '(0 items displayed)';
+        }
+
+        // Clear the table and show the default message
+        if (tableBody) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="${displayHeaders.length}" class="no-data">
+                        Data loaded successfully. Apply a filter or search to view records.
+                    </td>
+                </tr>
+            `;
+        }
+
+        // Reset pagination display
+        updatePaginationUI(0);
+    });
+}
+    if(searchInput) searchInput.addEventListener('keypress', e => { if(e.key === 'Enter') executeSearch(true); });
+	if(searchButton) searchButton.addEventListener('click', () => executeSearch(true));
+    
+    if(remarksFilter) remarksFilter.addEventListener('change', () => executeSearch(true));
+    if(typeFilter) typeFilter.addEventListener('change', () => executeSearch(true));
+    if(photoFilter) photoFilter.addEventListener('change', () => executeSearch(true));
+    
+    if(exportButton) exportButton.addEventListener('click', () => downloadDatasetCSV(inventoryData, 'Full_Inventory'));
+    if(exportFilteredButton) exportFilteredButton.addEventListener('click', () => downloadSearchedHTML(currentFilteredData));
+    
+    if(uploadPhotoBtn) uploadPhotoBtn.addEventListener('click', openUploadWindow); 
+    
+    if(modalEditBtn) modalEditBtn.addEventListener('click', enableEditMode);
+    if(modalSaveBtn) modalSaveBtn.addEventListener('click', triggerSaveProcess);
+    
+    if(modalCloseBtn) modalCloseBtn.addEventListener('click', () => {
+        if (modalCloseBtn.textContent === 'Cancel') {
+            modalModified = false; // Prevents unnecessary data reload
+            openPopUp(activeEditIndex); // Re-opens the current item in View Mode
+        } else {
+            closeModal();
+        }
+    });
+    if(modalCloseX) modalCloseX.addEventListener('click', closeModal); 
+    
+    const cancelNameBtn = document.getElementById('customCancelNameBtn');
+    if (cancelNameBtn) {
+        cancelNameBtn.addEventListener('click', () => {
+            if (customNameModal) customNameModal.style.display = 'none';
+        });
+    }
+    
+    const confirmNameBtn = document.getElementById('customConfirmNameBtn');
+    if (confirmNameBtn) {
+        confirmNameBtn.addEventListener('click', () => {
+            const operatorInput = document.getElementById('custom-operator-input');
+            const nameVal = operatorInput ? operatorInput.value.trim() : '';
+            if(!nameVal) { alert("Authorization Denied: Operator name required."); return; }
+            if (customNameModal) customNameModal.style.display = 'none';
+            finalizeSaveData(nameVal);
+        });
+    }
+}
+
+function downloadDatasetCSV(data, filenamePrefix) {
+    if(!data || data.length === 0) {
+        alert("Export Nullified: No dataset active for export.");
+        return;
+    }
+    const headerRow = rawHeaders.join(",");
+    const rows = data.map(r => rawHeaders.map(h => `"${(r[h] || '').replace(/"/g, '""')}"`).join(","));
+    const csvContent = [headerRow, ...rows].join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `${filenamePrefix}_${new Date().toISOString().slice(0,10)}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// 🖼️ Helper to Convert Image URL to Base64 Data URL for Offline Inclusion
+async function getBase64ImageFromUrl(imageUrl) {
+    if (!imageUrl) return '';
+    try {
+        const match = imageUrl.match(/[-\w]{25,}/);
+        let fetchUrl = imageUrl;
+        let headers = {};
+        if (match && accessToken) {
+            const fileId = match[0];
+            fetchUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+            headers = { 'Authorization': `Bearer ${accessToken}` };
+        }
+        
+        let response = await fetch(fetchUrl, { headers }).catch(() => null);
+        if (!response || !response.ok) {
+            const thumbnailFallback = getDirectImageUrl(imageUrl, 'thumbnail') || imageUrl;
+            response = await fetch(thumbnailFallback).catch(() => null);
+        }
+        if (!response || !response.ok) return imageUrl;
+
+        const blob = await response.blob();
+        return await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => resolve(imageUrl);
+            reader.readAsDataURL(blob);
+        });
+    } catch (e) {
+        console.warn("Base64 image embedding fallback failed:", e);
+        return imageUrl;
+    }
+}
+
+// 🌐 Export Searched HTML with Photos Completely Downloaded & Embedded as Base64
+async function downloadSearchedHTML(data) {
+    if(!data || data.length === 0) {
+        alert("Export Nullified: No dataset active for export.");
+        return;
+    }
+
+    showLoading("Downloading and embedding photos into standalone report...");
+
+    let tableRowsHTML = '';
+    for (let i = 0; i < data.length; i++) {
+        const row = data[i];
+        tableRowsHTML += '<tr>';
+        for (let j = 0; j < EXPORT_TABLE_CONFIG.length; j++) {
+            const col = EXPORT_TABLE_CONFIG[j];
+            const tKey = col.key;
+            const resolvedKey = headerMapping[tKey];
+            const val = resolvedKey ? (row[resolvedKey] || '') : '';
+            
+            if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration') || tKey.includes('transfer_cert')) {
+                if (val.trim() !== '') {
+                    // Fetch and convert image to Base64 so photos are fully embedded and downloaded
+                    const base64Img = await getBase64ImageFromUrl(val);
+                    tableRowsHTML += `<td style="text-align: center;"><img src="${base64Img}" style="height: 250px; max-width: 250px; width: auto; object-fit: contain; border: 1px solid #94a3b8; border-radius: 4px; display: block; margin: 0 auto;" /></td>`;
+                } else {
+                    tableRowsHTML += `<td style="text-align: center; color: #64748b; font-style: italic;">No Photo</td>`;
+                }
+            } else {
+                let styleAttr = "";
+                if (tKey === "description") {
+                    styleAttr = ' style="width: 200px; min-width: 190px;"';
+                }
+                tableRowsHTML += `<td${styleAttr}>${escapeHtml(val)}</td>`;
+            }
+        }
+        tableRowsHTML += '</tr>';
+    }
+
+    hideLoading();
+
+    let headersHTML = '';
+    EXPORT_TABLE_CONFIG.forEach(col => {
+        headersHTML += `<th>${col.display}</th>`;
+    });
+
+    const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Searched Inventory Report</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            color: #0f172a; 
+            background: #ffffff; 
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+        h1 { 
+            text-align: center; 
+            color: #0f172a; 
+            text-transform: uppercase; 
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        .report-meta {
+            text-align: center;
+            font-size: 14px;
+            color: #334155;
+            margin-bottom: 25px;
+            font-weight: bold;
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 10px; 
+            background: white; 
+        }
+        th, td { 
+            border: 1px solid #64748b; 
+            padding: 10px 12px; 
+            text-align: left; 
+            font-size: 16px; 
+            line-height: 1.4;
+            word-break: break-word; 
+            color: #0f172a;
+            vertical-align: middle;
+        }
+        th { 
+            background-color: #cbd5e1 !important; 
+            color: #0f172a;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 0.5px;
+        }
+        tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+        @media print {
+            body { margin: 10px; }
+            table { page-break-inside: auto; }
+            tr { page-break-inside: avoid; page-break-after: auto; }
+            th { background-color: #cbd5e1 !important; }
+        }
+    </style>
+</head>
+<body>
+    <h1>Real Estate Inventory Report</h1>
+    <div class="report-meta">
+        Exported On: ${new Date().toLocaleString()} &bull; Total Records: ${data.length}
+    </div>
+    <table>
+        <thead>
+            <tr>${headersHTML}</tr>
+        </thead>
+        <tbody>
+            ${tableRowsHTML}
+        </tbody>
+    </table>
+</body>
+</html>`;
+
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Searched_Inventory_Report_${new Date().toISOString().slice(0,10)}.html`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+// =========================================================================
+// 🚪 LOGOUT & IDLE TIMEOUT MODULE
+// =========================================================================
+let idleTimer;
+const IDLE_TIME_LIMIT = 30 * 60 * 1000; // 30 minutes in milliseconds
+
+// =========================================================================
+// 🔒 SESSION CHECKER FUNCTION
+// =========================================================================
+function checkSessionStatus() {
+    const sessionModal = document.getElementById('sessionExpiredModal');
+    
+    // 1. Show the blurred modal
+    if (sessionModal) {
+        sessionModal.style.display = 'flex';
+    }
+
+    // 2. Setup the "Log In Again" button behavior
+    const reLoginBtn = document.getElementById('reLoginBtn');
+    if (reLoginBtn) {
+        reLoginBtn.onclick = () => {
+            // ✅ NEW: Clear the counter so they start fresh
+            sessionStorage.removeItem('accessCounter');
+            
+            // Hide the blur modal
+            sessionModal.style.display = 'none';
+            
+            // NEW: Ensure the Access Denied modal is completely hidden
+            const accessModal = document.getElementById('accessModal');
+            if (accessModal) accessModal.style.display = 'none';
+            
+            // Switch the UI back to the actual login screen
+            const loginScreen = document.getElementById('loginScreen');
+            const mainApp = document.getElementById('mainApp');
+            if (loginScreen) loginScreen.style.display = '';
+            if (mainApp) mainApp.style.display = 'none';
+
+            // Optional: Automatically trigger the Google Sign-In popup again
+            let client = getOrCreateTokenClient();
+            if (client) client.requestAccessToken();
+        };
+    }
+}
+
+
+function performLogout(isAccessDenied = false) {
+    // 1. Clear the access token to revoke privileges
+    accessToken = null; 
+    
+    // 2. Stop the timer
+    clearTimeout(idleTimer);
+    
+    // 3. Force hide all floating elements immediately
+    const floatingLogoutBtn = document.getElementById('floatingLogoutBtn');
+    if (floatingLogoutBtn) floatingLogoutBtn.style.display = 'none';
+
+    const paginationContainer = document.getElementById('paginationContainer');
+    if (paginationContainer) paginationContainer.style.display = 'none';
+
+    const backToTopBtn = document.getElementById('backToTopBtn');
+    if (backToTopBtn) {
+        backToTopBtn.style.visibility = 'hidden';
+        backToTopBtn.style.opacity = '0';
+    }
+
+    // 4. NEW: Only trigger the blurred Logged Out window if it is NOT an access denial
+    if (!isAccessDenied) {
+        checkSessionStatus();
+    }
+}
+
+function resetIdleTimer() {
+    clearTimeout(idleTimer);
+    // Only run the idle countdown if the user is currently logged in
+    if (accessToken) {
+        idleTimer = setTimeout(performLogout, IDLE_TIME_LIMIT);
+    }
+}
+
+// Initialize everything once the page loads
+window.addEventListener('DOMContentLoaded', () => {
+    // --- Create the Floating Logout Button ---
+    const logoutBtn = document.createElement('button');
+    logoutBtn.innerHTML = 'Log Out';
+    logoutBtn.id = 'floatingLogoutBtn';
+    
+    // Style the button so it floats in the upper right
+    Object.assign(logoutBtn.style, {
+        position: 'fixed',
+        top: '20px',
+        right: '20px',
+        backgroundColor: '#dc3545',
+        color: 'white',
+        border: 'none',
+        padding: '10px 20px',
+        borderRadius: '5px',
+        fontWeight: 'bold',
+        cursor: 'pointer',
+        boxShadow: '0 4px 10px rgba(0,0,0,0.3)',
+        zIndex: '999999',
+        display: 'none', // Hidden by default on the login screen
+        transition: 'background-color 0.2s'
+    });
+
+    // Add a slight hover effect for better UI
+    logoutBtn.onmouseover = () => logoutBtn.style.backgroundColor = '#c82333';
+    logoutBtn.onmouseout = () => logoutBtn.style.backgroundColor = '#dc3545';
+    
+    logoutBtn.addEventListener('click', () => {
+    // 1. Securely revoke the Google Access Token
+    if (accessToken && window.google) {
+        google.accounts.oauth2.revoke(accessToken, () => {});
+    }
+    
+    // 2. Clear credentials and stop the idle timeout timer
+    accessToken = null;
+    clearTimeout(idleTimer);
+    
+    // 3. Hide floating UI components
+    document.getElementById('floatingLogoutBtn').style.display = 'none';
+    if (document.getElementById('paginationContainer')) {
+        document.getElementById('paginationContainer').style.display = 'none';
+    }
+    const backToTopBtn = document.getElementById('backToTopBtn');
+    if (backToTopBtn) {
+        backToTopBtn.style.visibility = 'hidden';
+        backToTopBtn.style.opacity = '0';
+    }
+    
+    // 4. Instantly switch the view back to the Login Screen
+    const loginScreen = document.getElementById('loginScreen');
+    const mainApp = document.getElementById('mainApp');
+    if (loginScreen) loginScreen.style.display = '';
+    if (mainApp) mainApp.style.display = 'none';
+});
+    document.body.appendChild(logoutBtn);
+
+    // --- Setup the Idle Activity Trackers ---
+    // Any of these actions will reset the 30-minute timer
+    const userActivityEvents = ['mousemove', 'keydown', 'scroll', 'click', 'touchstart'];
+    userActivityEvents.forEach(event => {
+        document.addEventListener(event, resetIdleTimer);
+    });
+
+// --- Monitor Login State ---
+    // Checks every 1 second if the user logged in to display the button, 
+    // ensuring we don't have to alter your existing login functions.
+    setInterval(() => {
+        const btn = document.getElementById('floatingLogoutBtn');
+        const mainApp = document.getElementById('mainApp');
+        
+        if (btn) {
+            // Only display if we have an access token AND the main app screen is visible
+            const isMainAppVisible = mainApp && mainApp.style.display !== 'none';
+            btn.style.display = (accessToken && isMainAppVisible) ? 'block' : 'none';
+        }
+    }, 1000);
+});
+// =========================================================================
