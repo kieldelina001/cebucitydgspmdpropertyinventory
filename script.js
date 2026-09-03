@@ -1,19 +1,11 @@
 // 🔑 Google Sheets Cloud Gateway Architecture
 const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxSCW2ZeIFBJaQ3qts8oNeWVxHDGMt4FOqQgTk4bswbbhfzi_e5prVc0-QWDKo2j7tIJg/exec";
 const SPREADSHEET_ID = "1ndgXDoLL4LoB3YWnSugfYINW5S8ouN8SlVLZsrkH7A8";
-// 🔧 UPDATED: Google Sign-In is now used purely for identity (no Drive scope requested),
-// so the inventory sheet is read from its PUBLIC CSV export link instead of the
-// OAuth-gated Drive API export. Share this spreadsheet as "Anyone with the link - Viewer".
-const SPREADSHEET_GID = "0"; // Change this if your inventory data isn't on the first tab
-const GOOGLE_SHEET_CSV_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${SPREADSHEET_GID}`;
-
-// 🔐 NEW: "Authorized Accounts" Google Sheet used to gate login access.
-// This sheet must be shared as "Anyone with the link - Viewer" (or Published to the web)
-// so it can be read as CSV without requiring the visitor's OAuth Drive permissions.
-// Tab name: "Authorized Accounts" (gid=0) | Required column header: "Gmail Account"
-const AUTHORIZED_ACCOUNTS_SHEET_ID = "1uWrtQB2wc65lHe-w1RkxvUuZTbRpjnqLMVkYbxas2I8";
-const AUTHORIZED_ACCOUNTS_GID = "0";
-const AUTHORIZED_ACCOUNTS_CSV_URL = `https://docs.google.com/spreadsheets/d/${AUTHORIZED_ACCOUNTS_SHEET_ID}/export?format=csv&gid=${AUTHORIZED_ACCOUNTS_GID}`;
+// 🔒 SECURITY FIX: both spreadsheets are now PRIVATE. Nothing is read via a
+// public CSV export link anymore — the dashboard asks the Apps Script backend
+// for data instead, and the backend verifies the caller's identity server-side
+// before returning anything. See checkAuthorizedAccount() and
+// loadInventoryFromGoogleSheets() below.
 
 // =========================================================================
 // 🛠️ MANUAL EXPORT TABLE ADJUSTMENT CONFIGURATION 🛠️
@@ -292,57 +284,22 @@ function getOrCreateTokenClient() {
 }
 
 // =========================================================================
-// 🔎 NEW: AUTHORIZED ACCOUNTS SHEET CHECK
-// Reads the public "Authorized Accounts" Google Sheet as CSV and checks
-// whether the given Gmail account exists in the "Gmail Account" column.
-// Resolves true/false when the sheet is reachable and parsed successfully.
-// Rejects (throws) when the sheet cannot be reached/read at all, which the
-// caller treats as "cannot access Google Sheet" -> back to the login screen.
+// 🔒 SECURITY FIX: AUTHORIZED ACCOUNTS CHECK NOW HAPPENS SERVER-SIDE.
+// The browser sends its Google access token to the Apps Script, which
+// verifies the token with Google directly and checks the resulting email
+// against the (now private) Authorized Accounts sheet. The browser never
+// reads that sheet, and can't fake the result.
 // =========================================================================
 function checkAuthorizedAccount(email) {
-    return fetch(AUTHORIZED_ACCOUNTS_CSV_URL, { cache: 'no-store' })
+    const url = GOOGLE_APPS_SCRIPT_URL + "?action=checkAuth&accessToken=" + encodeURIComponent(accessToken);
+    return fetch(url, { cache: 'no-store' })
         .then(res => {
             if (!res.ok) {
-                throw new Error('Unable to reach the Authorized Accounts sheet (HTTP ' + res.status + ').');
+                throw new Error('Unable to reach the authorization service (HTTP ' + res.status + ').');
             }
-            return res.text();
+            return res.json();
         })
-        .then(csvText => {
-            return new Promise((resolve, reject) => {
-                Papa.parse(csvText, {
-                    header: true,
-                    skipEmptyLines: true,
-                    complete: function(results) {
-                        if (!results || !results.data) {
-                            reject(new Error('Authorized Accounts sheet returned no data.'));
-                            return;
-                        }
-
-                        // Find the "Gmail Account" column regardless of exact header casing/whitespace
-                        const headerKeys = (results.meta && results.meta.fields) 
-                            ? results.meta.fields 
-                            : (results.data[0] ? Object.keys(results.data[0]) : []);
-
-                        const gmailKey = headerKeys.find(h => h && h.toLowerCase().trim() === 'gmail account')
-                            || headerKeys.find(h => h && h.toLowerCase().includes('gmail'));
-
-                        if (!gmailKey) {
-                            reject(new Error('Could not find the "Gmail Account" column in the Authorized Accounts sheet.'));
-                            return;
-                        }
-
-                        const normalizedEmail = String(email || '').trim().toLowerCase();
-                        const isAuthorized = results.data.some(row =>
-                            String(row[gmailKey] || '').trim().toLowerCase() === normalizedEmail
-                        );
-                        resolve(isAuthorized);
-                    },
-                    error: function(err) {
-                        reject(err);
-                    }
-                });
-            });
-        });
+        .then(result => !!result.authorized);
 }
 
 // =========================================================================
@@ -725,22 +682,26 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
     showLoading("Syncing live spreadsheet grid...");
 
     try {
-        // 🔧 UPDATED: No OAuth header needed - the inventory sheet is read via its
-        // public CSV export link (no Drive scope is requested during login anymore).
-        const response = await fetch(GOOGLE_SHEET_CSV_URL, { cache: 'no-store' });
-        
+        // 🔒 SECURITY FIX: data now comes from the authenticated Apps Script
+        // endpoint (which verifies our access token server-side) instead of
+        // the spreadsheet's public CSV export link. The sheet is private now.
+        const dataUrl = GOOGLE_APPS_SCRIPT_URL + "?action=getData&accessToken=" + encodeURIComponent(accessToken);
+        const response = await fetch(dataUrl, { cache: 'no-store' });
+
         if (!response.ok) throw new Error("Could not connect to online Sheet feed.");
-        const rawCsvText = await response.text(); 
+        const rowsJson = await response.json();
+
+        if (rowsJson && rowsJson.error) {
+            throw new Error(rowsJson.error);
+        }
 
         // ✅ NEW: If authorized and no counter exists, put counter for normal use
         if (!sessionStorage.getItem('accessCounter')) {
             sessionStorage.setItem('accessCounter', '1');
         }
 
-        Papa.parse(rawCsvText, {
-            header: true,
-            skipEmptyLines: true,
-            complete: function(results) {
+        const results = { data: rowsJson };
+        {
                 if (results.data && results.data.length > 0) {
                     rawHeaders = Object.keys(results.data[0]);
                     headerMapping = {};
@@ -768,8 +729,7 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
                     throw new Error("Target dataset sheet contains no metrics.");
                 }
                 hideLoading();
-            }
-        });
+        }
 } catch (err) {
         hideLoading();
         if (statusBanner) {
@@ -1497,6 +1457,10 @@ function finalizeSaveData(operatorName) {
         if(updateMappedKey) itemData[updateMappedKey] = operatorName;
         if(dateMappedKey) itemData[dateMappedKey] = formattedTimestamp;
 
+        // 🔒 SECURITY FIX: attach the access token so the backend can verify
+        // and authorize the caller before writing anything.
+        params.append('accessToken', accessToken || '');
+
         // Using 'no-cors' mode prevents the browser from throwing a 'Failed to fetch' error
         fetch(GOOGLE_APPS_SCRIPT_URL, {
             method: 'POST',
@@ -1527,10 +1491,14 @@ function openUploadWindow() {
 
     const articleKey = headerMapping['article/item'];
     const itemCode = itemData[articleKey] || 'Unknown';
-    // 🔧 FIX: pass the signed-in Gmail account so the Apps Script upload page
-    // can prefill "Your Name" (Session.getActiveUser() doesn't work for
-    // regular Gmail accounts, so it has to be sent explicitly here).
-    const uploadUrl = GOOGLE_APPS_SCRIPT_URL + "?itemCode=" + encodeURIComponent(itemCode) + "&userEmail=" + encodeURIComponent(loggedInUser || "");
+    // 🔒 SECURITY FIX: the access token travels with the popup so the Apps
+    // Script can verify identity server-side before showing the form or
+    // accepting an upload. The backend now fills in "Your Name" itself from
+    // the verified token rather than trusting a userEmail parameter.
+    // Note: this puts a short-lived (~1hr) OAuth access token in the popup's
+    // URL. That's a real but time-boxed exposure - see the note at the end
+    // of this chat for a way to avoid it entirely if you want extra hardening.
+    const uploadUrl = GOOGLE_APPS_SCRIPT_URL + "?itemCode=" + encodeURIComponent(itemCode) + "&accessToken=" + encodeURIComponent(accessToken || "");
 
     // NOTE: script.google.com sends its own X-Frame-Options/CSP headers that
     // block it from being loaded inside an iframe on another site, so it has
