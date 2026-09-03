@@ -372,7 +372,7 @@ function showAccessDeniedModal(email) {
     closeBtn.style.background = "#6c757d";
     closeBtn.style.color = "white";
 
-    modalText.innerHTML = "Your Gmail account (<b>" + escapeHtml(email) + "</b>) does not have permission to view the Google Sheet.<br><br>Would you like to send an access request?";
+    modalText.innerHTML = "Your Gmail account (<b>" + escapeHtml(email) + "</b>) does not have access to view the Webapp.<br><br>Would you like to send an access request?";
     modal.style.display = "flex";
 
     submitBtn.onclick = function() {
@@ -804,7 +804,7 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
     }
 
     // Keep your dynamic text structure
-    modalText.innerHTML = "Your Gmail account (<b>" + loggedInUser + "</b>) does not have permission to view the Google Sheet.<br><br>Would you like to send an access request?";
+    modalText.innerHTML = "Your Gmail account (<b>" + loggedInUser + "</b>) does not have access to view the Webapp.<br><br>Would you like to send an access request?";
     modal.style.display = "flex";
 
    submitBtn.onclick = function() {
