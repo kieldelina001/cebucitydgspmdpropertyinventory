@@ -949,7 +949,7 @@ function populateDropdown(type, selectEl, placeholderText) {
     if (type === 'remarks') {
         const insuredOpt = document.createElement('option');
         insuredOpt.value = '__INSURED__';
-        insuredOpt.textContent = 'Insured';
+        insuredOpt.textContent = 'INSURED';
         selectEl.appendChild(insuredOpt);
     }
 
