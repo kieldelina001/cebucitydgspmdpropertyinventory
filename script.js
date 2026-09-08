@@ -945,6 +945,14 @@ function populateDropdown(type, selectEl, placeholderText) {
         selectEl.appendChild(opt);
     });
 
+    // NEW: Add an "Insured" option to the Remarks dropdown (based on Notes-derived insurance status)
+    if (type === 'remarks') {
+        const insuredOpt = document.createElement('option');
+        insuredOpt.value = '__INSURED__';
+        insuredOpt.textContent = 'Insured';
+        selectEl.appendChild(insuredOpt);
+    }
+
     if(previousSelection && Array.from(selectEl.options).some(opt => opt.value === previousSelection)) {
         selectEl.value = previousSelection;
     }
@@ -1211,7 +1219,28 @@ function executeSearch(resetPage = true) {
         }
         
         if (remF !== 'ALL') {
-            matchRem = (String(row[rKey] || '') === remF);
+            if (remF === '__INSURED__') {
+                // NEW: "Insured" option in Remarks dropdown - matches the same logic as the Insured (Active) dashboard card
+                const notesValIns = String(row[nKey] || '');
+                const notesUpperIns = notesValIns.toUpperCase();
+                let insStatus = 'NONE';
+
+                if (notesUpperIns.includes('NOT INSURED')) {
+                    insStatus = 'NOT_INSURED';
+                } else if (notesUpperIns.includes('BUILDING INSURED')) {
+                    const dateMatchIns = notesValIns.match(/Coverage\s+.*?\s+-\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})/i);
+                    if (dateMatchIns && dateMatchIns[1]) {
+                        const endDateIns = new Date(dateMatchIns[1]);
+                        if (!isNaN(endDateIns.getTime())) {
+                            const daysDiffIns = (endDateIns.getTime() - new Date().getTime()) / (1000 * 3600 * 24);
+                            insStatus = daysDiffIns <= 30 ? 'EXPIRING' : 'INSURED';
+                        } else { insStatus = 'INSURED'; }
+                    } else { insStatus = 'INSURED'; }
+                }
+                matchRem = (insStatus === 'INSURED');
+            } else {
+                matchRem = (String(row[rKey] || '') === remF);
+            }
         }
         
         if (typF !== 'ALL') {
