@@ -1790,59 +1790,177 @@ function downloadDatasetCSV(data, filenamePrefix) {
     document.body.removeChild(link);
 }
 
-// 🖼️ Helper to Convert Image URL to Base64 Data URL for Offline Inclusion
-async function getBase64ImageFromUrl(imageUrl) {
-    if (!imageUrl) return '';
-    try {
-        // 🔧 UPDATED: No Drive scope is requested at login anymore, so we fetch the
-        // public full-resolution link directly, with the thumbnail link as a fallback.
-        const viewUrl = getDirectImageUrl(imageUrl, 'view') || imageUrl;
-        let response = await fetch(viewUrl).catch(() => null);
-        if (!response || !response.ok) {
-            const thumbnailFallback = getDirectImageUrl(imageUrl, 'thumbnail') || imageUrl;
-            response = await fetch(thumbnailFallback).catch(() => null);
-        }
-        if (!response || !response.ok) return imageUrl;
+// =========================================================================
+// 🌐 Export Searched (standalone HTML with photos downloaded & embedded)
+// Photos download in parallel, are resized, and failures are reported.
+// =========================================================================
+const EXPORT_IMAGE_MAX_PX = 800;   // longest side of each embedded photo
+const EXPORT_JPEG_QUALITY = 0.75;  // 0.5 = smaller, 0.9 = sharper
+const EXPORT_CONCURRENCY = 6;      // parallel downloads (try 4-8)
 
-        const blob = await response.blob();
-        return await new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = () => resolve(imageUrl);
-            reader.readAsDataURL(blob);
-        });
-    } catch (e) {
-        console.warn("Base64 image embedding fallback failed:", e);
-        return imageUrl;
-    }
+// Resize an image Blob and return a JPEG data URL.
+// If the browser can't decode it, falls back to the original, unresized data URL.
+function exportBlobToDataUrl(blob) {
+    const readRaw = () => new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = () => reject(r.error);
+        r.readAsDataURL(blob);
+    });
+
+    return new Promise((resolve) => {
+        const objectUrl = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => {
+            try {
+                let w = img.naturalWidth, h = img.naturalHeight;
+                const scale = Math.min(1, EXPORT_IMAGE_MAX_PX / Math.max(w, h));
+                w = Math.max(1, Math.round(w * scale));
+                h = Math.max(1, Math.round(h * scale));
+                const canvas = document.createElement('canvas');
+                canvas.width = w;
+                canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ffffff'; // avoids black background on transparent PNGs
+                ctx.fillRect(0, 0, w, h);
+                ctx.drawImage(img, 0, 0, w, h);
+                URL.revokeObjectURL(objectUrl);
+                resolve(canvas.toDataURL('image/jpeg', EXPORT_JPEG_QUALITY));
+            } catch (e) {
+                URL.revokeObjectURL(objectUrl);
+                readRaw().then(resolve).catch(() => resolve(null));
+            }
+        };
+        img.onerror = () => {
+            URL.revokeObjectURL(objectUrl);
+            readRaw().then(resolve).catch(() => resolve(null));
+        };
+        img.src = objectUrl;
+    });
 }
 
-// 🌐 Export Searched HTML with Photos Completely Downloaded & Embedded as Base64
+// Fetch one Drive photo and return an embeddable data URL, or null on failure.
+// Never returns an online URL, so a successful result always works offline.
+async function getBase64ImageFromUrl(imageUrl) {
+    if (!imageUrl) return null;
+    try {
+        const candidates = [
+            getDirectImageUrl(imageUrl, 'view'),
+            getDirectImageUrl(imageUrl, 'thumbnail')
+        ].filter(Boolean);
+
+        for (const url of candidates) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) continue;
+                const blob = await response.blob();
+                if (!blob.type.startsWith('image/')) continue; // e.g. an HTML error page
+                const dataUrl = await exportBlobToDataUrl(blob);
+                if (dataUrl) return dataUrl;
+            } catch (e) {
+                // try the next candidate
+            }
+        }
+    } catch (e) {
+        console.warn("Photo embedding failed:", e);
+    }
+    return null;
+}
+
+// Run async task functions with at most `limit` running at once.
+async function exportRunPool(tasks, limit, onDone) {
+    let next = 0;
+    let done = 0;
+    async function worker() {
+        while (next < tasks.length) {
+            const i = next++;
+            await tasks[i]();
+            done++;
+            if (onDone) onDone(done, tasks.length);
+        }
+    }
+    const workers = [];
+    for (let k = 0; k < Math.min(limit, tasks.length); k++) workers.push(worker());
+    await Promise.all(workers);
+}
+
+function isExportPhotoKey(tKey) {
+    return tKey.includes('photo') || tKey.includes('map coordinates') ||
+           tKey.includes('tax declaration') || tKey.includes('transfer_cert');
+}
+
+// 🌐 Export Searched HTML with Photos Downloaded & Embedded as Base64
 async function downloadSearchedHTML(data) {
-    if(!data || data.length === 0) {
+    if (!data || data.length === 0) {
         alert("Export Nullified: No dataset active for export.");
         return;
     }
 
-    showLoading("Downloading and embedding photos into standalone report...");
+    // ---- Pass 1: collect every unique photo link in the export ----
+    const uniqueLinks = new Set();
+    for (let i = 0; i < data.length; i++) {
+        for (let j = 0; j < EXPORT_TABLE_CONFIG.length; j++) {
+            const tKey = EXPORT_TABLE_CONFIG[j].key;
+            if (!isExportPhotoKey(tKey)) continue;
+            const resolvedKey = headerMapping[tKey];
+            const val = resolvedKey ? String(data[i][resolvedKey] || '').trim() : '';
+            if (val !== '') uniqueLinks.add(val);
+        }
+    }
 
+    const links = Array.from(uniqueLinks);
+
+    // Big exports can exhaust browser memory; let the user decide.
+    if (links.length > 300) {
+        const proceed = confirm(
+            `This export has ${links.length} photos. Very large single-file reports may be slow ` +
+            `or crash the browser tab.\n\nTip: use "Export Searched" on smaller groups.\n\nContinue anyway?`
+        );
+        if (!proceed) return;
+    }
+
+    // ---- Pass 2: download all photos in parallel ----
+    const photoMap = new Map(); // link -> data URL (or null if failed)
+    const tasks = links.map(link => async () => {
+        photoMap.set(link, await getBase64ImageFromUrl(link));
+    });
+
+    showLoading(`Downloading photos... 0 / ${links.length}`);
+    await exportRunPool(tasks, EXPORT_CONCURRENCY, (done, total) => {
+        showLoading(`Downloading photos... ${done} / ${total}`);
+    });
+
+    // ---- Pass 3: build the table ----
+    showLoading("Building report...");
+    let failedCount = 0;
+    const failedItems = new Set();
     let tableRowsHTML = '';
+
     for (let i = 0; i < data.length; i++) {
         const row = data[i];
+        const itemKey = headerMapping['article/item'];
+        const itemName = itemKey ? String(row[itemKey] || '').trim() : '';
         tableRowsHTML += '<tr>';
+
         for (let j = 0; j < EXPORT_TABLE_CONFIG.length; j++) {
             const col = EXPORT_TABLE_CONFIG[j];
             const tKey = col.key;
             const resolvedKey = headerMapping[tKey];
-            const val = resolvedKey ? (row[resolvedKey] || '') : '';
-            
-            if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration') || tKey.includes('transfer_cert')) {
-                if (val.trim() !== '') {
-                    // Fetch and convert image to Base64 so photos are fully embedded and downloaded
-                    const base64Img = await getBase64ImageFromUrl(val);
-                    tableRowsHTML += `<td style="text-align: center;"><img src="${base64Img}" style="height: 250px; max-width: 250px; width: auto; object-fit: contain; border: 1px solid #94a3b8; border-radius: 4px; display: block; margin: 0 auto;" /></td>`;
-                } else {
+            const val = resolvedKey ? String(row[resolvedKey] || '') : '';
+
+            if (isExportPhotoKey(tKey)) {
+                const link = val.trim();
+                if (link === '') {
                     tableRowsHTML += `<td style="text-align: center; color: #64748b; font-style: italic;">No Photo</td>`;
+                } else {
+                    const dataUrl = photoMap.get(link);
+                    if (dataUrl) {
+                        tableRowsHTML += `<td style="text-align: center;"><img src="${dataUrl}" style="height: 250px; max-width: 250px; width: auto; object-fit: contain; border: 1px solid #94a3b8; border-radius: 4px; display: block; margin: 0 auto;" /></td>`;
+                    } else {
+                        failedCount++;
+                        failedItems.add(itemName || `Row ${i + 1}`);
+                        tableRowsHTML += `<td style="text-align: center; color: #b91c1c; font-style: italic;">Photo not downloaded</td>`;
+                    }
                 }
             } else {
                 let styleAttr = "";
@@ -1855,12 +1973,14 @@ async function downloadSearchedHTML(data) {
         tableRowsHTML += '</tr>';
     }
 
-    hideLoading();
-
     let headersHTML = '';
     EXPORT_TABLE_CONFIG.forEach(col => {
         headersHTML += `<th>${col.display}</th>`;
     });
+
+    const failNote = failedCount > 0
+        ? `<br><span style="color:#b91c1c;">&#9888; ${failedCount} photo(s) could not be downloaded and are marked in the table.</span>`
+        : '';
 
     const htmlContent = `<!DOCTYPE html>
 <html lang="en">
@@ -1928,7 +2048,7 @@ async function downloadSearchedHTML(data) {
 <body>
     <h1>Real Estate Inventory Report</h1>
     <div class="report-meta">
-        Exported On: ${new Date().toLocaleString()} &bull; Total Records: ${data.length}
+        Exported On: ${new Date().toLocaleString()} &bull; Total Records: ${data.length}${failNote}
     </div>
     <table>
         <thead>
@@ -1950,6 +2070,18 @@ async function downloadSearchedHTML(data) {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+
+    hideLoading();
+
+    if (failedCount > 0) {
+        const list = Array.from(failedItems).slice(0, 10).join(', ');
+        const more = failedItems.size > 10 ? ` and ${failedItems.size - 10} more` : '';
+        alert(
+            `Report saved, but ${failedCount} photo(s) could not be downloaded and will NOT show offline.\n\n` +
+            `Affected items: ${list}${more}\n\nCheck your connection or the photo sharing settings, then export again.`
+        );
+    }
 }
 
 function escapeHtml(str) {
