@@ -1242,6 +1242,10 @@ const aKey = headerMapping['article/item'];
 if(countInsured) countInsured.textContent = insuredCount;
     if(countNotInsured) countNotInsured.textContent = notInsuredCount;
 	if(countExpiring) countExpiring.textContent = expiringCount;
+
+    // ⚠️ Animate the Expiring / Expired card only while there is something to warn about
+    const cardExpiringEl = document.getElementById('cardExpiring');
+    if (cardExpiringEl) cardExpiringEl.classList.toggle('has-alerts', expiringCount > 0);
 }
 
 function executeSearch(resetPage = true) {
