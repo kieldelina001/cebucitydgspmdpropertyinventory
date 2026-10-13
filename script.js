@@ -1080,6 +1080,79 @@ function renderTable(data, page = 1) {
     updatePaginationUI(totalPages);
 }
 
+
+// =========================================================================
+// 🛡️ INSURANCE STATUS HELPER (single source of truth)
+// Scans a row's Notes, finds the coverage END date, compares it with TODAY's
+// date and returns one of:
+//   'NOT_INSURED' | 'INSURED' (active) | 'EXPIRING' (<= 30 days left)
+//   | 'EXPIRED' (end date already passed) | 'NONE'
+// "Expiring Soon" on the dashboard = EXPIRING + EXPIRED.
+// =========================================================================
+const INSURANCE_EXPIRING_DAYS = 30;
+const MONTH_LOOKUP = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
+
+function extractDatesFromText(text) {
+    const dates = [];
+    let m;
+
+    // "March 5, 2026", "Mar. 5 2026", "March 5th, 2026"
+    const reMDY = /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b/gi;
+    while ((m = reMDY.exec(text)) !== null) {
+        dates.push(new Date(+m[3], MONTH_LOOKUP[m[1].toLowerCase()], +m[2]));
+    }
+
+    // "5 March 2026"
+    const reDMY = /\b(\d{1,2})(?:st|nd|rd|th)?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?,?\s+(\d{4})\b/gi;
+    while ((m = reDMY.exec(text)) !== null) {
+        dates.push(new Date(+m[3], MONTH_LOOKUP[m[2].toLowerCase()], +m[1]));
+    }
+
+    // "2026-03-05"
+    const reISO = /\b(\d{4})-(\d{1,2})-(\d{1,2})\b/g;
+    while ((m = reISO.exec(text)) !== null) {
+        dates.push(new Date(+m[1], +m[2] - 1, +m[3]));
+    }
+
+    // "03/05/2026" (MM/DD/YYYY; swapped automatically if the first number is > 12)
+    const reNum = /\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})\b/g;
+    while ((m = reNum.exec(text)) !== null) {
+        let a = +m[1], b = +m[2];
+        if (a > 12) { const t = a; a = b; b = t; }
+        dates.push(new Date(+m[3], a - 1, b));
+    }
+
+    return dates.filter(d => !isNaN(d.getTime()));
+}
+
+function getInsuranceStatus(notesVal) {
+    const notes = String(notesVal || '');
+    const upper = notes.toUpperCase();
+
+    if (upper.includes('NOT INSURED')) return 'NOT_INSURED';
+    if (!upper.includes('BUILDING INSURED')) return 'NONE';
+
+    // Only look at the text from "Coverage" onward (falls back to the whole note)
+    const covIdx = notes.search(/coverage/i);
+    const scope = covIdx >= 0 ? notes.slice(covIdx) : notes;
+
+    const dates = extractDatesFromText(scope);
+    if (dates.length === 0) return 'INSURED'; // No readable date -> keep as insured
+
+    // Coverage end date = the latest date found (handles "start - end" and renewals)
+    const endDate = new Date(Math.max(...dates.map(d => d.getTime())));
+
+    // Compare whole days: today at 00:00 vs. the end date at 00:00
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    endDate.setHours(0, 0, 0, 0);
+    const daysLeft = Math.round((endDate.getTime() - today.getTime()) / 86400000);
+
+    if (daysLeft < 0) return 'EXPIRED';
+    if (daysLeft <= INSURANCE_EXPIRING_DAYS) return 'EXPIRING';
+    return 'INSURED';
+}
+
 function calculateStaticDashboardTotals(items) {
     if(!countTotal) return;
     countTotal.textContent = items.length;
@@ -1115,36 +1188,15 @@ const aKey = headerMapping['article/item'];
         
         const typeStr = String(row[tKey] || '').toUpperCase().trim();
 // --- BUILDING INSURANCE LOGIC ---
-        const notesVal = String(row[nKey] || '');
-        const notesUpper = notesVal.toUpperCase();
-
-        if (notesUpper.includes('NOT INSURED')) {
+        // Every row is scanned and its coverage end date is compared with today's date.
+        // Expired AND about-to-expire policies are both counted under "Expiring Soon".
+        const insStatus = getInsuranceStatus(row[nKey]);
+        if (insStatus === 'NOT_INSURED') {
             notInsuredCount++;
-        } else if (notesUpper.includes('BUILDING INSURED')) {
-            // Regex looks for "Coverage [Date] - [Date]" and extracts the second date
-            const dateMatch = notesVal.match(/Coverage\s+.*?\s+-\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})/i);
-            
-            if (dateMatch && dateMatch[1]) {
-                const endDate = new Date(dateMatch[1]);
-                const currentDate = new Date(); 
-                
-                // Verify the extracted date is valid
-                if (!isNaN(endDate.getTime())) {
-                    const timeDiff = endDate.getTime() - currentDate.getTime();
-                    const daysDiff = timeDiff / (1000 * 3600 * 24);
-                    
-                   // 30 days is the threshold for "Almost Expire"
-                    if (daysDiff <= 30) {
-                        expiringCount++; // Correctly count as Expiring
-                    } else {
-                        insuredCount++; // Active
-                    }
-                } else {
-                    insuredCount++; // Fallback if date is invalid but says insured
-                }
-            } else {
-                 insuredCount++; // Fallback if no date format is found but says insured
-            }
+        } else if (insStatus === 'EXPIRING' || insStatus === 'EXPIRED') {
+            expiringCount++;
+        } else if (insStatus === 'INSURED') {
+            insuredCount++;
         }
 // --------------------------------
 
@@ -1221,22 +1273,7 @@ function executeSearch(resetPage = true) {
         if (remF !== 'ALL') {
             if (remF === '__INSURED__') {
                 // NEW: "Insured" option in Remarks dropdown - matches the same logic as the Insured (Active) dashboard card
-                const notesValIns = String(row[nKey] || '');
-                const notesUpperIns = notesValIns.toUpperCase();
-                let insStatus = 'NONE';
-
-                if (notesUpperIns.includes('NOT INSURED')) {
-                    insStatus = 'NOT_INSURED';
-                } else if (notesUpperIns.includes('BUILDING INSURED')) {
-                    const dateMatchIns = notesValIns.match(/Coverage\s+.*?\s+-\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})/i);
-                    if (dateMatchIns && dateMatchIns[1]) {
-                        const endDateIns = new Date(dateMatchIns[1]);
-                        if (!isNaN(endDateIns.getTime())) {
-                            const daysDiffIns = (endDateIns.getTime() - new Date().getTime()) / (1000 * 3600 * 24);
-                            insStatus = daysDiffIns <= 30 ? 'EXPIRING' : 'INSURED';
-                        } else { insStatus = 'INSURED'; }
-                    } else { insStatus = 'INSURED'; }
-                }
+                const insStatus = getInsuranceStatus(row[nKey]);
                 matchRem = (insStatus === 'INSURED');
             } else {
                 matchRem = (String(row[rKey] || '') === remF);
@@ -1256,23 +1293,11 @@ function executeSearch(resetPage = true) {
         }
        // --- INSURANCE CLICK FILTER LOGIC ---
         if (activeInsuranceFilter !== 'ALL') {
-            const notesVal = String(row[nKey] || '');
-            const notesUpper = notesVal.toUpperCase();
-            let status = 'NONE';
-            
-            if (notesUpper.includes('NOT INSURED')) {
-                status = 'NOT_INSURED';
-            } else if (notesUpper.includes('BUILDING INSURED')) {
-                const dateMatch = notesVal.match(/Coverage\s+.*?\s+-\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})/i);
-                if (dateMatch && dateMatch[1]) {
-                    const endDate = new Date(dateMatch[1]);
-                    if (!isNaN(endDate.getTime())) {
-                        const daysDiff = (endDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24);
-                        status = daysDiff <= 30 ? 'EXPIRING' : 'INSURED';
-                    } else { status = 'INSURED'; }
-                } else { status = 'INSURED'; }
-            }
-            matchInsurance = (status === activeInsuranceFilter);
+            const status = getInsuranceStatus(row[nKey]);
+            // "Expiring Soon" card also includes policies that are already expired
+            matchInsurance = (activeInsuranceFilter === 'EXPIRING')
+                ? (status === 'EXPIRING' || status === 'EXPIRED')
+                : (status === activeInsuranceFilter);
         }
         // ------------------------------------
         return matchText && matchRem && matchType && matchPhoto && matchInsurance;
