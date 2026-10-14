@@ -477,6 +477,75 @@
             #paginationContainer { padding: 7px 16px; font-size: 12px; }
             #backToTopBtn { padding: 11px 16px; font-size: 12px; }
         }
+
+        /* =========================================================
+           UPDATES: one-line types, wider notes, bigger photos,
+           fixed Log Out + Download Photo buttons
+           ========================================================= */
+
+        /* 1) Property Types Overview: all 14 cards on ONE line */
+        .types-dashboard-wrapper { text-align: initial; }
+        .types-dashboard { display: flex; flex-wrap: nowrap; justify-content: center; gap: 8px; width: 100%; margin: 0; }
+        .type-card { flex: 1 1 0; min-width: 76px; padding: 14px 4px 12px; }
+        .type-card .dash-title { font-size: 9.5px; letter-spacing: .6px; }
+        .type-card .dash-value { font-size: 20px; }
+        /* On narrower screens keep one line and let the row scroll sideways */
+        @media (max-width: 1250px) {
+            .types-dashboard-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 8px; }
+            .types-dashboard { min-width: 1180px; }
+        }
+
+        /* 2 + 3) Table: wider Notes, larger photos, scrolls inside its own box
+           (this also keeps the sticky header working with the wider table) */
+        .property-table-container { overflow: auto; max-height: 80vh; -webkit-overflow-scrolling: touch; }
+        .property-table { min-width: 2050px; }
+        .property-table th:first-child, .property-table th:last-child { border-radius: 0; }
+        .property-table th:nth-child(1), .property-table td:nth-child(1) { min-width: 110px; }
+        .property-table th:nth-child(2), .property-table td:nth-child(2) { min-width: 210px; }
+        .property-table th:nth-child(3), .property-table td:nth-child(3) {
+            min-width: 340px; width: 340px; line-height: 1.6; font-size: 13.5px; color: var(--ink);
+        }
+        .property-table th:nth-child(4), .property-table td:nth-child(4) { min-width: 90px; }
+        .property-table th:nth-child(5), .property-table td:nth-child(5),
+        .property-table th:nth-child(6), .property-table td:nth-child(6) { min-width: 110px; }
+        .property-table th:nth-child(n+7):nth-child(-n+12),
+        .property-table td:nth-child(n+7):nth-child(-n+12) { min-width: 160px; text-align: center; }
+        .property-table th:nth-child(14), .property-table td:nth-child(14) { min-width: 120px; }
+        .property-table td img.hover-preview-img {
+            width: 140px !important; height: 105px !important; max-width: none !important;
+            object-fit: cover !important; border-radius: 10px !important; display: block; margin: 0 auto;
+            box-shadow: 0 2px 8px rgba(15,23,42,.12);
+        }
+
+        /* 4) Log Out button: solid, readable on any background */
+        #floatingLogoutBtn {
+            top: 18px !important; right: 24px !important; background: rgba(11,27,51,.92) !important; color: #fff !important;
+            border: 1px solid rgba(255,255,255,.28) !important; padding: 10px 20px 10px 16px !important;
+            font-size: 13px !important; font-weight: 600 !important; line-height: 1 !important; letter-spacing: .3px;
+            white-space: nowrap; border-radius: 999px !important; box-shadow: 0 6px 18px rgba(11,27,51,.35) !important;
+            align-items: center; gap: 8px;
+        }
+        #floatingLogoutBtn::before {
+            content: ""; display: inline-block; width: 14px; height: 14px; vertical-align: -2px; margin-right: 8px;
+            background: no-repeat center / contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'/%3E%3Cpolyline points='16 17 21 12 16 7'/%3E%3Cline x1='21' y1='12' x2='9' y2='12'/%3E%3C/svg%3E");
+        }
+        #floatingLogoutBtn:hover { background: var(--red) !important; border-color: var(--red) !important; transform: translateY(-1px); }
+        @media (max-width: 768px) {
+            #floatingLogoutBtn { top: 10px !important; right: 10px !important; padding: 8px 14px 8px 12px !important; font-size: 12px !important; }
+        }
+
+        /* 5) Download Photo button: single line, solid, with icon */
+        .photo-actions-container { top: 14px; left: auto; right: 14px; transform: none; width: max-content; }
+        .photo-action-btn {
+            background: rgba(11,27,51,.9); color: #fff; border: 1px solid rgba(255,255,255,.35);
+            padding: 10px 18px; font-size: 13px; font-weight: 600; white-space: nowrap; line-height: 1;
+            border-radius: 999px; box-shadow: 0 6px 16px rgba(0,0,0,.4); backdrop-filter: none; -webkit-backdrop-filter: none;
+        }
+        .photo-action-btn::before {
+            content: ""; width: 14px; height: 14px; flex: 0 0 14px;
+            background: no-repeat center / contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/%3E%3Cpolyline points='7 10 12 15 17 10'/%3E%3Cline x1='12' y1='15' x2='12' y2='3'/%3E%3C/svg%3E");
+        }
+        .photo-action-btn:hover { background: var(--brand); border-color: var(--brand); transform: translateY(-1px); }
     </style>
 </head>
 <body>
