@@ -1451,14 +1451,36 @@ function renderModalPhotoViewer() {
     downloadBtn.className = 'photo-action-btn';
     downloadBtn.innerHTML = `Download Photo`;
     downloadBtn.onclick = async () => {
+        // Open the new tab right away (inside the click) so the browser doesn't block it
+        const photoTab = window.open('', '_blank');
         const objectUrl = await fetchAuthorizedImage(currentImg.url);
-        const a = document.createElement('a');
-        a.href = objectUrl || currentImg.url;
-        a.download = `property_photo_${currentPhotoIndex + 1}.jpg`;
-        a.target = '_blank';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        const finalUrl = objectUrl || currentImg.url;
+
+        if (photoTab) {
+            // Show the photo scaled to fit the whole tab (no scrolling, no cropping)
+            photoTab.document.write(
+                '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
+                '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+                '<title>' + escapeHtml(currentImg.label) + '</title>' +
+                '<style>' +
+                'html, body { margin: 0; width: 100%; height: 100%; background: #0b1424; overflow: hidden; }' +
+                'body { display: flex; align-items: center; justify-content: center; }' +
+                'img { max-width: 100vw; max-height: 100vh; width: auto; height: auto; object-fit: contain; display: block; }' +
+                '</style></head><body>' +
+                '<img src="' + escapeHtml(finalUrl) + '" alt="' + escapeHtml(currentImg.label) + '">' +
+                '</body></html>'
+            );
+            photoTab.document.close();
+        } else {
+            // Fallback if the browser blocked the tab: original behavior
+            const a = document.createElement('a');
+            a.href = finalUrl;
+            a.download = `property_photo_${currentPhotoIndex + 1}.jpg`;
+            a.target = '_blank';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
     };
     actionsContainer.appendChild(downloadBtn);
     photoContainer.appendChild(actionsContainer);
