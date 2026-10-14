@@ -905,6 +905,7 @@ function initializeSystemUI(retainPage = false) {
     populateDropdown('type', typeFilter, '-- All Types --');
     renderHeaders(displayHeaders);
     calculateStaticDashboardTotals(inventoryData);
+    refreshInsuranceCards(); // 🔄 auto-refresh insurance cards on every launch/data load
 	setupDashboardClickHandlers();
 
     if (!isAppInitialized) {
@@ -1152,6 +1153,60 @@ function getInsuranceStatus(notesVal) {
     if (daysLeft <= INSURANCE_EXPIRING_DAYS) return 'EXPIRING';
     return 'INSURED';
 }
+
+// =========================================================================
+// 🔄 AUTO-REFRESH: INSURED (ACTIVE) / NOT INSURED / EXPIRING-EXPIRED cards
+// Recomputes the three insurance cards from the loaded data using TODAY's
+// date. Runs every time the app launches (after login + data load), whenever
+// the tab/app becomes visible again, and automatically at midnight so the
+// counts never go stale.
+// =========================================================================
+function refreshInsuranceCards() {
+    if (!Array.isArray(inventoryData) || inventoryData.length === 0) return;
+
+    const nKey = headerMapping['notes'];
+    let insured = 0, notInsured = 0, expiring = 0;
+
+    inventoryData.forEach(row => {
+        const status = getInsuranceStatus(row[nKey]);
+        if (status === 'NOT_INSURED') notInsured++;
+        else if (status === 'EXPIRING' || status === 'EXPIRED') expiring++;
+        else if (status === 'INSURED') insured++;
+    });
+
+    const elInsured = document.getElementById('countInsured');
+    const elNotInsured = document.getElementById('countNotInsured');
+    const elExpiring = document.getElementById('countExpiring');
+    if (elInsured) elInsured.textContent = insured;
+    if (elNotInsured) elNotInsured.textContent = notInsured;
+    if (elExpiring) elExpiring.textContent = expiring;
+
+    const cardExpiringEl = document.getElementById('cardExpiring');
+    if (cardExpiringEl) cardExpiringEl.classList.toggle('has-alerts', expiring > 0);
+
+    // If an insurance filter is active, re-apply it so the table matches the new counts
+    if (typeof activeInsuranceFilter !== 'undefined' && activeInsuranceFilter !== 'ALL' && isAppInitialized) {
+        executeSearch(false);
+    }
+}
+
+// Refresh when the user comes back to the tab / app window
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && accessToken) refreshInsuranceCards();
+});
+window.addEventListener('focus', () => {
+    if (accessToken) refreshInsuranceCards();
+});
+
+// Refresh automatically right after midnight (date rollover can expire policies)
+let insuranceDayStamp = new Date().toDateString();
+setInterval(() => {
+    const todayStamp = new Date().toDateString();
+    if (todayStamp !== insuranceDayStamp) {
+        insuranceDayStamp = todayStamp;
+        if (accessToken) refreshInsuranceCards();
+    }
+}, 60 * 1000);
 
 function calculateStaticDashboardTotals(items) {
     if(!countTotal) return;
