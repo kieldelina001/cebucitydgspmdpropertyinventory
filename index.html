@@ -546,6 +546,46 @@
             background: no-repeat center / contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/%3E%3Cpolyline points='7 10 12 15 17 10'/%3E%3Cline x1='12' y1='15' x2='12' y2='3'/%3E%3C/svg%3E");
         }
         .photo-action-btn:hover { background: var(--brand); border-color: var(--brand); transform: translateY(-1px); }
+
+        /* =========================================================
+           TABLE FITS THE BROWSER: no scroll bar, no inner scrolling.
+           The page itself scrolls; the table is sized to the window.
+           ========================================================= */
+        .main-container { width: 98%; max-width: none; padding: 0 24px 28px; }
+        .header-container { margin: 0 -24px 32px; padding: 34px 24px; }
+
+        .property-table-container { overflow: visible; max-height: none; }
+        .property-table { width: 100%; min-width: 0; table-layout: fixed; }
+        .property-table th, .property-table td { padding: 10px 8px; word-break: break-word; overflow-wrap: anywhere; }
+        .property-table th { font-size: 10px; letter-spacing: .6px; padding: 14px 8px; }
+        .property-table th:first-child { border-top-left-radius: 15px; }
+        .property-table th:last-child { border-top-right-radius: 15px; }
+
+        /* Column widths (add up to 100%) */
+        .property-table th:nth-child(1),  .property-table td:nth-child(1)  { width: 6%;  min-width: 0; }
+        .property-table th:nth-child(2),  .property-table td:nth-child(2)  { width: 10%; min-width: 0; }
+        .property-table th:nth-child(3),  .property-table td:nth-child(3)  { width: 20%; min-width: 0; font-size: 13px; line-height: 1.55; }
+        .property-table th:nth-child(4),  .property-table td:nth-child(4)  { width: 5%;  min-width: 0; }
+        .property-table th:nth-child(5),  .property-table td:nth-child(5)  { width: 5%;  min-width: 0; }
+        .property-table th:nth-child(6),  .property-table td:nth-child(6)  { width: 5%;  min-width: 0; }
+        .property-table th:nth-child(n+7):nth-child(-n+12),
+        .property-table td:nth-child(n+7):nth-child(-n+12) { width: 6.4%; min-width: 0; text-align: center; padding-left: 5px; padding-right: 5px; }
+        .property-table th:nth-child(13), .property-table td:nth-child(13) { width: 5% !important; min-width: 0 !important; max-width: none !important; }
+        .property-table th:nth-child(14), .property-table td:nth-child(14) { width: 6% !important; min-width: 0 !important; }
+
+        /* Photos scale with their column */
+        .property-table td img.hover-preview-img {
+            width: 100% !important; height: auto !important; aspect-ratio: 4 / 3; max-width: 100% !important;
+            object-fit: cover !important;
+        }
+
+        /* Phones can't fit 14 columns, so only there the table scrolls sideways */
+        @media (max-width: 768px) {
+            .main-container { padding: 0 16px 20px; }
+            .header-container { margin: 0 -16px 24px; padding: 26px 16px; }
+            .property-table-container { overflow-x: auto; }
+            .property-table { table-layout: auto; min-width: 1800px; }
+        }
     </style>
 </head>
 <body>
