@@ -950,7 +950,7 @@ function populateDropdown(type, selectEl, placeholderText) {
     if (type === 'remarks') {
         const insuredOpt = document.createElement('option');
         insuredOpt.value = '__INSURED__';
-        insuredOpt.textContent = 'INSURED';
+        insuredOpt.textContent = 'BUILDING INSURANCE';
         selectEl.appendChild(insuredOpt);
     }
 
@@ -1331,9 +1331,10 @@ function executeSearch(resetPage = true) {
         
         if (remF !== 'ALL') {
             if (remF === '__INSURED__') {
-                // NEW: "Insured" option in Remarks dropdown - matches the same logic as the Insured (Active) dashboard card
+                // "BUILDING INSURANCE" option in Remarks dropdown - finds ALL buildings with an insurance record
+                // (Active + Expiring + Expired). Only "NOT INSURED" and rows with no insurance note are excluded.
                 const insStatus = getInsuranceStatus(row[nKey]);
-                matchRem = (insStatus === 'INSURED');
+                matchRem = (insStatus === 'INSURED' || insStatus === 'EXPIRING' || insStatus === 'EXPIRED');
             } else {
                 matchRem = (String(row[rKey] || '') === remF);
             }
