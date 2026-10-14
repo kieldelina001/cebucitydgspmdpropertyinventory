@@ -161,14 +161,14 @@ countInsured = document.getElementById('countInsured');
         loadingOverlay = document.createElement('div');
         loadingOverlay.id = 'dynamicLoadingOverlay';
         loadingOverlay.innerHTML = `
-        <div style="text-align: center; color: #ffffff !important; font-family: Arial, sans-serif !important; z-index: 100000 !important;">
-            <div style="width: 80px !important; height: 80px !important; border: 8px solid rgba(255,255,255,0.2) !important; border-radius: 50% !important; border-top-color: #28a745 !important; animation: spin 0.4s linear infinite !important; margin: 0 auto 20px auto !important; box-shadow: 0 0 20px rgba(40, 167, 69, 0.6) !important;"></div>
-            <div id="loadingOverlayText" style="font-size: 20px !important; font-weight: bold !important; color: #ffffff !important; text-shadow: 1px 1px 5px rgba(0,0,0,0.5) !important;">Connecting...</div>
+        <div style="text-align: center; color: #ffffff !important; font-family: 'Inter', 'Segoe UI', Arial, sans-serif !important; z-index: 100000 !important;">
+            <div style="width: 80px !important; height: 80px !important; border: 3px solid rgba(255,255,255,0.12) !important; border-radius: 50% !important; border-top-color: #b79a5b !important; animation: spin 0.4s linear infinite !important; margin: 0 auto 20px auto !important; box-shadow: 0 0 28px rgba(183, 154, 91, 0.35) !important;"></div>
+            <div id="loadingOverlayText" style="font-size: 12px !important; font-weight: 600 !important; letter-spacing: 0.28em !important; text-transform: uppercase !important; color: #e8d9ae !important;">Connecting...</div>
         </div>
     `;
         Object.assign(loadingOverlay.style, {
             position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
-            backgroundColor: 'rgba(0, 0, 0, 0.85)', display: 'none', justifyContent: 'center',
+            backgroundColor: 'rgba(8, 12, 22, 0.88)', backdropFilter: 'blur(6px)', display: 'none', justifyContent: 'center',
             alignItems: 'center', zIndex: '150000', transition: 'opacity 0.2s ease'
         });
         const styleSheet = document.createElement("style");
@@ -182,18 +182,18 @@ countInsured = document.getElementById('countInsured');
         customNameModal = document.createElement('div');
         customNameModal.id = 'customNameModal';
         customNameModal.innerHTML = `
-            <div style="background: #ffffff !important; padding: 30px !important; border-radius: 8px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important; width: 90% !important; max-width: 400px !important; box-sizing: border-box !important; text-align: center !important; font-family: Arial, sans-serif !important;">
-                <label style="font-size: 18px !important; font-weight: bold !important; color: #333333 !important; display: block !important; margin-bottom: 15px !important;">Enter Your Name to Log This Change:</label>
-                <input type="text" id="custom-operator-input" value="" placeholder="Your Name" style="width: 100% !important; padding: 12px !important; font-size: 16px !important; border: 1px solid #ccc !important; border-radius: 4px !important; margin-bottom: 20px !important; box-sizing: border-box !important;" />
+            <div style="background: #ffffff !important; padding: 40px 36px 32px !important; border-radius: 16px !important; border-top: 3px solid #b79a5b !important; box-shadow: 0 30px 80px rgba(8,12,22,0.45) !important; width: 90% !important; max-width: 430px !important; box-sizing: border-box !important; text-align: center !important; font-family: 'Inter', 'Segoe UI', Arial, sans-serif !important;">
+                <label style="font-family: 'Cormorant Garamond', Georgia, serif !important; font-size: 24px !important; font-weight: 600 !important; color: #111b30 !important; display: block !important; margin-bottom: 20px !important; line-height: 1.25 !important;">Enter Your Name to Log This Change:</label>
+                <input type="text" id="custom-operator-input" value="" placeholder="Your Name" style="width: 100% !important; padding: 14px 16px !important; font-size: 14px !important; border: 1px solid #d9d3c4 !important; border-radius: 8px !important; margin-bottom: 26px !important; box-sizing: border-box !important; background: #faf8f4 !important; color: #1a2133 !important;" />
                 <div style="display: flex !important; gap: 10px !important; justify-content: center !important;">
-                    <button id="customCancelNameBtn" style="background: #6c757d !important; color: white !important; border: none !important; padding: 10px 20px !important; border-radius: 4px !important; cursor: pointer !important; font-weight: bold !important; font-size: 14px !important;">Cancel</button>
-                    <button id="customConfirmNameBtn" style="background: #28a745 !important; color: white !important; border: none !important; padding: 10px 20px !important; border-radius: 4px !important; cursor: pointer !important; font-weight: bold !important; font-size: 14px !important;">Confirm & Publish</button>
+                    <button id="customCancelNameBtn" style="background: transparent !important; color: #5b6478 !important; border: 1px solid #d9d3c4 !important; padding: 12px 24px !important; border-radius: 8px !important; cursor: pointer !important; font-weight: 600 !important; font-size: 11.5px !important; letter-spacing: 0.12em !important; text-transform: uppercase !important;">Cancel</button>
+                    <button id="customConfirmNameBtn" style="background: linear-gradient(180deg, #16223b, #0d1526) !important; color: #e8d9ae !important; border: 1px solid #0d1526 !important; padding: 12px 24px !important; border-radius: 8px !important; cursor: pointer !important; font-weight: 600 !important; font-size: 11.5px !important; letter-spacing: 0.12em !important; text-transform: uppercase !important;">Confirm & Publish</button>
                 </div>
             </div>
         `;
         Object.assign(customNameModal.style, {
             position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
-            backgroundColor: 'rgba(0, 0, 0, 0.6)', display: 'none', justifyContent: 'center',
+            backgroundColor: 'rgba(8, 12, 22, 0.62)', backdropFilter: 'blur(8px)', display: 'none', justifyContent: 'center',
             alignItems: 'center', zIndex: '200000'
         });
         document.body.appendChild(customNameModal);
@@ -369,7 +369,7 @@ function showAccessDeniedModal(email) {
 
     submitBtn.style.display = "inline-block";
     closeBtn.textContent = "Cancel";
-    closeBtn.style.background = "#6c757d";
+    closeBtn.style.background = "#5b6478";
     closeBtn.style.color = "white";
 
     modalText.innerHTML = "Your Gmail account (<b>" + escapeHtml(email) + "</b>) does not have access to view the Webapp.<br><br>Would you like to send an access request?";
@@ -394,7 +394,7 @@ function showAccessDeniedModal(email) {
         if (noteInput) noteInput.style.display = "none";
         submitBtn.style.display = "none";
         closeBtn.textContent = "OK";
-        closeBtn.style.background = "#28a745";
+        closeBtn.style.background = "#2f7d5b";
         closeBtn.style.color = "white";
 
         const requestUrl = GOOGLE_APPS_SCRIPT_URL + "?action=requestAccess&email=" + encodeURIComponent(email) + "&name=" + encodeURIComponent(email) + "&notes=" + encodeURIComponent(noteValue);
@@ -415,7 +415,7 @@ function showAccessDeniedModal(email) {
             modalText.innerHTML = "<h3 style='margin-top:0; margin-bottom: 10px; color: #155724;'>✅ Request Access Sent</h3><p style='margin:0; line-height: 1.5;'>Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.</p>";
             submitBtn.style.display = "inline-block";
             closeBtn.textContent = "Cancel";
-            closeBtn.style.background = "#6c757d";
+            closeBtn.style.background = "#5b6478";
 
             if (noteInput) {
                 noteInput.value = "";
@@ -445,7 +445,7 @@ function setupDashboardClickHandlers() {
             document.querySelectorAll('.ins-card').forEach(c => {
                 c.style.transform = 'scale(1)';
                 c.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
-                c.style.backgroundColor = '#f8f9fa';
+                c.style.backgroundColor = '#faf8f4';
             });
             const clearBtn = document.getElementById('clearInsFilterBtn');
             if (clearBtn) clearBtn.style.display = 'none';
@@ -722,8 +722,8 @@ async function fetchAuthorizedImage(driveUrl) {
 
 async function loadInventoryFromGoogleSheets(retainPage = false) {
     if (statusBanner) {
-        statusBanner.style.backgroundColor = "#fff3cd";
-        statusBanner.style.color = "#856404";
+        statusBanner.style.backgroundColor = "#f7f1e1";
+        statusBanner.style.color = "#7a6232";
         statusBanner.textContent = "Connecting to Google Sheets Live Datastream...";
     }
     showLoading("Syncing live spreadsheet grid...");
@@ -777,8 +777,8 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
 } catch (err) {
         hideLoading();
         if (statusBanner) {
-            statusBanner.style.backgroundColor = "#f8d7da";
-            statusBanner.style.color = "#721c24";
+            statusBanner.style.backgroundColor = "#f8e5e3";
+            statusBanner.style.color = "#8a2f2a";
             statusBanner.textContent = "Connection Error: Check Sheet spreadsheet access permission configuration.";
         }
         console.error(err);
@@ -836,7 +836,7 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
         // 4. Update buttons: Hide 'Submit', change 'Cancel' to a green 'OK' button
         submitBtn.style.display = "none";
         closeBtn.textContent = "OK";
-        closeBtn.style.background = "#28a745"; 
+        closeBtn.style.background = "#2f7d5b"; 
         closeBtn.style.color = "white";
 
         // 5. Prepare the URL for Apps Script
@@ -860,7 +860,7 @@ closeBtn.onclick = function() {
             modalText.innerHTML = "<h3 style='margin-top:0; margin-bottom: 10px; color: #155724;'>✅ Request Access Sent</h3><p style='margin:0; line-height: 1.5;'>Your request has been successfully sent. Please wait for admin approval or contact <b>639282199308</b> for follow-up.</p>";
             submitBtn.style.display = "inline-block";
             closeBtn.textContent = "Cancel";
-            closeBtn.style.background = "#6c757d";
+            closeBtn.style.background = "#5b6478";
             
             if (noteInput) {
                 noteInput.value = "";
@@ -887,8 +887,8 @@ closeBtn.onclick = function() {
 
 function initializeSystemUI(retainPage = false) {
     if (statusBanner) {
-        statusBanner.style.backgroundColor = "#d4edda";
-        statusBanner.style.color = "#155724";
+        statusBanner.style.backgroundColor = "#e4f0ea";
+        statusBanner.style.color = "#1f5c43";
         statusBanner.innerHTML = `<span class="live-animated-text">✅ Connected to Google Sheets: Live View Active.</span>`;
     }
 
@@ -949,7 +949,7 @@ function populateDropdown(type, selectEl, placeholderText) {
     if (type === 'remarks') {
         const insuredOpt = document.createElement('option');
         insuredOpt.value = '__INSURED__';
-        insuredOpt.textContent = 'BUILDING INSURANCE';
+        insuredOpt.textContent = 'INSURED';
         selectEl.appendChild(insuredOpt);
     }
 
@@ -1051,7 +1051,7 @@ function renderTable(data, page = 1) {
                     imgEl.style.height = "50px";
                     imgEl.style.maxWidth = "80px";
                     imgEl.style.objectFit = "cover";
-                    imgEl.style.border = "1px solid #ccc";
+                    imgEl.style.border = "1px solid #d9d3c4";
                     imgEl.style.borderRadius = "4px";
                     imgEl.style.cursor = "zoom-in";
                     imgEl.alt = "Loading...";
@@ -1276,10 +1276,9 @@ function executeSearch(resetPage = true) {
         
         if (remF !== 'ALL') {
             if (remF === '__INSURED__') {
-                // "BUILDING INSURANCE" option in Remarks dropdown - finds ALL buildings with insurance
-                // (active, expiring soon, and already expired). Excludes "NOT INSURED" and rows with no insurance info.
+                // NEW: "Insured" option in Remarks dropdown - matches the same logic as the Insured (Active) dashboard card
                 const insStatus = getInsuranceStatus(row[nKey]);
-                matchRem = (insStatus === 'INSURED' || insStatus === 'EXPIRING' || insStatus === 'EXPIRED');
+                matchRem = (insStatus === 'INSURED');
             } else {
                 matchRem = (String(row[rKey] || '') === remF);
             }
@@ -1656,7 +1655,7 @@ function setInsuranceFilter(filterMode, cardId) {
     document.querySelectorAll('.ins-card').forEach(card => {
         card.style.transform = 'scale(1)';
         card.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
-        card.style.backgroundColor = '#f8f9fa';
+        card.style.backgroundColor = '#faf8f4';
     });
 
     const clearBtn = document.getElementById('clearInsFilterBtn');
@@ -1721,7 +1720,7 @@ if(resetFiltersButton) {
         document.querySelectorAll('.ins-card').forEach(card => {
             card.style.transform = 'scale(1)';
             card.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
-            card.style.backgroundColor = '#f8f9fa';
+            card.style.backgroundColor = '#faf8f4';
         });
 
         // Hide insurance clear-filter link
