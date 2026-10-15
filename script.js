@@ -2359,3 +2359,285 @@ window.addEventListener('DOMContentLoaded', () => {
     }, 1000);
 });
 // =========================================================================
+
+
+// =========================================================================
+// 🛡️ ADMIN PANEL (front-end)
+// Only shown to ADMIN_EMAIL. Lets the admin view / add / edit / delete the
+// Gmail accounts in the "Authorized Accounts" sheet without opening Sheets.
+// NOTE: hiding the button here is cosmetic only — the Apps Script backend
+// (handleAdminAction in code.gs) independently verifies the admin's Google
+// token, so nobody else can use these actions.
+// Self-contained: it does not modify any existing function.
+// =========================================================================
+(function () {
+    const ADMIN_EMAIL = "kieldelina001@gmail.com";
+    const state = { headers: [], emailCol: 0, rows: [], editingRow: null, busy: false };
+    let els = null;
+
+    function esc(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function isAdminSession() {
+        return !!accessToken && String(loggedInUser || '').trim().toLowerCase() === ADMIN_EMAIL;
+    }
+
+    async function adminCall(action, extra) {
+        const params = new URLSearchParams();
+        params.append('secret', API_SECRET);
+        params.append('action', action);
+        params.append('token', accessToken);
+        Object.keys(extra || {}).forEach(k => params.append(k, extra[k]));
+
+        const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+            method: 'POST',
+            body: params.toString(),
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        });
+        const text = await res.text();
+        let json;
+        try { json = JSON.parse(text); }
+        catch (e) {
+            throw new Error(/unauthorized/i.test(text)
+                ? 'Unauthorized: API secret mismatch.'
+                : 'Unexpected server response. Re-deploy the Apps Script web app as a NEW VERSION and try again.');
+        }
+        if (!json.success) throw new Error(json.message || 'Request failed.');
+        return json;
+    }
+
+    function setStatus(msg, type) {
+        if (!els) return;
+        els.status.textContent = msg || '';
+        els.status.style.color = type === 'error' ? '#b91c1c' : (type === 'ok' ? '#15803d' : '#475569');
+    }
+
+    function setBusy(b) {
+        state.busy = b;
+        if (!els) return;
+        els.panel.querySelectorAll('button, input').forEach(el => { el.disabled = b; });
+        els.panel.style.cursor = b ? 'progress' : '';
+    }
+
+    function applyPayload(p) {
+        state.headers = p.headers || [];
+        state.emailCol = p.emailCol || 0;
+        state.rows = p.rows || [];
+        state.editingRow = null;
+        render();
+    }
+
+    function render() {
+        if (!els) return;
+        const q = els.search.value.trim().toLowerCase();
+        const rows = state.rows.filter(r => !q || r.values.some(v => String(v).toLowerCase().includes(q)));
+        els.count.textContent = rows.length + (q ? ' of ' + state.rows.length : '') + ' account(s)';
+
+        let html = '<thead><tr><th>#</th>' +
+            state.headers.map((h, i) => '<th>' + esc(h || ('Column ' + (i + 1))) + '</th>').join('') +
+            '<th style="width:190px;">Actions</th></tr></thead><tbody>';
+
+        if (rows.length === 0) {
+            html += '<tr><td colspan="' + (state.headers.length + 2) + '" style="text-align:center;color:#64748b;padding:20px;">No accounts found.</td></tr>';
+        }
+
+        rows.forEach((r, idx) => {
+            const isEditing = state.editingRow === r.row;
+            const emailVal = r.values[state.emailCol] || '';
+            const isAdminRow = emailVal.trim().toLowerCase() === ADMIN_EMAIL;
+            html += '<tr>';
+            html += '<td>' + (idx + 1) + '</td>';
+            state.headers.forEach((h, c) => {
+                const v = r.values[c] || '';
+                if (c === state.emailCol && isEditing) {
+                    html += '<td><input type="email" class="adm-edit-input" id="admEditInput" value="' + esc(v) + '"></td>';
+                } else {
+                    html += '<td>' + esc(v) + (c === state.emailCol && isAdminRow ? ' <span class="adm-tag">ADMIN</span>' : '') + '</td>';
+                }
+            });
+            if (isEditing) {
+                html += '<td><button class="adm-btn adm-green" data-act="save" data-row="' + r.row + '">Save</button> ' +
+                        '<button class="adm-btn adm-gray" data-act="cancel">Cancel</button></td>';
+            } else if (isAdminRow) {
+                html += '<td><span style="color:#94a3b8;font-size:12px;">Protected</span></td>';
+            } else {
+                html += '<td><button class="adm-btn adm-blue" data-act="edit" data-row="' + r.row + '">Edit</button> ' +
+                        '<button class="adm-btn adm-red" data-act="delete" data-row="' + r.row + '">Delete</button></td>';
+            }
+            html += '</tr>';
+        });
+        html += '</tbody>';
+        els.table.innerHTML = html;
+
+        const inp = document.getElementById('admEditInput');
+        if (inp) { inp.focus(); inp.select(); }
+    }
+
+    async function loadList(showMsg) {
+        setBusy(true);
+        setStatus('Loading accounts...', 'info');
+        try {
+            const p = await adminCall('adminList');
+            applyPayload(p);
+            setStatus(showMsg || '', 'ok');
+        } catch (err) {
+            setStatus(err.message, 'error');
+        } finally { setBusy(false); }
+    }
+
+    async function runWrite(action, extra) {
+        setBusy(true);
+        setStatus('Saving to Google Sheet...', 'info');
+        try {
+            const p = await adminCall(action, extra);
+            applyPayload(p);
+            setStatus(p.message || 'Done.', 'ok');
+            return true;
+        } catch (err) {
+            setStatus(err.message, 'error');
+            return false;
+        } finally { setBusy(false); }
+    }
+
+    function findRow(rowNum) {
+        return state.rows.find(r => r.row === Number(rowNum));
+    }
+
+    function onTableClick(e) {
+        const btn = e.target.closest('button[data-act]');
+        if (!btn || state.busy) return;
+        const act = btn.getAttribute('data-act');
+        const rowNum = btn.getAttribute('data-row');
+        const r = rowNum ? findRow(rowNum) : null;
+
+        if (act === 'edit' && r) { state.editingRow = r.row; render(); }
+        else if (act === 'cancel') { state.editingRow = null; render(); setStatus('', 'info'); }
+        else if (act === 'save' && r) {
+            const input = document.getElementById('admEditInput');
+            const newEmail = input ? input.value.trim() : '';
+            runWrite('adminUpdate', { row: r.row, oldEmail: (r.values[state.emailCol] || '').trim(), email: newEmail });
+        }
+        else if (act === 'delete' && r) {
+            const em = r.values[state.emailCol] || '';
+            if (confirm('Remove ' + em + ' from the authorized accounts?\nThey will no longer be able to open the web app.')) {
+                runWrite('adminDelete', { row: r.row, email: em.trim() });
+            }
+        }
+    }
+
+    async function onAdd() {
+        const email = els.addInput.value.trim();
+        if (!email) { setStatus('Enter an email address to add.', 'error'); return; }
+        const ok = await runWrite('adminAdd', { email: email });
+        if (ok) els.addInput.value = '';
+    }
+
+    function buildUI() {
+        const style = document.createElement('style');
+        style.textContent = `
+        #adminOpenBtn{position:fixed;top:20px;right:130px;background:#4f46e5;color:#fff;border:none;padding:10px 18px;border-radius:5px;font-weight:bold;cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,.3);z-index:999999;display:none;transition:background-color .2s;}
+        #adminOpenBtn:hover{background:#4338ca;}
+        #adminOverlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:300000;padding:15px;box-sizing:border-box;}
+        #adminPanel{background:#fff;border-radius:8px;width:100%;max-width:900px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 8px 30px rgba(0,0,0,.4);font-family:Arial,sans-serif;overflow:hidden;}
+        #adminPanel .adm-head{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:#1e293b;color:#fff;}
+        #adminPanel .adm-head h3{margin:0;font-size:18px;}
+        #adminPanel .adm-close{background:transparent;border:none;color:#fff;font-size:24px;cursor:pointer;line-height:1;}
+        #adminPanel .adm-body{padding:16px 20px;overflow:auto;}
+        #adminPanel .adm-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;}
+        #adminPanel input[type=text],#adminPanel input[type=email],#adminPanel input[type=search]{padding:9px 10px;border:1px solid #cbd5e1;border-radius:4px;font-size:14px;box-sizing:border-box;}
+        #adminPanel .adm-grow{flex:1;min-width:180px;}
+        .adm-btn{border:none;color:#fff;padding:7px 12px;border-radius:4px;cursor:pointer;font-weight:bold;font-size:13px;}
+        .adm-btn:disabled{opacity:.5;cursor:not-allowed;}
+        .adm-blue{background:#2563eb;}.adm-red{background:#dc2626;}.adm-green{background:#16a34a;}.adm-gray{background:#64748b;}
+        #adminPanel .adm-tablewrap{overflow:auto;border:1px solid #e2e8f0;border-radius:6px;max-height:50vh;}
+        #adminPanel table{width:100%;border-collapse:collapse;font-size:14px;}
+        #adminPanel th{background:#f1f5f9;text-align:left;padding:9px 10px;position:sticky;top:0;border-bottom:1px solid #e2e8f0;color:#334155;}
+        #adminPanel td{padding:8px 10px;border-bottom:1px solid #f1f5f9;color:#1e293b;word-break:break-all;}
+        .adm-edit-input{width:100%;}
+        .adm-tag{background:#e0e7ff;color:#3730a3;font-size:10px;padding:2px 6px;border-radius:10px;font-weight:bold;margin-left:4px;}
+        #adminStatus{min-height:20px;margin-top:10px;font-size:13px;font-weight:bold;}
+        `;
+        document.head.appendChild(style);
+
+        const openBtn = document.createElement('button');
+        openBtn.id = 'adminOpenBtn';
+        openBtn.textContent = '⚙️ Admin Panel';
+        document.body.appendChild(openBtn);
+
+        const overlay = document.createElement('div');
+        overlay.id = 'adminOverlay';
+        overlay.innerHTML = `
+        <div id="adminPanel">
+            <div class="adm-head"><h3>🛡️ Admin Panel — Authorized Accounts</h3><button class="adm-close" id="adminCloseBtn" title="Close">&times;</button></div>
+            <div class="adm-body">
+                <div class="adm-row">
+                    <input type="email" id="adminAddInput" class="adm-grow" placeholder="Add Gmail account (e.g. name@gmail.com)">
+                    <button class="adm-btn adm-green" id="adminAddBtn">➕ Add Email</button>
+                </div>
+                <div class="adm-row">
+                    <input type="search" id="adminSearchInput" class="adm-grow" placeholder="Search accounts...">
+                    <button class="adm-btn adm-gray" id="adminRefreshBtn">🔄 Refresh</button>
+                    <span id="adminCount" style="font-size:13px;color:#64748b;"></span>
+                </div>
+                <div class="adm-tablewrap"><table id="adminTable"></table></div>
+                <div id="adminStatus"></div>
+            </div>
+        </div>`;
+        document.body.appendChild(overlay);
+
+        els = {
+            openBtn: openBtn,
+            overlay: overlay,
+            panel: document.getElementById('adminPanel'),
+            table: document.getElementById('adminTable'),
+            search: document.getElementById('adminSearchInput'),
+            addInput: document.getElementById('adminAddInput'),
+            count: document.getElementById('adminCount'),
+            status: document.getElementById('adminStatus')
+        };
+
+        openBtn.addEventListener('click', () => {
+            if (!isAdminSession()) return;
+            overlay.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            loadList('');
+        });
+        document.getElementById('adminCloseBtn').addEventListener('click', closeAdmin);
+        overlay.addEventListener('mousedown', e => { if (e.target === overlay && !state.busy) closeAdmin(); });
+        document.getElementById('adminAddBtn').addEventListener('click', onAdd);
+        els.addInput.addEventListener('keydown', e => { if (e.key === 'Enter') onAdd(); });
+        document.getElementById('adminRefreshBtn').addEventListener('click', () => loadList('Refreshed.'));
+        els.search.addEventListener('input', render);
+        els.table.addEventListener('click', onTableClick);
+        els.table.addEventListener('keydown', e => {
+            if (e.target && e.target.id === 'admEditInput') {
+                if (e.key === 'Enter') {
+                    const r = findRow(state.editingRow);
+                    if (r) runWrite('adminUpdate', { row: r.row, oldEmail: (r.values[state.emailCol] || '').trim(), email: e.target.value.trim() });
+                } else if (e.key === 'Escape') { state.editingRow = null; render(); }
+            }
+        });
+    }
+
+    function closeAdmin() {
+        if (!els) return;
+        els.overlay.style.display = 'none';
+        document.body.style.overflow = '';
+        state.editingRow = null;
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        buildUI();
+        // Show the Admin button only while the admin is logged in and the main app is visible
+        setInterval(() => {
+            const mainApp = document.getElementById('mainApp');
+            const mainVisible = mainApp && mainApp.style.display !== 'none';
+            const show = isAdminSession() && mainVisible;
+            els.openBtn.style.display = show ? 'block' : 'none';
+            if (!show && els.overlay.style.display === 'flex') closeAdmin();
+        }, 1000);
+    });
+})();
