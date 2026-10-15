@@ -2360,19 +2360,23 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 // =========================================================================
 
-
 // =========================================================================
 // 🛡️ ADMIN PANEL (front-end)
-// Only shown to ADMIN_EMAIL. Lets the admin view / add / edit / delete the
-// Gmail accounts in the "Authorized Accounts" sheet without opening Sheets.
-// NOTE: hiding the button here is cosmetic only — the Apps Script backend
+// Only shown to ADMIN_EMAIL. Lets the admin:
+//   • view / add / edit / delete Gmail accounts in "Authorized Accounts"
+//   • view access requests and Approve / Dismiss them
+//   • delete a property photo (Drive file + sheet link) from the photo viewer
+// NOTE: hiding the buttons here is cosmetic only — the Apps Script backend
 // (handleAdminAction in code.gs) independently verifies the admin's Google
 // token, so nobody else can use these actions.
 // Self-contained: it does not modify any existing function.
 // =========================================================================
 (function () {
     const ADMIN_EMAIL = "kieldelina001@gmail.com";
-    const state = { headers: [], emailCol: 0, rows: [], editingRow: null, busy: false };
+    const acc = { headers: [], emailCol: 0, rows: [], editingRow: null };
+    const req = { headers: [], emailCol: 2, rows: [], loaded: false };
+    let tab = 'accounts';
+    let busy = false;
     let els = null;
 
     function esc(s) {
@@ -2416,46 +2420,45 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     function setBusy(b) {
-        state.busy = b;
+        busy = b;
         if (!els) return;
         els.panel.querySelectorAll('button, input').forEach(el => { el.disabled = b; });
         els.panel.style.cursor = b ? 'progress' : '';
     }
 
-    function applyPayload(p) {
-        state.headers = p.headers || [];
-        state.emailCol = p.emailCol || 0;
-        state.rows = p.rows || [];
-        state.editingRow = null;
+    // ---------------------------------------------------------------- ACCOUNTS
+    function applyAccounts(p) {
+        acc.headers = p.headers || [];
+        acc.emailCol = p.emailCol || 0;
+        acc.rows = p.rows || [];
+        acc.editingRow = null;
         render();
     }
 
-    function render() {
-        if (!els) return;
+    function renderAccounts() {
         const q = els.search.value.trim().toLowerCase();
-        const rows = state.rows.filter(r => !q || r.values.some(v => String(v).toLowerCase().includes(q)));
-        els.count.textContent = rows.length + (q ? ' of ' + state.rows.length : '') + ' account(s)';
+        const rows = acc.rows.filter(r => !q || r.values.some(v => String(v).toLowerCase().includes(q)));
+        els.count.textContent = rows.length + (q ? ' of ' + acc.rows.length : '') + ' account(s)';
 
         let html = '<thead><tr><th>#</th>' +
-            state.headers.map((h, i) => '<th>' + esc(h || ('Column ' + (i + 1))) + '</th>').join('') +
+            acc.headers.map((h, i) => '<th>' + esc(h || ('Column ' + (i + 1))) + '</th>').join('') +
             '<th style="width:190px;">Actions</th></tr></thead><tbody>';
 
         if (rows.length === 0) {
-            html += '<tr><td colspan="' + (state.headers.length + 2) + '" style="text-align:center;color:#64748b;padding:20px;">No accounts found.</td></tr>';
+            html += '<tr><td colspan="' + (acc.headers.length + 2) + '" style="text-align:center;color:#64748b;padding:20px;">No accounts found.</td></tr>';
         }
 
         rows.forEach((r, idx) => {
-            const isEditing = state.editingRow === r.row;
-            const emailVal = r.values[state.emailCol] || '';
+            const isEditing = acc.editingRow === r.row;
+            const emailVal = r.values[acc.emailCol] || '';
             const isAdminRow = emailVal.trim().toLowerCase() === ADMIN_EMAIL;
-            html += '<tr>';
-            html += '<td>' + (idx + 1) + '</td>';
-            state.headers.forEach((h, c) => {
+            html += '<tr><td>' + (idx + 1) + '</td>';
+            acc.headers.forEach((h, c) => {
                 const v = r.values[c] || '';
-                if (c === state.emailCol && isEditing) {
+                if (c === acc.emailCol && isEditing) {
                     html += '<td><input type="email" class="adm-edit-input" id="admEditInput" value="' + esc(v) + '"></td>';
                 } else {
-                    html += '<td>' + esc(v) + (c === state.emailCol && isAdminRow ? ' <span class="adm-tag">ADMIN</span>' : '') + '</td>';
+                    html += '<td>' + esc(v) + (c === acc.emailCol && isAdminRow ? ' <span class="adm-tag">ADMIN</span>' : '') + '</td>';
                 }
             });
             if (isEditing) {
@@ -2476,16 +2479,67 @@ window.addEventListener('DOMContentLoaded', () => {
         if (inp) { inp.focus(); inp.select(); }
     }
 
-    async function loadList(showMsg) {
+    // ---------------------------------------------------------------- REQUESTS
+    function applyRequests(p) {
+        req.headers = p.headers || [];
+        req.emailCol = (p.emailCol == null) ? 2 : p.emailCol;
+        req.rows = p.rows || [];
+        req.loaded = true;
+        render();
+    }
+
+    function renderRequests() {
+        const q = els.search.value.trim().toLowerCase();
+        // newest first (the sheet appends new requests at the bottom)
+        const rows = req.rows.slice().reverse()
+            .filter(r => !q || r.values.some(v => String(v).toLowerCase().includes(q)));
+        const pending = req.rows.filter(r => !r.authorized).length;
+        els.count.textContent = rows.length + (q ? ' of ' + req.rows.length : '') + ' request(s) • ' + pending + ' pending';
+
+        let html = '<thead><tr>' +
+            req.headers.map((h, i) => '<th>' + esc(h || ('Column ' + (i + 1))) + '</th>').join('') +
+            '<th>Status</th><th style="width:190px;">Actions</th></tr></thead><tbody>';
+
+        if (rows.length === 0) {
+            html += '<tr><td colspan="' + (req.headers.length + 2) + '" style="text-align:center;color:#64748b;padding:20px;">No access requests.</td></tr>';
+        }
+
+        rows.forEach(r => {
+            html += '<tr>';
+            req.headers.forEach((h, c) => { html += '<td>' + esc(r.values[c] || '') + '</td>'; });
+            html += r.authorized
+                ? '<td><span class="adm-tag" style="background:#dcfce7;color:#166534;">AUTHORIZED</span></td>'
+                : '<td><span class="adm-tag" style="background:#fef3c7;color:#92400e;">PENDING</span></td>';
+            const em = esc((r.values[req.emailCol] || '').trim());
+            html += '<td>' +
+                (r.authorized ? '' : '<button class="adm-btn adm-green" data-ract="approve" data-row="' + r.row + '" data-email="' + em + '">Approve</button> ') +
+                '<button class="adm-btn adm-red" data-ract="dismiss" data-row="' + r.row + '" data-email="' + em + '">Dismiss</button></td></tr>';
+        });
+        html += '</tbody>';
+        els.table.innerHTML = html;
+    }
+
+    // ---------------------------------------------------------------- COMMON
+    function render() {
+        if (!els) return;
+        els.tabAccounts.classList.toggle('adm-tab-active', tab === 'accounts');
+        els.tabRequests.classList.toggle('adm-tab-active', tab === 'requests');
+        const pending = req.rows.filter(r => !r.authorized).length;
+        els.tabRequests.textContent = '📨 Access Requests' + (req.loaded ? ' (' + pending + ')' : '');
+        els.addRow.style.display = tab === 'accounts' ? 'flex' : 'none';
+        if (tab === 'accounts') renderAccounts(); else renderRequests();
+    }
+
+    async function loadAll(msg) {
         setBusy(true);
-        setStatus('Loading accounts...', 'info');
-        try {
-            const p = await adminCall('adminList');
-            applyPayload(p);
-            setStatus(showMsg || '', 'ok');
-        } catch (err) {
-            setStatus(err.message, 'error');
-        } finally { setBusy(false); }
+        setStatus('Loading...', 'info');
+        let errMsg = '';
+        try { applyAccounts(await adminCall('adminList')); } catch (err) { errMsg = err.message; }
+        try { applyRequests(await adminCall('adminRequests')); }
+        catch (err) { errMsg = errMsg || ('Access requests: ' + err.message); }
+        setBusy(false);
+        render();
+        if (errMsg) setStatus(errMsg, 'error'); else setStatus(msg || '', 'ok');
     }
 
     async function runWrite(action, extra) {
@@ -2493,35 +2547,51 @@ window.addEventListener('DOMContentLoaded', () => {
         setStatus('Saving to Google Sheet...', 'info');
         try {
             const p = await adminCall(action, extra);
-            applyPayload(p);
+            if (action === 'adminApproveRequest' || action === 'adminDismissRequest') {
+                if (p.accounts) applyAccounts(p.accounts);
+                applyRequests(p);
+            } else {
+                applyAccounts(p);
+            }
             setStatus(p.message || 'Done.', 'ok');
             return true;
         } catch (err) {
             setStatus(err.message, 'error');
             return false;
-        } finally { setBusy(false); }
+        } finally { setBusy(false); render(); }
     }
 
-    function findRow(rowNum) {
-        return state.rows.find(r => r.row === Number(rowNum));
-    }
+    function findRow(rowNum) { return acc.rows.find(r => r.row === Number(rowNum)); }
 
     function onTableClick(e) {
-        const btn = e.target.closest('button[data-act]');
-        if (!btn || state.busy) return;
+        const btn = e.target.closest('button');
+        if (!btn || busy) return;
+
+        const ract = btn.getAttribute('data-ract');
+        if (ract) {
+            const row = btn.getAttribute('data-row');
+            const email = btn.getAttribute('data-email') || '';
+            if (ract === 'approve') {
+                runWrite('adminApproveRequest', { row: row, email: email });
+            } else if (ract === 'dismiss') {
+                if (confirm('Dismiss the request from ' + email + '?\nThis removes it from the Request Access sheet.')) {
+                    runWrite('adminDismissRequest', { row: row, email: email });
+                }
+            }
+            return;
+        }
+
         const act = btn.getAttribute('data-act');
         const rowNum = btn.getAttribute('data-row');
         const r = rowNum ? findRow(rowNum) : null;
-
-        if (act === 'edit' && r) { state.editingRow = r.row; render(); }
-        else if (act === 'cancel') { state.editingRow = null; render(); setStatus('', 'info'); }
+        if (act === 'edit' && r) { acc.editingRow = r.row; render(); }
+        else if (act === 'cancel') { acc.editingRow = null; render(); setStatus('', 'info'); }
         else if (act === 'save' && r) {
             const input = document.getElementById('admEditInput');
-            const newEmail = input ? input.value.trim() : '';
-            runWrite('adminUpdate', { row: r.row, oldEmail: (r.values[state.emailCol] || '').trim(), email: newEmail });
+            runWrite('adminUpdate', { row: r.row, oldEmail: (r.values[acc.emailCol] || '').trim(), email: input ? input.value.trim() : '' });
         }
         else if (act === 'delete' && r) {
-            const em = r.values[state.emailCol] || '';
+            const em = r.values[acc.emailCol] || '';
             if (confirm('Remove ' + em + ' from the authorized accounts?\nThey will no longer be able to open the web app.')) {
                 runWrite('adminDelete', { row: r.row, email: em.trim() });
             }
@@ -2535,16 +2605,27 @@ window.addEventListener('DOMContentLoaded', () => {
         if (ok) els.addInput.value = '';
     }
 
+    function switchTab(t) {
+        if (busy) return;
+        tab = t;
+        els.search.value = '';
+        setStatus('', 'info');
+        render();
+    }
+
     function buildUI() {
         const style = document.createElement('style');
         style.textContent = `
         #adminOpenBtn{position:fixed;top:20px;right:130px;background:#4f46e5;color:#fff;border:none;padding:10px 18px;border-radius:5px;font-weight:bold;cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,.3);z-index:999999;display:none;transition:background-color .2s;}
         #adminOpenBtn:hover{background:#4338ca;}
         #adminOverlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:300000;padding:15px;box-sizing:border-box;}
-        #adminPanel{background:#fff;border-radius:8px;width:100%;max-width:900px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 8px 30px rgba(0,0,0,.4);font-family:Arial,sans-serif;overflow:hidden;}
+        #adminPanel{background:#fff;border-radius:8px;width:100%;max-width:950px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 8px 30px rgba(0,0,0,.4);font-family:Arial,sans-serif;overflow:hidden;}
         #adminPanel .adm-head{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:#1e293b;color:#fff;}
         #adminPanel .adm-head h3{margin:0;font-size:18px;}
         #adminPanel .adm-close{background:transparent;border:none;color:#fff;font-size:24px;cursor:pointer;line-height:1;}
+        #adminPanel .adm-tabs{display:flex;gap:4px;padding:10px 20px 0;background:#f8fafc;border-bottom:1px solid #e2e8f0;}
+        #adminPanel .adm-tab{background:transparent;border:none;border-bottom:3px solid transparent;padding:9px 14px;font-weight:bold;font-size:14px;color:#64748b;cursor:pointer;}
+        #adminPanel .adm-tab-active{color:#4f46e5;border-bottom-color:#4f46e5;}
         #adminPanel .adm-body{padding:16px 20px;overflow:auto;}
         #adminPanel .adm-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;}
         #adminPanel input[type=text],#adminPanel input[type=email],#adminPanel input[type=search]{padding:9px 10px;border:1px solid #cbd5e1;border-radius:4px;font-size:14px;box-sizing:border-box;}
@@ -2555,7 +2636,7 @@ window.addEventListener('DOMContentLoaded', () => {
         #adminPanel .adm-tablewrap{overflow:auto;border:1px solid #e2e8f0;border-radius:6px;max-height:50vh;}
         #adminPanel table{width:100%;border-collapse:collapse;font-size:14px;}
         #adminPanel th{background:#f1f5f9;text-align:left;padding:9px 10px;position:sticky;top:0;border-bottom:1px solid #e2e8f0;color:#334155;}
-        #adminPanel td{padding:8px 10px;border-bottom:1px solid #f1f5f9;color:#1e293b;word-break:break-all;}
+        #adminPanel td{padding:8px 10px;border-bottom:1px solid #f1f5f9;color:#1e293b;word-break:break-word;}
         .adm-edit-input{width:100%;}
         .adm-tag{background:#e0e7ff;color:#3730a3;font-size:10px;padding:2px 6px;border-radius:10px;font-weight:bold;margin-left:4px;}
         #adminStatus{min-height:20px;margin-top:10px;font-size:13px;font-weight:bold;}
@@ -2571,14 +2652,18 @@ window.addEventListener('DOMContentLoaded', () => {
         overlay.id = 'adminOverlay';
         overlay.innerHTML = `
         <div id="adminPanel">
-            <div class="adm-head"><h3>🛡️ Admin Panel — Authorized Accounts</h3><button class="adm-close" id="adminCloseBtn" title="Close">&times;</button></div>
+            <div class="adm-head"><h3>🛡️ Admin Panel</h3><button class="adm-close" id="adminCloseBtn" title="Close">&times;</button></div>
+            <div class="adm-tabs">
+                <button class="adm-tab adm-tab-active" id="adminTabAccounts">👥 Authorized Accounts</button>
+                <button class="adm-tab" id="adminTabRequests">📨 Access Requests</button>
+            </div>
             <div class="adm-body">
-                <div class="adm-row">
+                <div class="adm-row" id="adminAddRow">
                     <input type="email" id="adminAddInput" class="adm-grow" placeholder="Add Gmail account (e.g. name@gmail.com)">
                     <button class="adm-btn adm-green" id="adminAddBtn">➕ Add Email</button>
                 </div>
                 <div class="adm-row">
-                    <input type="search" id="adminSearchInput" class="adm-grow" placeholder="Search accounts...">
+                    <input type="search" id="adminSearchInput" class="adm-grow" placeholder="Search...">
                     <button class="adm-btn adm-gray" id="adminRefreshBtn">🔄 Refresh</button>
                     <span id="adminCount" style="font-size:13px;color:#64748b;"></span>
                 </div>
@@ -2595,29 +2680,34 @@ window.addEventListener('DOMContentLoaded', () => {
             table: document.getElementById('adminTable'),
             search: document.getElementById('adminSearchInput'),
             addInput: document.getElementById('adminAddInput'),
+            addRow: document.getElementById('adminAddRow'),
             count: document.getElementById('adminCount'),
-            status: document.getElementById('adminStatus')
+            status: document.getElementById('adminStatus'),
+            tabAccounts: document.getElementById('adminTabAccounts'),
+            tabRequests: document.getElementById('adminTabRequests')
         };
 
         openBtn.addEventListener('click', () => {
             if (!isAdminSession()) return;
             overlay.style.display = 'flex';
             document.body.style.overflow = 'hidden';
-            loadList('');
+            loadAll('');
         });
         document.getElementById('adminCloseBtn').addEventListener('click', closeAdmin);
-        overlay.addEventListener('mousedown', e => { if (e.target === overlay && !state.busy) closeAdmin(); });
+        overlay.addEventListener('mousedown', e => { if (e.target === overlay && !busy) closeAdmin(); });
         document.getElementById('adminAddBtn').addEventListener('click', onAdd);
         els.addInput.addEventListener('keydown', e => { if (e.key === 'Enter') onAdd(); });
-        document.getElementById('adminRefreshBtn').addEventListener('click', () => loadList('Refreshed.'));
+        document.getElementById('adminRefreshBtn').addEventListener('click', () => loadAll('Refreshed.'));
+        els.tabAccounts.addEventListener('click', () => switchTab('accounts'));
+        els.tabRequests.addEventListener('click', () => switchTab('requests'));
         els.search.addEventListener('input', render);
         els.table.addEventListener('click', onTableClick);
         els.table.addEventListener('keydown', e => {
             if (e.target && e.target.id === 'admEditInput') {
                 if (e.key === 'Enter') {
-                    const r = findRow(state.editingRow);
-                    if (r) runWrite('adminUpdate', { row: r.row, oldEmail: (r.values[state.emailCol] || '').trim(), email: e.target.value.trim() });
-                } else if (e.key === 'Escape') { state.editingRow = null; render(); }
+                    const r = findRow(acc.editingRow);
+                    if (r) runWrite('adminUpdate', { row: r.row, oldEmail: (r.values[acc.emailCol] || '').trim(), email: e.target.value.trim() });
+                } else if (e.key === 'Escape') { acc.editingRow = null; render(); }
             }
         });
     }
@@ -2626,11 +2716,65 @@ window.addEventListener('DOMContentLoaded', () => {
         if (!els) return;
         els.overlay.style.display = 'none';
         document.body.style.overflow = '';
-        state.editingRow = null;
+        acc.editingRow = null;
+    }
+
+    // ---------------------------------------------------------------- PHOTO DELETE
+    // The photo viewer (renderModalPhotoViewer) rebuilds its buttons every time,
+    // so we watch for it and add a Delete button next to "Download Photo"
+    // when the admin is signed in. Regular users never get this button.
+    async function deleteCurrentPhoto(btn) {
+        const photo = modalPhotos[currentPhotoIndex];
+        if (!photo || activeEditIndex === null) return;
+        const item = inventoryData.find(r => r._rowId === activeEditIndex);
+        if (!item) return;
+        const articleKey = headerMapping['article/item'];
+        const itemCode = String(item[articleKey] || '').trim();
+
+        if (!confirm('Delete "' + photo.label + '" for item ' + itemCode + '?\n\nThe file will be removed from Google Drive (moved to Trash) and unlinked from the sheet.')) return;
+
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Deleting...';
+        try {
+            await adminCall('adminDeletePhoto', { itemCode: itemCode, url: photo.url, photoKey: photo.key });
+
+            const mapped = headerMapping[photo.key];
+            if (mapped) item[mapped] = '';
+            try { delete imageCache[photo.url]; } catch (e) {}
+
+            modalPhotos.splice(currentPhotoIndex, 1);
+            if (currentPhotoIndex >= modalPhotos.length) currentPhotoIndex = Math.max(0, modalPhotos.length - 1);
+            modalModified = true; // closing the modal refreshes the table from the sheet
+            renderModalPhotoViewer();
+        } catch (err) {
+            alert('Could not delete photo: ' + err.message);
+            btn.disabled = false;
+            btn.textContent = originalText;
+        }
+    }
+
+    function injectPhotoDeleteButtons() {
+        if (!isAdminSession()) return;
+        document.querySelectorAll('.photo-actions-container').forEach(container => {
+            if (container.querySelector('.adm-photo-del')) return;
+            const b = document.createElement('button');
+            b.className = 'photo-action-btn adm-photo-del';
+            b.textContent = '🗑️ Delete Photo';
+            b.style.background = '#dc2626';
+            b.style.color = '#ffffff';
+            b.style.borderColor = '#dc2626';
+            b.addEventListener('click', (e) => { e.stopPropagation(); deleteCurrentPhoto(b); });
+            container.appendChild(b);
+        });
     }
 
     window.addEventListener('DOMContentLoaded', () => {
         buildUI();
+
+        const watchTarget = document.getElementById('editModal') || document.body;
+        new MutationObserver(injectPhotoDeleteButtons).observe(watchTarget, { childList: true, subtree: true });
+
         // Show the Admin button only while the admin is logged in and the main app is visible
         setInterval(() => {
             const mainApp = document.getElementById('mainApp');
