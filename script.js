@@ -2795,7 +2795,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const LABEL = { INSURED: 'Insured', EXPIRING: 'Expiring', EXPIRED: 'Expired', NOT_INSURED: 'Not Insured' };
     const COLOR = { INSURED: '#16a34a', EXPIRING: '#f59e0b', EXPIRED: '#dc2626', NOT_INSURED: '#94a3b8' };
     const HINT  = { INSURED: 'Coverage in force', EXPIRING: 'Ends within 30 days', EXPIRED: 'Coverage has lapsed', NOT_INSURED: 'No policy on record' };
-    let statusFilter = 'ALL', sortKey = 'days', sortDir = 1, records = [];
+    let statusFilter = 'ALL', sortKey = 'days', sortDir = 1, records = [], insFilteredRows = [];
     let playing = false, playTimer = null;
     function countUp(el, to) {
         if (matchMedia('(prefers-reduced-motion: reduce)').matches || to === 0) { el.textContent = to; return; }
@@ -2904,6 +2904,7 @@ window.addEventListener('DOMContentLoaded', () => {
                        : String(r[sortKey] || '').toLowerCase();
         rows.sort((a, b) => { const x = val(a), y = val(b); return (x > y ? 1 : x < y ? -1 : 0) * sortDir; });
 
+        insFilteredRows = rows; // remembered for "Export Searched"
         $('insCount').textContent = rows.length + ' of ' + records.length;
         $('insBody').innerHTML = rows.length ? rows.map((r, ri) => {
             const cls = r.days === null ? '' : r.days < 0 ? 'neg' : r.days <= INSURANCE_EXPIRING_DAYS ? 'warn' : '';
@@ -3007,6 +3008,14 @@ window.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('#insTable th[data-k]').forEach(th => th.onclick = () => {
             sortDir = sortKey === th.dataset.k ? -sortDir : 1; sortKey = th.dataset.k; render();
         });
+        // Export Searched: same HTML report (with embedded photos) as the Inventory tab,
+        // limited to the insurance rows currently shown after search/status filters.
+        $('insExportButton').onclick = () => {
+            const data = insFilteredRows
+                .map(r => inventoryData.find(x => x._rowId === r.id))
+                .filter(Boolean);
+            downloadSearchedHTML(data);
+        };
         $('insDetailOverlay').addEventListener('mousedown', e => { if (e.target === $('insDetailOverlay')) closeDetail(); });
         document.addEventListener('keydown', e => {
             if (e.key === 'Escape' && $('insDetailOverlay').style.display === 'flex') closeDetail();
