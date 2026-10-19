@@ -1144,22 +1144,15 @@
         }
 
         /* =========================================================
-           INSURANCE MONITOR (pop-up window)
+           TABS + INSURANCE VIEW
            ========================================================= */
-        .ins-open-wrap { text-align:center; margin:-14px 0 30px; }
-        .ins-open-btn { font:inherit; font-size:14px; font-weight:700; letter-spacing:.4px; padding:12px 26px; border-radius:12px; border:none; cursor:pointer; color:#fff; background:linear-gradient(180deg,var(--navy-700),var(--navy-900)); box-shadow:var(--shadow-md); display:inline-flex; align-items:center; gap:10px; transition:transform .15s, box-shadow .15s; }
-        .ins-open-btn:hover { transform:translateY(-2px); box-shadow:var(--shadow-lg); }
-        .ins-open-btn .ins-btn-badge { background:var(--amber); color:#3b2a04; font-size:12px; padding:1px 9px; border-radius:999px; }
-        .ins-open-btn .ins-btn-badge:empty { display:none; }
-        #insOverlay { z-index:90000; }
-        #insOverlay.show { display:flex; }
-        .ins-modal { position:relative; background:var(--surface); width:1200px; max-width:96%; max-height:92vh; overflow-y:auto; border-radius:18px; border:1px solid var(--line); box-shadow:var(--shadow-lg); }
-        .ins-modal::before { content:""; position:absolute; top:0; left:0; right:0; height:5px; background:linear-gradient(90deg,var(--navy-800),var(--blue-500),var(--blue-400)); }
-        .ins-head { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; padding:30px 64px 18px 24px; border-bottom:1px solid var(--line); }
-        .ins-head h2 { margin:0; font-size:22px; font-weight:800; letter-spacing:.8px; text-transform:uppercase; color:var(--navy-900); }
-        .ins-head .ins-sub { margin:4px 0 0; font-size:12px; font-weight:600; letter-spacing:1.3px; text-transform:uppercase; color:var(--blue-600); }
-        .ins-pill { font-size:12px; font-weight:600; padding:6px 12px; border-radius:999px; background:var(--blue-100); color:var(--blue-600); }
-        .ins-body { padding:22px 24px 26px; }
+        .app-tabs { display:flex; gap:6px; margin:0 0 26px; padding:6px; background:var(--blue-50); border:1px solid var(--blue-100); border-radius:14px; width:fit-content; max-width:100%; }
+        .app-tab { font:inherit; font-size:13px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; padding:11px 22px; border:none; border-radius:10px; background:transparent; color:var(--ink-500); cursor:pointer; transition:background .15s,color .15s,box-shadow .15s; display:flex; align-items:center; gap:8px; }
+        .app-tab:hover { color:var(--navy-800); }
+        .app-tab.active { background:#fff; color:var(--blue-600); box-shadow:var(--shadow-sm); }
+        .app-tab .tab-badge { font-size:11px; background:var(--amber); color:#3b2a04; padding:1px 8px; border-radius:999px; }
+        .app-tab .tab-badge:empty { display:none; }
+        #insuranceView { display:none; }
         .ins-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; }
         .ins-kpi { text-align:left; font:inherit; color:inherit; background:#fff; border:1px solid var(--line); border-left:5px solid var(--c); border-radius:var(--radius-md); padding:14px 16px; cursor:pointer; box-shadow:var(--shadow-sm); transition:transform .18s, box-shadow .18s; }
         .ins-kpi:hover { transform:translateY(-3px); box-shadow:var(--shadow-md); }
@@ -1170,7 +1163,7 @@
         .ins-kpi.alert { animation:insGlow 1.8s ease-in-out infinite; }
         @keyframes insGlow { 0%,100% { box-shadow:0 0 0 0 rgba(245,158,11,.55); } 50% { box-shadow:0 0 0 8px rgba(245,158,11,0); } }
         @media (prefers-reduced-motion:reduce) { .ins-kpi.alert { animation:none; } }
-        .ins-health { margin:20px 0 4px; }
+        .ins-health { margin:22px 0 4px; }
         .ins-health-top { display:flex; justify-content:space-between; font-size:12px; font-weight:700; letter-spacing:.8px; text-transform:uppercase; color:var(--ink-500); margin-bottom:8px; }
         .ins-bar { display:flex; height:14px; border-radius:999px; overflow:hidden; background:var(--line); }
         .ins-bar i { display:block; height:100%; transition:width .4s; }
@@ -1184,11 +1177,19 @@
         .ins-b-NOT_INSURED { background:#e2e8f0; color:#334155; }
         #insTable th { cursor:pointer; user-select:none; white-space:nowrap; }
         #insTable th:hover { color:#8cc4f5; }
-        #insTable td:nth-child(6) { max-width:340px; font-size:12px; }
+        #insTable td:nth-child(7) { max-width:320px; font-size:12px; }
         .ins-days { font-weight:700; white-space:nowrap; }
         .ins-days.neg { color:var(--red); }
         .ins-days.warn { color:#b45309; }
-        @media (max-width:768px) { .ins-head { padding:26px 56px 14px 16px; } .ins-head h2 { font-size:18px; } .ins-body { padding:16px; } }
+        .ins-detail { background:#fff; border-radius:18px; border-top:5px solid var(--blue-500); max-width:520px; width:95%; padding:26px; box-shadow:var(--shadow-lg); max-height:90vh; overflow:auto; position:relative; box-sizing:border-box; }
+        .ins-detail h3 { margin:0 0 4px; font-size:20px; font-weight:800; color:var(--navy-900); }
+        .ins-detail .ins-desc { color:var(--ink-500); font-size:14px; margin-bottom:14px; }
+        .ins-row { display:flex; justify-content:space-between; align-items:center; gap:14px; padding:11px 0; border-bottom:1px solid var(--line); font-size:14px; }
+        .ins-row span:first-child { color:var(--ink-500); font-weight:700; text-transform:uppercase; font-size:11px; letter-spacing:.7px; }
+        .ins-row span:last-child { font-weight:600; text-align:right; color:var(--ink-900); }
+        .ins-notes { margin-top:16px; padding:12px 14px; border-radius:10px; background:var(--canvas); border:1px solid var(--line); font-size:13px; color:var(--ink-700); }
+        .ins-notes b { display:block; font-size:11px; text-transform:uppercase; letter-spacing:.7px; color:var(--navy-700); margin-bottom:4px; }
+        @media (max-width:768px) { .app-tabs { width:100%; } .app-tab { flex:1; justify-content:center; padding:10px 8px; } }
     </style>
 </head>
 <body>
@@ -1252,6 +1253,13 @@
 
             <div id="statusBanner" class="status-banner">System Canvas Ready. Attempting Live Data Link...</div>
 
+            <!-- 🗂️ VIEW TABS -->
+            <div class="app-tabs" role="tablist">
+                <button class="app-tab active" id="tabInventory" role="tab">📦 Inventory</button>
+                <button class="app-tab" id="tabInsurance" role="tab">🛡️ Insurance <span class="tab-badge" id="insTabBadge"></span></button>
+            </div>
+
+            <div id="inventoryView">
             <div class="dashboard-row">
                 <div class="dash-card">
                     <div class="dash-title">Total Properties</div>
@@ -1277,39 +1285,6 @@
                     <div class="dash-title">Tax Declaration</div>
                     <div id="countTaxDec" class="dash-value">0</div>
                 </div>
-            </div>
-
-<h3 class="dash-section-title" style="margin-top: 10px;">Building Insurance Overview <span id="clearInsFilterBtn" style="display:none; font-size: 12px; cursor:pointer; color: #57a1e0; text-transform: none; margin-left: 10px;">(Clear Filter)</span></h3>
-<div class="dashboard-row">
-    
-    <div class="dash-card ins-card" id="cardInsured" style="border-left-color: #28a745; cursor: pointer; transition: transform 0.2s; display: flex; flex-direction: column; align-items: center; text-align: center;" title="Click to filter">
-        <img src="insured.png" class="type-icon" onerror="this.style.display='none'">
-        <div id="countInsured" class="dash-value">0</div>
-        <div class="dash-title" style="margin-top: 5px;">Insured (Active)</div>
-    </div>
-    
-    <div class="dash-card ins-card" id="cardNotInsured" style="border-left-color: #dc3545; cursor: pointer; transition: transform 0.2s; display: flex; flex-direction: column; align-items: center; text-align: center;" title="Click to filter">
-        <img src="notinsured.png" class="type-icon" onerror="this.style.display='none'">
-        <div id="countNotInsured" class="dash-value">0</div>
-        <div class="dash-title" style="margin-top: 5px;">Not Insured</div>
-    </div>
-    
-    <div class="dash-card ins-card" id="cardExpiring" style="border-left-color: #ffc107; cursor: pointer; transition: transform 0.2s; display: flex; flex-direction: column; align-items: center; text-align: center;" title="Click to filter">
-        <img src="expiring.png" class="type-icon" onerror="this.style.display='none'">
-        <div id="countExpiring" class="dash-value">0</div>
-        <div class="dash-title" style="margin-top: 5px;">Expiring / Expired</div>
-    </div>
-    
-</div>
-
-
-
-
-
-
-
-            <div class="ins-open-wrap">
-                <button class="ins-open-btn" id="insOpenBtn">🛡️ Open Insurance Monitor <span class="ins-btn-badge" id="insBtnBadge"></span></button>
             </div>
 
             <h3 class="dash-section-title">Property Types Overview</h3>
@@ -1390,24 +1365,10 @@
                 </div>
             </div>
 
-            <footer class="site-footer">
-                <p>&copy; 2026 Webpage Created by <strong>Noel Rie N. Deliña</strong> | Property Management Division</p>
-            </footer>
-        </div>
-    </div>
+            </div><!-- /inventoryView -->
 
-    <!-- 🛡️ INSURANCE MONITOR POP-UP -->
-    <div id="insOverlay" class="modal-overlay">
-        <div class="ins-modal" role="dialog" aria-label="Building Insurance Monitor">
-            <button id="insCloseX" class="close-x-btn" title="Close">&times;</button>
-            <div class="ins-head">
-                <div>
-                    <h2>Building Insurance Monitor</h2>
-                    <p class="ins-sub">Property Management Division</p>
-                </div>
-                <span class="ins-pill" id="insToday"></span>
-            </div>
-            <div class="ins-body">
+            <!-- 🛡️ INSURANCE VIEW -->
+            <div id="insuranceView">
                 <div class="ins-kpis" id="insKpis"></div>
                 <div class="ins-health">
                     <div class="ins-health-top"><span>Coverage health</span><span id="insHealthPct"></span></div>
@@ -1417,7 +1378,7 @@
                 <div class="filter-row" style="margin-top:22px;">
                     <div class="input-group">
                         <label class="input-label" for="insSearch">Search:</label>
-                        <input type="search" id="insSearch" class="input-box" placeholder="Article no., description, notes...">
+                        <input type="search" id="insSearch" class="input-box" placeholder="Article no., description, insurer, policy no....">
                     </div>
                     <div class="input-group">
                         <label class="input-label" for="insStatus">Status:</label>
@@ -1431,21 +1392,32 @@
                         <button id="insReset" class="reset-filter-btn btn-neu">Reset Filters</button>
                     </div>
                 </div>
-                <div class="table-label-row">
-                    <span class="table-label">Insurance Register <span id="insCount" style="display:inline-block;font-weight:600;color:var(--blue-600);font-size:12px;background:var(--blue-100);padding:3px 10px;border-radius:999px;margin-left:8px;"></span></span>
+                <div class="table-section">
+                    <div class="table-label-row">
+                        <span class="table-label">Insurance Register <span id="insCount" style="display:inline-block;font-weight:600;color:var(--blue-600);font-size:12px;background:var(--blue-100);padding:3px 10px;border-radius:999px;margin-left:8px;"></span></span>
+                    </div>
+                    <div class="property-table-container">
+                        <table class="property-table" id="insTable">
+                            <thead><tr>
+                                <th data-k="article">Article no./ TCT no.</th><th data-k="description">Description</th><th data-k="status">Status</th>
+                                <th data-k="insurer">Insurer</th><th data-k="end">Coverage End</th><th data-k="days">Days Left</th><th data-k="notes">Notes</th>
+                            </tr></thead>
+                            <tbody id="insBody"></tbody>
+                        </table>
+                    </div>
+                    <p style="text-align:center;font-size:12px;color:var(--ink-500);margin:12px 0 0;">Click a row for insurance details. Click a column heading to sort.</p>
                 </div>
-                <div class="property-table-container" style="max-height:48vh;overflow:auto;">
-                    <table class="property-table" id="insTable">
-                        <thead><tr>
-                            <th data-k="article">Article no./ TCT no.</th><th data-k="description">Description</th>
-                            <th data-k="status">Status</th><th data-k="end">Coverage End</th><th data-k="days">Days Left</th><th data-k="notes">Notes</th>
-                        </tr></thead>
-                        <tbody id="insBody"></tbody>
-                    </table>
-                </div>
-                <p style="text-align:center;font-size:12px;color:var(--ink-500);margin:12px 0 0;">Click a row to open the property details (edit Notes there to renew a policy). Click a column heading to sort.</p>
-            </div>
+            </div><!-- /insuranceView -->
+
+            <footer class="site-footer">
+                <p>&copy; 2026 Webpage Created by <strong>Noel Rie N. Deliña</strong> | Property Management Division</p>
+            </footer>
         </div>
+    </div>
+
+    <!-- 🛡️ INSURANCE DETAILS WINDOW -->
+    <div id="insDetailOverlay" class="modal-overlay">
+        <div class="ins-detail" id="insDetail"></div>
     </div>
 
     <!-- MODALS -->
