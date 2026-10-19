@@ -1142,6 +1142,43 @@
             #paginationContainer { padding: 6px 15px; font-size: 12px; }
             #backToTopBtn { padding: 10px 16px; font-size: 12px; }
         }
+
+        /* =========================================================
+           INSURANCE TAB (integrated view)
+           ========================================================= */
+        .app-tabs { display:flex; gap:6px; margin:0 0 26px; padding:6px; background:var(--blue-50); border:1px solid var(--blue-100); border-radius:14px; width:fit-content; max-width:100%; }
+        .app-tab { font-size:13px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; padding:11px 22px; border:none; border-radius:10px; background:transparent; color:var(--ink-500); cursor:pointer; transition:background .15s,color .15s,box-shadow .15s; display:flex; align-items:center; gap:8px; }
+        .app-tab:hover { color:var(--navy-800); }
+        .app-tab.active { background:#fff; color:var(--blue-600); box-shadow:var(--shadow-sm); }
+        .app-tab .tab-badge { font-size:11px; background:var(--amber); color:#3b2a04; padding:1px 8px; border-radius:999px; }
+        .app-tab .tab-badge:empty { display:none; }
+        #insuranceView { display:none; }
+        .ins-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; }
+        .ins-kpi { text-align:left; font:inherit; color:inherit; background:#fff; border:1px solid var(--line); border-left:5px solid var(--c); border-radius:var(--radius-md); padding:14px 16px; cursor:pointer; box-shadow:var(--shadow-sm); transition:transform .18s, box-shadow .18s; }
+        .ins-kpi:hover { transform:translateY(-3px); box-shadow:var(--shadow-md); }
+        .ins-kpi.on { background:var(--blue-50); box-shadow:0 0 0 2px var(--c); }
+        .ins-kpi .t { font-size:11px; font-weight:700; letter-spacing:.8px; text-transform:uppercase; color:var(--ink-500); }
+        .ins-kpi .v { font-size:30px; font-weight:800; letter-spacing:-.02em; line-height:1.15; color:var(--navy-900); }
+        .ins-kpi .h { font-size:12px; color:var(--ink-500); }
+        .ins-health { margin:22px 0 4px; }
+        .ins-health-top { display:flex; justify-content:space-between; font-size:12px; font-weight:700; letter-spacing:.8px; text-transform:uppercase; color:var(--ink-500); margin-bottom:8px; }
+        .ins-bar { display:flex; height:14px; border-radius:999px; overflow:hidden; background:var(--line); }
+        .ins-bar i { display:block; height:100%; transition:width .4s; }
+        .ins-legend { display:flex; gap:16px; flex-wrap:wrap; margin-top:8px; font-size:12px; color:var(--ink-500); }
+        .ins-legend b { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:middle; }
+        .ins-badge { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; padding:4px 10px; border-radius:999px; white-space:nowrap; }
+        .ins-badge::before { content:""; width:7px; height:7px; border-radius:50%; background:currentColor; }
+        .ins-b-INSURED { background:#dcfce7; color:#166534; }
+        .ins-b-EXPIRING { background:#fef3c7; color:#92400e; }
+        .ins-b-EXPIRED { background:#fee2e2; color:#991b1b; }
+        .ins-b-NOT_INSURED { background:#e2e8f0; color:#334155; }
+        #insTable th { cursor:pointer; user-select:none; white-space:nowrap; }
+        #insTable th:hover { color:#8cc4f5; }
+        #insTable td:nth-child(7) { max-width:320px; font-size:12px; }
+        .ins-days { font-weight:700; white-space:nowrap; }
+        .ins-days.neg { color:var(--red); }
+        .ins-days.warn { color:#b45309; }
+        @media (max-width:768px) { .app-tabs { width:100%; } .app-tab { flex:1; justify-content:center; padding:10px 8px; } }
     </style>
 </head>
 <body>
@@ -1205,6 +1242,13 @@
 
             <div id="statusBanner" class="status-banner">System Canvas Ready. Attempting Live Data Link...</div>
 
+            <!-- 🗂️ VIEW TABS -->
+            <div class="app-tabs" role="tablist">
+                <button class="app-tab active" id="tabInventory" data-tab="inventory" role="tab">📦 Inventory</button>
+                <button class="app-tab" id="tabInsurance" data-tab="insurance" role="tab">🛡️ Insurance <span class="tab-badge" id="insTabBadge"></span></button>
+            </div>
+
+            <div id="inventoryView">
             <div class="dashboard-row">
                 <div class="dash-card">
                     <div class="dash-title">Total Properties</div>
@@ -1338,6 +1382,50 @@
                     </table>
                 </div>
             </div>
+
+            </div><!-- /inventoryView -->
+
+            <!-- 🛡️ INSURANCE VIEW -->
+            <div id="insuranceView">
+                <div class="ins-kpis" id="insKpis"></div>
+                <div class="ins-health">
+                    <div class="ins-health-top"><span>Coverage health</span><span id="insHealthPct"></span></div>
+                    <div class="ins-bar" id="insBar"></div>
+                    <div class="ins-legend" id="insLegend"></div>
+                </div>
+                <div class="filter-row" style="margin-top:22px;">
+                    <div class="input-group">
+                        <label class="input-label" for="insSearch">Search:</label>
+                        <input type="search" id="insSearch" class="input-box" placeholder="Article no., description, notes...">
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label" for="insStatus">Status:</label>
+                        <select id="insStatus" class="filter-select">
+                            <option value="ALL">-- All Statuses --</option>
+                            <option value="INSURED">Insured (Active)</option>
+                            <option value="EXPIRING">Expiring (30 days or less)</option>
+                            <option value="EXPIRED">Expired</option>
+                            <option value="NOT_INSURED">Not Insured</option>
+                        </select>
+                        <button id="insReset" class="reset-filter-btn btn-neu">Reset Filters</button>
+                    </div>
+                </div>
+                <div class="table-section">
+                    <div class="table-label-row">
+                        <span class="table-label">Insurance Register <span id="insCount" style="display:inline-block;font-weight:600;color:var(--blue-600);font-size:12px;background:var(--blue-100);padding:3px 10px;border-radius:999px;margin-left:8px;"></span></span>
+                    </div>
+                    <div class="property-table-container">
+                        <table class="property-table" id="insTable">
+                            <thead><tr>
+                                <th data-k="article">Article no./ TCT no.</th><th data-k="description">Description</th><th data-k="type">Type</th>
+                                <th data-k="status">Status</th><th data-k="end">Coverage End</th><th data-k="days">Days Left</th><th data-k="notes">Notes</th>
+                            </tr></thead>
+                            <tbody id="insBody"></tbody>
+                        </table>
+                    </div>
+                    <p style="text-align:center;font-size:12px;color:var(--ink-500);margin:12px 0 0;">Click a row to open the property details (edit Notes there to renew a policy). Click a column heading to sort.</p>
+                </div>
+            </div><!-- /insuranceView -->
 
             <footer class="site-footer">
                 <p>&copy; 2026 Webpage Created by <strong>Noel Rie N. Deliña</strong> | Property Management Division</p>
