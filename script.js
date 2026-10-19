@@ -2835,9 +2835,10 @@ window.addEventListener('DOMContentLoaded', () => {
 
         const alerts = c.EXPIRING + c.EXPIRED;
         $('insTabBadge').textContent = alerts > 0 ? alerts : '';
+        $('insTabBadge').classList.toggle('has-expired', c.EXPIRED > 0);
 
         $('insKpis').innerHTML = Object.keys(LABEL).map(k =>
-            `<button class="ins-kpi ${k === 'EXPIRING' && c[k] ? 'alert' : ''} ${statusFilter === k ? 'on' : ''}" data-s="${k}" style="--c:${COLOR[k]}">
+            `<button class="ins-kpi ${k === 'EXPIRING' && c[k] ? 'alert' : ''} ${k === 'EXPIRED' && c[k] ? 'alert-red' : ''} ${statusFilter === k ? 'on' : ''}" data-s="${k}" style="--c:${COLOR[k]}">
                 <div class="t">${LABEL[k]}</div><div class="v">${c[k]}</div><div class="h">${HINT[k]}</div></button>`).join('');
         $('insKpis').querySelectorAll('.ins-kpi').forEach(b => b.onclick = () => {
             statusFilter = statusFilter === b.dataset.s ? 'ALL' : b.dataset.s;
