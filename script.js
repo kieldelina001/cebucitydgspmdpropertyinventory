@@ -2788,18 +2788,16 @@ window.addEventListener('DOMContentLoaded', () => {
 
 
 // =========================================================================
-// 🛡️ INSURANCE MONITOR POP-UP WINDOW
-// Reads the SAME inventoryData the main app already loaded (no extra login
-// or fetch). Rows open the existing property details modal on top.
+// 🛡️ INSURANCE TAB + DETAILS WINDOW
+// Uses the SAME inventoryData already loaded by the app (no extra fetch).
 // =========================================================================
 (function () {
     const LABEL = { INSURED: 'Insured', EXPIRING: 'Expiring', EXPIRED: 'Expired', NOT_INSURED: 'Not Insured' };
     const COLOR = { INSURED: '#16a34a', EXPIRING: '#f59e0b', EXPIRED: '#dc2626', NOT_INSURED: '#94a3b8' };
     const HINT  = { INSURED: 'Coverage in force', EXPIRING: 'Ends within 30 days', EXPIRED: 'Coverage has lapsed', NOT_INSURED: 'No policy on record' };
-    let statusFilter = 'ALL', sortKey = 'days', sortDir = 1;
+    let statusFilter = 'ALL', sortKey = 'days', sortDir = 1, records = [];
     const $ = id => document.getElementById(id);
     const fmtDate = d => d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-    const isOpen = () => $('insOverlay') && $('insOverlay').classList.contains('show');
 
     function details(row) {
         const notes = String(row[headerMapping['notes']] || '');
@@ -2815,23 +2813,28 @@ window.addEventListener('DOMContentLoaded', () => {
                 days = Math.round((end - t) / 86400000);
             }
         }
+        // "Insurer: GSIS. Policy No. GS-30241. Coverage: ..."
+        const ins = notes.match(/insurer\s*:\s*(.+?)(?:\.\s*(?:policy|coverage)|\s*$)/i);
+        const pol = notes.match(/policy\s*(?:no\.?|number|#)\s*:?\s*([A-Za-z0-9][A-Za-z0-9\-\/]*)/i);
         return {
             id: row._rowId, status, end, days, notes,
+            insurer: ins ? ins[1].trim() : '-',
+            policy: pol ? pol[1].trim() : '-',
             article: String(row[headerMapping['article/item']] || ''),
             description: String(row[headerMapping['description']] || '')
         };
     }
+    const timeLeft = r => r.days === null ? '-' : r.days < 0 ? Math.abs(r.days) + ' days overdue' : r.days + ' days remaining';
 
     function render() {
         if (!$('insKpis') || !Array.isArray(inventoryData) || !inventoryData.length) return;
-        const all = inventoryData.map(details).filter(Boolean);
+        records = inventoryData.map(details).filter(Boolean);
         const c = { INSURED: 0, EXPIRING: 0, EXPIRED: 0, NOT_INSURED: 0 };
-        all.forEach(r => { c[r.status]++; });
-        const total = all.length || 1;
+        records.forEach(r => { c[r.status]++; });
+        const total = records.length || 1;
 
         const alerts = c.EXPIRING + c.EXPIRED;
-        $('insBtnBadge').textContent = alerts > 0 ? alerts + ' need attention' : '';
-        $('insToday').textContent = 'As of ' + new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        $('insTabBadge').textContent = alerts > 0 ? alerts : '';
 
         $('insKpis').innerHTML = Object.keys(LABEL).map(k =>
             `<button class="ins-kpi ${k === 'EXPIRING' && c[k] ? 'alert' : ''} ${statusFilter === k ? 'on' : ''}" data-s="${k}" style="--c:${COLOR[k]}">
@@ -2845,58 +2848,81 @@ window.addEventListener('DOMContentLoaded', () => {
         $('insHealthPct').textContent = Math.round(c.INSURED / total * 100) + '% fully covered';
 
         const q = ($('insSearch').value || '').trim().toLowerCase();
-        const rows = all.filter(r => (statusFilter === 'ALL' || r.status === statusFilter) &&
-            (!q || [r.article, r.description, r.notes].join(' ').toLowerCase().includes(q)));
+        const rows = records.filter(r => (statusFilter === 'ALL' || r.status === statusFilter) &&
+            (!q || [r.article, r.description, r.insurer, r.policy, r.notes].join(' ').toLowerCase().includes(q)));
         const val = r => sortKey === 'days' ? (r.days === null ? 1e9 : r.days)
                        : sortKey === 'end' ? (r.end ? r.end.getTime() : 1e15)
                        : String(r[sortKey] || '').toLowerCase();
         rows.sort((a, b) => { const x = val(a), y = val(b); return (x > y ? 1 : x < y ? -1 : 0) * sortDir; });
 
-        $('insCount').textContent = rows.length + ' of ' + all.length;
+        $('insCount').textContent = rows.length + ' of ' + records.length;
         $('insBody').innerHTML = rows.length ? rows.map(r => {
             const cls = r.days === null ? '' : r.days < 0 ? 'neg' : r.days <= INSURANCE_EXPIRING_DAYS ? 'warn' : '';
             const dtxt = r.days === null ? '-' : r.days < 0 ? Math.abs(r.days) + ' days overdue' : r.days + ' days';
             return `<tr data-id="${r.id}"><td>${escapeHtml(r.article)}</td><td>${escapeHtml(r.description)}</td>
-                <td><span class="ins-badge ins-b-${r.status}">${LABEL[r.status]}</span></td>
+                <td><span class="ins-badge ins-b-${r.status}">${LABEL[r.status]}</span></td><td>${escapeHtml(r.insurer)}</td>
                 <td>${r.end ? fmtDate(r.end) : '-'}</td><td class="ins-days ${cls}">${dtxt}</td><td>${escapeHtml(r.notes)}</td></tr>`;
-        }).join('') : '<tr><td colspan="6" class="no-data">No insurance records match the current filters.</td></tr>';
-        $('insBody').querySelectorAll('tr[data-id]').forEach(tr => tr.onclick = () => openPopUp(Number(tr.dataset.id)));
+        }).join('') : '<tr><td colspan="7" class="no-data">No insurance records match the current filters.</td></tr>';
+        $('insBody').querySelectorAll('tr[data-id]').forEach(tr => tr.onclick = () => openDetail(Number(tr.dataset.id)));
     }
 
-    function openIns() {
-        if (!Array.isArray(inventoryData) || !inventoryData.length) { alert('Data is still loading. Please try again in a moment.'); return; }
-        render();
-        $('insOverlay').classList.add('show');
+    // ---- Insurance details window (same for Insured, Expiring, Expired, Not Insured) ----
+    function openDetail(id) {
+        const r = records.find(x => x.id === id);
+        if (!r) return;
+        $('insDetail').innerHTML = `
+            <h3>${escapeHtml(r.article)}</h3>
+            <div class="ins-desc">${escapeHtml(r.description)}</div>
+            <div class="ins-row"><span>Status</span><span><span class="ins-badge ins-b-${r.status}">${LABEL[r.status]}</span></span></div>
+            <div class="ins-row"><span>Insurer</span><span>${escapeHtml(r.insurer)}</span></div>
+            <div class="ins-row"><span>Policy no.</span><span>${escapeHtml(r.policy)}</span></div>
+            <div class="ins-row"><span>Coverage end</span><span>${r.end ? fmtDate(r.end) : '-'}</span></div>
+            <div class="ins-row"><span>Time left</span><span>${timeLeft(r)}</span></div>
+            <div class="ins-notes"><b>Notes (from sheet)</b>${escapeHtml(r.notes)}</div>
+            <div class="modal-actions" style="margin-top:20px;padding-top:16px;">
+                <button class="modal-btn btn-edit" id="insOpenRecord">Open Property Record</button>
+                <button class="modal-btn btn-close" id="insDetailClose">Close</button>
+            </div>`;
+        $('insDetailClose').onclick = closeDetail;
+        $('insOpenRecord').onclick = () => { closeDetail(); openPopUp(id); };
+        $('insDetailOverlay').style.display = 'flex';
         document.body.style.overflow = 'hidden';
     }
-    function closeIns() {
-        $('insOverlay').classList.remove('show');
+    function closeDetail() {
+        $('insDetailOverlay').style.display = 'none';
         document.body.style.overflow = '';
     }
 
+    function switchTab(tab) {
+        const ins = tab === 'insurance';
+        $('inventoryView').style.display = ins ? 'none' : '';
+        $('insuranceView').style.display = ins ? 'block' : 'none';
+        $('tabInventory').classList.toggle('active', !ins);
+        $('tabInsurance').classList.toggle('active', ins);
+        if (ins) { if (paginationContainer) paginationContainer.style.display = 'none'; render(); }
+        else { updatePaginationUI(Math.ceil(currentFilteredData.length / itemsPerPage)); }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
     function init() {
-        if (!$('insOpenBtn')) return;
-        $('insOpenBtn').onclick = openIns;
-        $('insCloseX').onclick = closeIns;
-        $('insOverlay').addEventListener('mousedown', e => { if (e.target === $('insOverlay')) closeIns(); });
-        document.addEventListener('keydown', e => {
-            if (e.key === 'Escape' && isOpen() && editModal && editModal.style.display !== 'flex') closeIns();
-        });
+        if (!$('tabInsurance')) return;
+        $('tabInventory').onclick = () => switchTab('inventory');
+        $('tabInsurance').onclick = () => switchTab('insurance');
         $('insSearch').oninput = render;
         $('insStatus').onchange = () => { statusFilter = $('insStatus').value; render(); };
         $('insReset').onclick = () => { statusFilter = 'ALL'; $('insSearch').value = ''; $('insStatus').value = 'ALL'; render(); };
         document.querySelectorAll('#insTable th[data-k]').forEach(th => th.onclick = () => {
             sortDir = sortKey === th.dataset.k ? -sortDir : 1; sortKey = th.dataset.k; render();
         });
+        $('insDetailOverlay').addEventListener('mousedown', e => { if (e.target === $('insDetailOverlay')) closeDetail(); });
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && $('insDetailOverlay').style.display === 'flex') closeDetail();
+        });
     }
 
-    // Keep the pop-up live: re-render whenever the app refreshes insurance data
+    // Keep the tab live whenever the app refreshes (data load, focus, midnight rollover)
     const baseRefresh = refreshInsuranceCards;
     refreshInsuranceCards = function () { baseRefresh(); render(); };
-
-    // Closing the property popup must not unlock page scroll while this window is still open
-    const baseCloseModal = closeModal;
-    closeModal = function () { baseCloseModal(); if (isOpen()) document.body.style.overflow = 'hidden'; };
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
