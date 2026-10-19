@@ -2785,3 +2785,111 @@ window.addEventListener('DOMContentLoaded', () => {
         }, 1000);
     });
 })();
+
+
+// =========================================================================
+// 🛡️ INSURANCE TAB (integrated view)
+// Reads the SAME inventoryData already loaded by the main app, so there is
+// no extra login, fetch or sheet. Rows open the existing property modal.
+// =========================================================================
+(function () {
+    const LABEL = { INSURED: 'Insured', EXPIRING: 'Expiring', EXPIRED: 'Expired', NOT_INSURED: 'Not Insured' };
+    const COLOR = { INSURED: '#16a34a', EXPIRING: '#f59e0b', EXPIRED: '#dc2626', NOT_INSURED: '#94a3b8' };
+    const HINT  = { INSURED: 'Coverage in force', EXPIRING: 'Ends within 30 days', EXPIRED: 'Coverage has lapsed', NOT_INSURED: 'No policy on record' };
+    let statusFilter = 'ALL', sortKey = 'days', sortDir = 1, currentTab = 'inventory';
+    const $ = id => document.getElementById(id);
+    const fmtDate = d => d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+    function details(row) {
+        const notes = String(row[headerMapping['notes']] || '');
+        const status = getInsuranceStatus(notes);
+        if (status === 'NONE') return null;
+        let end = null, days = null;
+        if (status !== 'NOT_INSURED') {
+            const i = notes.search(/coverage/i);
+            const ds = extractDatesFromText(i >= 0 ? notes.slice(i) : notes);
+            if (ds.length) {
+                end = new Date(Math.max(...ds.map(d => d.getTime()))); end.setHours(0, 0, 0, 0);
+                const t = new Date(); t.setHours(0, 0, 0, 0);
+                days = Math.round((end - t) / 86400000);
+            }
+        }
+        return {
+            id: row._rowId, status, end, days, notes,
+            article: String(row[headerMapping['article/item']] || ''),
+            description: String(row[headerMapping['description']] || ''),
+            type: String(row[headerMapping['type']] || '')
+        };
+    }
+
+    function render() {
+        if (!$('insKpis') || !Array.isArray(inventoryData) || !inventoryData.length) return;
+        const all = inventoryData.map(details).filter(Boolean);
+        const c = { INSURED: 0, EXPIRING: 0, EXPIRED: 0, NOT_INSURED: 0 };
+        all.forEach(r => { c[r.status]++; });
+        const total = all.length || 1;
+
+        const badge = $('insTabBadge');
+        if (badge) badge.textContent = (c.EXPIRING + c.EXPIRED) > 0 ? (c.EXPIRING + c.EXPIRED) : '';
+
+        $('insKpis').innerHTML = Object.keys(LABEL).map(k =>
+            `<button class="ins-kpi ${statusFilter === k ? 'on' : ''}" data-s="${k}" style="--c:${COLOR[k]}">
+                <div class="t">${LABEL[k]}</div><div class="v">${c[k]}</div><div class="h">${HINT[k]}</div></button>`).join('');
+        $('insKpis').querySelectorAll('.ins-kpi').forEach(b => b.onclick = () => {
+            statusFilter = statusFilter === b.dataset.s ? 'ALL' : b.dataset.s;
+            $('insStatus').value = statusFilter; render();
+        });
+        $('insBar').innerHTML = Object.keys(LABEL).map(k => `<i style="width:${c[k] / total * 100}%;background:${COLOR[k]}" title="${LABEL[k]}: ${c[k]}"></i>`).join('');
+        $('insLegend').innerHTML = Object.keys(LABEL).map(k => `<span><b style="background:${COLOR[k]}"></b>${LABEL[k]} (${c[k]})</span>`).join('');
+        $('insHealthPct').textContent = Math.round(c.INSURED / total * 100) + '% fully covered';
+
+        const q = ($('insSearch').value || '').trim().toLowerCase();
+        const rows = all.filter(r => (statusFilter === 'ALL' || r.status === statusFilter) &&
+            (!q || [r.article, r.description, r.type, r.notes].join(' ').toLowerCase().includes(q)));
+        const val = r => sortKey === 'days' ? (r.days === null ? 1e9 : r.days)
+                       : sortKey === 'end' ? (r.end ? r.end.getTime() : 1e15)
+                       : String(r[sortKey] || '').toLowerCase();
+        rows.sort((a, b) => { const x = val(a), y = val(b); return (x > y ? 1 : x < y ? -1 : 0) * sortDir; });
+
+        $('insCount').textContent = rows.length + ' of ' + all.length;
+        $('insBody').innerHTML = rows.length ? rows.map(r => {
+            const cls = r.days === null ? '' : r.days < 0 ? 'neg' : r.days <= INSURANCE_EXPIRING_DAYS ? 'warn' : '';
+            const dtxt = r.days === null ? '-' : r.days < 0 ? Math.abs(r.days) + ' days overdue' : r.days + ' days';
+            return `<tr data-id="${r.id}"><td>${escapeHtml(r.article)}</td><td>${escapeHtml(r.description)}</td><td>${escapeHtml(r.type)}</td>
+                <td><span class="ins-badge ins-b-${r.status}">${LABEL[r.status]}</span></td>
+                <td>${r.end ? fmtDate(r.end) : '-'}</td><td class="ins-days ${cls}">${dtxt}</td><td>${escapeHtml(r.notes)}</td></tr>`;
+        }).join('') : '<tr><td colspan="7" class="no-data">No insurance records match the current filters.</td></tr>';
+        $('insBody').querySelectorAll('tr[data-id]').forEach(tr => tr.onclick = () => openPopUp(Number(tr.dataset.id)));
+    }
+
+    function switchTab(tab) {
+        currentTab = tab;
+        const ins = tab === 'insurance';
+        $('inventoryView').style.display = ins ? 'none' : '';
+        $('insuranceView').style.display = ins ? 'block' : 'none';
+        $('tabInventory').classList.toggle('active', !ins);
+        $('tabInsurance').classList.toggle('active', ins);
+        // the floating pagination only belongs to the Inventory table
+        if (ins) { if (paginationContainer) paginationContainer.style.display = 'none'; render(); }
+        else { updatePaginationUI(Math.ceil(currentFilteredData.length / itemsPerPage)); }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function init() {
+        if (!$('tabInsurance')) return;
+        $('tabInventory').onclick = () => switchTab('inventory');
+        $('tabInsurance').onclick = () => switchTab('insurance');
+        $('insSearch').oninput = render;
+        $('insStatus').onchange = () => { statusFilter = $('insStatus').value; render(); };
+        $('insReset').onclick = () => { statusFilter = 'ALL'; $('insSearch').value = ''; $('insStatus').value = 'ALL'; render(); };
+        document.querySelectorAll('#insTable th[data-k]').forEach(th => th.onclick = () => {
+            sortDir = sortKey === th.dataset.k ? -sortDir : 1; sortKey = th.dataset.k; render();
+        });
+    }
+
+    // Re-render whenever the app refreshes its insurance cards (data load, focus, midnight rollover)
+    const baseRefresh = refreshInsuranceCards;
+    refreshInsuranceCards = function () { baseRefresh(); render(); };
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
