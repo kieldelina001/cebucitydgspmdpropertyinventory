@@ -2815,6 +2815,8 @@ window.addEventListener('DOMContentLoaded', () => {
     const $ = id => document.getElementById(id);
     const fmtDate = d => d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
+    // Shown when an insured record's Notes don't name an insurer
+    const DEFAULT_INSURER = 'GSIS';
     // Known insurers (edit/add names here). First match found in the Notes wins.
     const INSURER_KEYWORDS = [
         [/\bgovernment\s+service\s+insurance\s+system\b/i, 'GSIS'],
@@ -2863,7 +2865,7 @@ window.addEventListener('DOMContentLoaded', () => {
         }
         return {
             id: row._rowId, status, end, days, notes,
-            insurer: parseInsurer(notes),
+            insurer: (function () { const p = parseInsurer(notes); return p !== '-' ? p : (status === 'NOT_INSURED' ? '-' : DEFAULT_INSURER); })(),
             policy: parsePolicy(notes),
             article: String(row[headerMapping['article/item']] || ''),
             description: String(row[headerMapping['description']] || '')
@@ -2949,12 +2951,54 @@ window.addEventListener('DOMContentLoaded', () => {
         $('tabInsurance').classList.toggle('active', ins);
         showEl.classList.remove('view-enter'); void showEl.offsetWidth; showEl.classList.add('view-enter');
         if (ins) { if (paginationContainer) paginationContainer.style.display = 'none'; playEntrance(); render(); }
-        else { updatePaginationUI(Math.ceil(currentFilteredData.length / itemsPerPage)); }
+        else { updatePaginationUI(Math.ceil(currentFilteredData.length / itemsPerPage)); playInventory(); }
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
+    // ================= INVENTORY TAB MOTION =================
+    function invNumbers() {
+        document.querySelectorAll('#inventoryView .dash-card .dash-value, #inventoryView .type-card .dash-value').forEach(el => {
+            const n = parseInt(String(el.textContent).replace(/,/g, ''), 10);
+            if (!isNaN(n)) countUp(el, n);
+        });
+    }
+    let invTimer = null;
+    function playInventory() {
+        const v = $('inventoryView');
+        if (!v) return;
+        v.classList.remove('inv-play'); void v.offsetWidth; v.classList.add('inv-play');
+        invNumbers();
+        clearTimeout(invTimer);
+        invTimer = setTimeout(() => v.classList.remove('inv-play'), 2400);
+    }
+    function invAlerts() {
+        const toNum = el => el ? (parseInt(String(el.textContent).replace(/,/g, ''), 10) || 0) : 0;
+        const nf = document.getElementById('countNotFound'), fv = document.getElementById('countVerification');
+        if (nf && nf.closest('.dash-card')) nf.closest('.dash-card').classList.toggle('inv-alert-red', toNum(nf) > 0);
+        if (fv && fv.closest('.dash-card')) fv.closest('.dash-card').classList.toggle('inv-alert-amber', toNum(fv) > 0);
+    }
+    function invIndexCards() {
+        document.querySelectorAll('#inventoryView .dashboard-row .dash-card').forEach((el, i) => el.style.setProperty('--i', i));
+        document.querySelectorAll('#inventoryView .type-card').forEach((el, i) => el.style.setProperty('--i', i));
+    }
+
+    // Replay the entrance whenever fresh totals are calculated (login / data reload)
+    const baseTotals = calculateStaticDashboardTotals;
+    calculateStaticDashboardTotals = function (items) {
+        baseTotals(items);
+        invIndexCards(); invAlerts();
+        if ($('inventoryView') && $('inventoryView').style.display !== 'none') playInventory();
+    };
+    // Stagger the table rows every time the table is rebuilt (search, filter, paging)
+    const baseRenderTable = renderTable;
+    renderTable = function (data, page) {
+        baseRenderTable(data, page);
+        document.querySelectorAll('#tableBody tr').forEach((tr, i) => tr.style.setProperty('--r', Math.min(i, 14)));
+    };
+
     function init() {
         if (!$('tabInsurance')) return;
+        invIndexCards();
         $('tabInventory').onclick = () => switchTab('inventory');
         $('tabInsurance').onclick = () => switchTab('insurance');
         $('insSearch').oninput = render;
