@@ -1251,6 +1251,26 @@
             #inventoryTable tbody tr:hover { transform:none; }
         }
         @media (max-width:768px) { .app-tabs { width:100%; } .app-tab { flex:1; justify-content:center; padding:10px 8px; } }
+
+        /* ✨ Property Details popup motion (mirrors the Insurance details window) */
+        @keyframes pdOverlayIn { from { opacity:0; } to { opacity:1; } }
+        #editModal .modal-box { animation:insPop .32s cubic-bezier(.2,.9,.3,1.15); }
+        #editModal { animation:pdOverlayIn .25s ease; }
+        #editModal .modal-header { animation:insFadeUp .4s ease both; animation-delay:.08s; }
+        #editModal .modal-fields-side .modal-field { animation:insSlideIn .4s ease both; animation-delay:calc(.12s + var(--fi, 0) * 70ms); }
+        #editModal .modal-fields-side .modal-field:nth-child(1) { --fi:0; }
+        #editModal .modal-fields-side .modal-field:nth-child(2) { --fi:1; }
+        #editModal .modal-fields-side .modal-field:nth-child(3) { --fi:2; }
+        #editModal .modal-fields-side .modal-field:nth-child(4) { --fi:3; }
+        #editModal .modal-fields-side .modal-field:nth-child(5) { --fi:4; }
+        #editModal .modal-fields-side .modal-field:nth-child(6) { --fi:5; }
+        #editModal .modal-photo-side { animation:insFadeUp .5s ease both; animation-delay:.25s; }
+        #editModal .modal-actions { animation:insFadeUp .45s ease both; animation-delay:.5s; }
+        @media (prefers-reduced-motion:reduce) {
+            #editModal, #editModal .modal-box, #editModal .modal-header,
+            #editModal .modal-fields-side .modal-field, #editModal .modal-photo-side,
+            #editModal .modal-actions { animation:none !important; }
+        }
     </style>
 </head>
 <body>
