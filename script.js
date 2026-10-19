@@ -2796,8 +2796,56 @@ window.addEventListener('DOMContentLoaded', () => {
     const COLOR = { INSURED: '#16a34a', EXPIRING: '#f59e0b', EXPIRED: '#dc2626', NOT_INSURED: '#94a3b8' };
     const HINT  = { INSURED: 'Coverage in force', EXPIRING: 'Ends within 30 days', EXPIRED: 'Coverage has lapsed', NOT_INSURED: 'No policy on record' };
     let statusFilter = 'ALL', sortKey = 'days', sortDir = 1, records = [];
+    let playing = false, playTimer = null;
+    function countUp(el, to) {
+        if (matchMedia('(prefers-reduced-motion: reduce)').matches || to === 0) { el.textContent = to; return; }
+        const t0 = performance.now(), dur = 800;
+        (function step(now) {
+            const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+            el.textContent = Math.round(to * e);
+            if (p < 1) requestAnimationFrame(step);
+        })(t0);
+    }
+    function playEntrance() {
+        const v = $('insuranceView');
+        playing = true; v.classList.remove('ins-play'); void v.offsetWidth; v.classList.add('ins-play');
+        clearTimeout(playTimer);
+        playTimer = setTimeout(() => { playing = false; v.classList.remove('ins-play'); }, 1600);
+    }
     const $ = id => document.getElementById(id);
     const fmtDate = d => d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+    // Known insurers (edit/add names here). First match found in the Notes wins.
+    const INSURER_KEYWORDS = [
+        [/\bgovernment\s+service\s+insurance\s+system\b/i, 'GSIS'],
+        [/\bGSIS\b/i, 'GSIS'],
+        [/\bmalayan\b/i, 'Malayan Insurance'],
+        [/\bstandard\s+insurance\b/i, 'Standard Insurance'],
+        [/\bpioneer\b/i, 'Pioneer Insurance'],
+        [/\bmapfre\b/i, 'Mapfre Insular'],
+        [/\bucpb\b/i, 'UCPB General Insurance'],
+        [/\bprudential\s+guarantee\b/i, 'Prudential Guarantee'],
+        [/\bphilippine\s+charter\b/i, 'Philippine Charter Insurance']
+    ];
+    function parseInsurer(notes) {
+        // 1) labelled:  "Insurer: GSIS"
+        let m = notes.match(/(?:insurer|insurance\s*company|insured\s*by|underwriter|provider)\s*[:\-]\s*(.+?)(?=\s*(?:[.;,|]\s*)?(?:policy|coverage)\b|\s*[.;|]\s|$)/i);
+        if (m && m[1].trim()) return m[1].trim();
+        // 2) a known insurer name anywhere in the notes
+        for (const [re, name] of INSURER_KEYWORDS) { if (re.test(notes)) return name; }
+        // 3) whatever sits between "BUILDING INSURED" and "Policy"/"Coverage"
+        m = notes.match(/building\s+insured\W*(.*?)(?=\s*(?:policy|coverage)\b|$)/i);
+        if (m) {
+            const t = m[1].replace(/^[\s.,:;\-–—]+|[\s.,:;\-–—]+$/g, '');
+            if (t && t.length <= 40) return t;
+        }
+        return '-';
+    }
+    function parsePolicy(notes) {
+        // "Policy Id 6300563296", "Policy ID: 6300563296", "Policy No. GS-30241", "Policy # 123"
+        const m = notes.match(/policy\s*(?:id|no\.?|number|#)\s*[:.\-]?\s*([A-Za-z0-9][A-Za-z0-9\-\/]*)/i);
+        return m ? m[1].trim() : '-';
+    }
 
     function details(row) {
         const notes = String(row[headerMapping['notes']] || '');
@@ -2813,13 +2861,10 @@ window.addEventListener('DOMContentLoaded', () => {
                 days = Math.round((end - t) / 86400000);
             }
         }
-        // "Insurer: GSIS. Policy No. GS-30241. Coverage: ..."
-        const ins = notes.match(/insurer\s*:\s*(.+?)(?:\.\s*(?:policy|coverage)|\s*$)/i);
-        const pol = notes.match(/policy\s*(?:no\.?|number|#)\s*:?\s*([A-Za-z0-9][A-Za-z0-9\-\/]*)/i);
         return {
             id: row._rowId, status, end, days, notes,
-            insurer: ins ? ins[1].trim() : '-',
-            policy: pol ? pol[1].trim() : '-',
+            insurer: parseInsurer(notes),
+            policy: parsePolicy(notes),
             article: String(row[headerMapping['article/item']] || ''),
             description: String(row[headerMapping['description']] || '')
         };
@@ -2837,9 +2882,10 @@ window.addEventListener('DOMContentLoaded', () => {
         $('insTabBadge').textContent = alerts > 0 ? alerts : '';
         $('insTabBadge').classList.toggle('has-expired', c.EXPIRED > 0);
 
-        $('insKpis').innerHTML = Object.keys(LABEL).map(k =>
-            `<button class="ins-kpi ${k === 'EXPIRING' && c[k] ? 'alert' : ''} ${k === 'EXPIRED' && c[k] ? 'alert-red' : ''} ${statusFilter === k ? 'on' : ''}" data-s="${k}" style="--c:${COLOR[k]}">
-                <div class="t">${LABEL[k]}</div><div class="v">${c[k]}</div><div class="h">${HINT[k]}</div></button>`).join('');
+        $('insKpis').innerHTML = Object.keys(LABEL).map((k, i) =>
+            `<div class="ins-cell" style="--i:${i}"><button class="ins-kpi ${k === 'EXPIRING' && c[k] ? 'alert' : ''} ${k === 'EXPIRED' && c[k] ? 'alert-red' : ''} ${statusFilter === k ? 'on' : ''}" data-s="${k}" style="--c:${COLOR[k]}">
+                <div class="t">${k === 'EXPIRED' && c[k] ? '<span class="ins-bell">🔔</span> ' : ''}${LABEL[k]}</div><div class="v" data-n="${c[k]}">${c[k]}</div><div class="h">${HINT[k]}</div></button></div>`).join('');
+        if (playing) $('insKpis').querySelectorAll('.v').forEach(el => countUp(el, Number(el.dataset.n)));
         $('insKpis').querySelectorAll('.ins-kpi').forEach(b => b.onclick = () => {
             statusFilter = statusFilter === b.dataset.s ? 'ALL' : b.dataset.s;
             $('insStatus').value = statusFilter; render();
@@ -2857,10 +2903,10 @@ window.addEventListener('DOMContentLoaded', () => {
         rows.sort((a, b) => { const x = val(a), y = val(b); return (x > y ? 1 : x < y ? -1 : 0) * sortDir; });
 
         $('insCount').textContent = rows.length + ' of ' + records.length;
-        $('insBody').innerHTML = rows.length ? rows.map(r => {
+        $('insBody').innerHTML = rows.length ? rows.map((r, ri) => {
             const cls = r.days === null ? '' : r.days < 0 ? 'neg' : r.days <= INSURANCE_EXPIRING_DAYS ? 'warn' : '';
             const dtxt = r.days === null ? '-' : r.days < 0 ? Math.abs(r.days) + ' days overdue' : r.days + ' days';
-            return `<tr data-id="${r.id}"><td>${escapeHtml(r.article)}</td><td>${escapeHtml(r.description)}</td>
+            return `<tr data-id="${r.id}" style="--r:${Math.min(ri, 14)}"><td>${escapeHtml(r.article)}</td><td>${escapeHtml(r.description)}</td>
                 <td><span class="ins-badge ins-b-${r.status}">${LABEL[r.status]}</span></td><td>${escapeHtml(r.insurer)}</td>
                 <td>${r.end ? fmtDate(r.end) : '-'}</td><td class="ins-days ${cls}">${dtxt}</td><td>${escapeHtml(r.notes)}</td></tr>`;
         }).join('') : '<tr><td colspan="7" class="no-data">No insurance records match the current filters.</td></tr>';
@@ -2874,11 +2920,11 @@ window.addEventListener('DOMContentLoaded', () => {
         $('insDetail').innerHTML = `
             <h3>${escapeHtml(r.article)}</h3>
             <div class="ins-desc">${escapeHtml(r.description)}</div>
-            <div class="ins-row"><span>Status</span><span><span class="ins-badge ins-b-${r.status}">${LABEL[r.status]}</span></span></div>
-            <div class="ins-row"><span>Insurer</span><span>${escapeHtml(r.insurer)}</span></div>
-            <div class="ins-row"><span>Policy no.</span><span>${escapeHtml(r.policy)}</span></div>
-            <div class="ins-row"><span>Coverage end</span><span>${r.end ? fmtDate(r.end) : '-'}</span></div>
-            <div class="ins-row"><span>Time left</span><span>${timeLeft(r)}</span></div>
+            <div class="ins-row" style="--i:0"><span>Status</span><span><span class="ins-badge ins-b-${r.status}">${LABEL[r.status]}</span></span></div>
+            <div class="ins-row" style="--i:1"><span>Insurer</span><span>${escapeHtml(r.insurer)}</span></div>
+            <div class="ins-row" style="--i:2"><span>Policy no.</span><span>${escapeHtml(r.policy)}</span></div>
+            <div class="ins-row" style="--i:3"><span>Coverage end</span><span>${r.end ? fmtDate(r.end) : '-'}</span></div>
+            <div class="ins-row" style="--i:4"><span>Time left</span><span>${timeLeft(r)}</span></div>
             <div class="ins-notes"><b>Notes (from sheet)</b>${escapeHtml(r.notes)}</div>
             <div class="modal-actions" style="margin-top:20px;padding-top:16px;">
                 <button class="modal-btn btn-edit" id="insOpenRecord">Open Property Record</button>
@@ -2896,11 +2942,13 @@ window.addEventListener('DOMContentLoaded', () => {
 
     function switchTab(tab) {
         const ins = tab === 'insurance';
+        const showEl = ins ? $('insuranceView') : $('inventoryView');
         $('inventoryView').style.display = ins ? 'none' : '';
         $('insuranceView').style.display = ins ? 'block' : 'none';
         $('tabInventory').classList.toggle('active', !ins);
         $('tabInsurance').classList.toggle('active', ins);
-        if (ins) { if (paginationContainer) paginationContainer.style.display = 'none'; render(); }
+        showEl.classList.remove('view-enter'); void showEl.offsetWidth; showEl.classList.add('view-enter');
+        if (ins) { if (paginationContainer) paginationContainer.style.display = 'none'; playEntrance(); render(); }
         else { updatePaginationUI(Math.ceil(currentFilteredData.length / itemsPerPage)); }
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
