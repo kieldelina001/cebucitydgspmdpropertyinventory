@@ -2788,17 +2788,18 @@ window.addEventListener('DOMContentLoaded', () => {
 
 
 // =========================================================================
-// 🛡️ INSURANCE TAB (integrated view)
-// Reads the SAME inventoryData already loaded by the main app, so there is
-// no extra login, fetch or sheet. Rows open the existing property modal.
+// 🛡️ INSURANCE MONITOR POP-UP WINDOW
+// Reads the SAME inventoryData the main app already loaded (no extra login
+// or fetch). Rows open the existing property details modal on top.
 // =========================================================================
 (function () {
     const LABEL = { INSURED: 'Insured', EXPIRING: 'Expiring', EXPIRED: 'Expired', NOT_INSURED: 'Not Insured' };
     const COLOR = { INSURED: '#16a34a', EXPIRING: '#f59e0b', EXPIRED: '#dc2626', NOT_INSURED: '#94a3b8' };
     const HINT  = { INSURED: 'Coverage in force', EXPIRING: 'Ends within 30 days', EXPIRED: 'Coverage has lapsed', NOT_INSURED: 'No policy on record' };
-    let statusFilter = 'ALL', sortKey = 'days', sortDir = 1, currentTab = 'inventory';
+    let statusFilter = 'ALL', sortKey = 'days', sortDir = 1;
     const $ = id => document.getElementById(id);
     const fmtDate = d => d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const isOpen = () => $('insOverlay') && $('insOverlay').classList.contains('show');
 
     function details(row) {
         const notes = String(row[headerMapping['notes']] || '');
@@ -2817,8 +2818,7 @@ window.addEventListener('DOMContentLoaded', () => {
         return {
             id: row._rowId, status, end, days, notes,
             article: String(row[headerMapping['article/item']] || ''),
-            description: String(row[headerMapping['description']] || ''),
-            type: String(row[headerMapping['type']] || '')
+            description: String(row[headerMapping['description']] || '')
         };
     }
 
@@ -2829,11 +2829,12 @@ window.addEventListener('DOMContentLoaded', () => {
         all.forEach(r => { c[r.status]++; });
         const total = all.length || 1;
 
-        const badge = $('insTabBadge');
-        if (badge) badge.textContent = (c.EXPIRING + c.EXPIRED) > 0 ? (c.EXPIRING + c.EXPIRED) : '';
+        const alerts = c.EXPIRING + c.EXPIRED;
+        $('insBtnBadge').textContent = alerts > 0 ? alerts + ' need attention' : '';
+        $('insToday').textContent = 'As of ' + new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
         $('insKpis').innerHTML = Object.keys(LABEL).map(k =>
-            `<button class="ins-kpi ${statusFilter === k ? 'on' : ''}" data-s="${k}" style="--c:${COLOR[k]}">
+            `<button class="ins-kpi ${k === 'EXPIRING' && c[k] ? 'alert' : ''} ${statusFilter === k ? 'on' : ''}" data-s="${k}" style="--c:${COLOR[k]}">
                 <div class="t">${LABEL[k]}</div><div class="v">${c[k]}</div><div class="h">${HINT[k]}</div></button>`).join('');
         $('insKpis').querySelectorAll('.ins-kpi').forEach(b => b.onclick = () => {
             statusFilter = statusFilter === b.dataset.s ? 'ALL' : b.dataset.s;
@@ -2845,7 +2846,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
         const q = ($('insSearch').value || '').trim().toLowerCase();
         const rows = all.filter(r => (statusFilter === 'ALL' || r.status === statusFilter) &&
-            (!q || [r.article, r.description, r.type, r.notes].join(' ').toLowerCase().includes(q)));
+            (!q || [r.article, r.description, r.notes].join(' ').toLowerCase().includes(q)));
         const val = r => sortKey === 'days' ? (r.days === null ? 1e9 : r.days)
                        : sortKey === 'end' ? (r.end ? r.end.getTime() : 1e15)
                        : String(r[sortKey] || '').toLowerCase();
@@ -2855,30 +2856,32 @@ window.addEventListener('DOMContentLoaded', () => {
         $('insBody').innerHTML = rows.length ? rows.map(r => {
             const cls = r.days === null ? '' : r.days < 0 ? 'neg' : r.days <= INSURANCE_EXPIRING_DAYS ? 'warn' : '';
             const dtxt = r.days === null ? '-' : r.days < 0 ? Math.abs(r.days) + ' days overdue' : r.days + ' days';
-            return `<tr data-id="${r.id}"><td>${escapeHtml(r.article)}</td><td>${escapeHtml(r.description)}</td><td>${escapeHtml(r.type)}</td>
+            return `<tr data-id="${r.id}"><td>${escapeHtml(r.article)}</td><td>${escapeHtml(r.description)}</td>
                 <td><span class="ins-badge ins-b-${r.status}">${LABEL[r.status]}</span></td>
                 <td>${r.end ? fmtDate(r.end) : '-'}</td><td class="ins-days ${cls}">${dtxt}</td><td>${escapeHtml(r.notes)}</td></tr>`;
-        }).join('') : '<tr><td colspan="7" class="no-data">No insurance records match the current filters.</td></tr>';
+        }).join('') : '<tr><td colspan="6" class="no-data">No insurance records match the current filters.</td></tr>';
         $('insBody').querySelectorAll('tr[data-id]').forEach(tr => tr.onclick = () => openPopUp(Number(tr.dataset.id)));
     }
 
-    function switchTab(tab) {
-        currentTab = tab;
-        const ins = tab === 'insurance';
-        $('inventoryView').style.display = ins ? 'none' : '';
-        $('insuranceView').style.display = ins ? 'block' : 'none';
-        $('tabInventory').classList.toggle('active', !ins);
-        $('tabInsurance').classList.toggle('active', ins);
-        // the floating pagination only belongs to the Inventory table
-        if (ins) { if (paginationContainer) paginationContainer.style.display = 'none'; render(); }
-        else { updatePaginationUI(Math.ceil(currentFilteredData.length / itemsPerPage)); }
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+    function openIns() {
+        if (!Array.isArray(inventoryData) || !inventoryData.length) { alert('Data is still loading. Please try again in a moment.'); return; }
+        render();
+        $('insOverlay').classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+    function closeIns() {
+        $('insOverlay').classList.remove('show');
+        document.body.style.overflow = '';
     }
 
     function init() {
-        if (!$('tabInsurance')) return;
-        $('tabInventory').onclick = () => switchTab('inventory');
-        $('tabInsurance').onclick = () => switchTab('insurance');
+        if (!$('insOpenBtn')) return;
+        $('insOpenBtn').onclick = openIns;
+        $('insCloseX').onclick = closeIns;
+        $('insOverlay').addEventListener('mousedown', e => { if (e.target === $('insOverlay')) closeIns(); });
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && isOpen() && editModal && editModal.style.display !== 'flex') closeIns();
+        });
         $('insSearch').oninput = render;
         $('insStatus').onchange = () => { statusFilter = $('insStatus').value; render(); };
         $('insReset').onclick = () => { statusFilter = 'ALL'; $('insSearch').value = ''; $('insStatus').value = 'ALL'; render(); };
@@ -2887,9 +2890,13 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Re-render whenever the app refreshes its insurance cards (data load, focus, midnight rollover)
+    // Keep the pop-up live: re-render whenever the app refreshes insurance data
     const baseRefresh = refreshInsuranceCards;
     refreshInsuranceCards = function () { baseRefresh(); render(); };
+
+    // Closing the property popup must not unlock page scroll while this window is still open
+    const baseCloseModal = closeModal;
+    closeModal = function () { baseCloseModal(); if (isOpen()) document.body.style.overflow = 'hidden'; };
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
