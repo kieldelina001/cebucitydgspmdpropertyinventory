@@ -1216,7 +1216,7 @@
         .ins-play .ins-cell { animation:insFadeUp .55s cubic-bezier(.2,.8,.2,1) both; animation-delay:calc(var(--i) * 90ms); }
         .ins-play .ins-bar i { transform-origin:left; animation:insGrow .9s cubic-bezier(.2,.8,.2,1) both; animation-delay:.25s; }
         .ins-play .ins-health { animation:insFadeUp .5s ease both; animation-delay:.3s; }
-        .ins-play #insBody tr { animation:insFadeUp .4s ease both; animation-delay:calc(.45s + var(--r) * 35ms); }
+        .ins-play #insBody tr { animation:insFadeUp .4s ease backwards; animation-delay:calc(.45s + var(--r) * 35ms); }
         .ins-bar { position:relative; }
         .ins-bar::after { content:""; position:absolute; inset:0; pointer-events:none; background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.55) 50%,transparent 65%); background-size:200% 100%; animation:insShimmer 3.2s linear infinite; }
         .ins-bell { display:inline-block; transform-origin:top center; animation:insBell 2.2s ease-in-out infinite; }
@@ -1231,6 +1231,24 @@
             .view-enter, .ins-play .ins-cell, .ins-play .ins-bar i, .ins-play .ins-health, .ins-play #insBody tr,
             .ins-bar::after, .ins-bell, .ins-b-EXPIRED, .ins-detail, .ins-detail .ins-row, .ins-detail .ins-notes { animation:none !important; }
             #insTable tbody tr:hover { transform:none; }
+        }
+        /* ✨ Inventory tab motion (mirrors the insurance tab) */
+        .dash-card.inv-alert-red { animation:insGlowRed 1.6s ease-in-out infinite; }
+        .dash-card.inv-alert-amber { animation:insGlow 1.8s ease-in-out infinite; }
+        .dash-card.inv-alert-red .dash-value { display:inline-block; animation:insCountPulse 1.6s ease-in-out infinite; }
+        .inv-play .dashboard-row .dash-card { animation:insFadeUp .55s cubic-bezier(.2,.8,.2,1) backwards; animation-delay:calc(var(--i) * 80ms); }
+        .inv-play .dash-section-title { animation:insFadeUp .5s ease backwards; animation-delay:.35s; }
+        .inv-play .type-card { animation:insPop .5s cubic-bezier(.2,.9,.3,1.15) backwards; animation-delay:calc(.45s + var(--i) * 45ms); }
+        .inv-play .filter-row { animation:insFadeUp .5s ease backwards; animation-delay:.9s; }
+        .inv-play .table-section { animation:insFadeUp .5s ease backwards; animation-delay:1s; }
+        #tableBody tr { animation:insFadeUp .35s ease backwards; animation-delay:calc(var(--r, 0) * 28ms); }
+        #inventoryTable tbody tr { transition:background-color .12s ease, transform .15s ease; }
+        #inventoryTable tbody tr:hover { transform:translateX(3px); }
+        @media (prefers-reduced-motion:reduce) {
+            .dash-card.inv-alert-red, .dash-card.inv-alert-amber, .dash-card.inv-alert-red .dash-value,
+            .inv-play .dashboard-row .dash-card, .inv-play .dash-section-title, .inv-play .type-card,
+            .inv-play .filter-row, .inv-play .table-section, #tableBody tr { animation:none !important; }
+            #inventoryTable tbody tr:hover { transform:none; }
         }
         @media (max-width:768px) { .app-tabs { width:100%; } .app-tab { flex:1; justify-content:center; padding:10px 8px; } }
     </style>
