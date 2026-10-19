@@ -2943,6 +2943,75 @@ window.addEventListener('DOMContentLoaded', () => {
         document.body.style.overflow = '';
     }
 
+    function exportInsuranceHTML() {
+        const data = insFilteredRows;
+        if (!data || data.length === 0) {
+            alert("Export Nullified: No dataset active for export.");
+            return;
+        }
+        const BADGE = { INSURED: ['#dcfce7', '#166534'], EXPIRING: ['#fef3c7', '#92400e'], EXPIRED: ['#fee2e2', '#991b1b'], NOT_INSURED: ['#e2e8f0', '#334155'] };
+        const cols = ['Article no./ TCT no.', 'Description', 'Status', 'Insurer', 'Coverage End', 'Days Left', 'Notes'];
+        const rowsHTML = data.map(r => {
+            const dtxt = r.days === null ? '-' : r.days < 0 ? Math.abs(r.days) + ' days overdue' : r.days + ' days';
+            const dcolor = r.days === null ? '#0f172a' : r.days < 0 ? '#dc2626' : r.days <= INSURANCE_EXPIRING_DAYS ? '#b45309' : '#0f172a';
+            const b = BADGE[r.status] || BADGE.NOT_INSURED;
+            return '<tr>' +
+                '<td>' + escapeHtml(r.article) + '</td>' +
+                '<td>' + escapeHtml(r.description) + '</td>' +
+                '<td><span style="background:' + b[0] + ';color:' + b[1] + ';padding:3px 10px;border-radius:999px;font-weight:bold;font-size:12px;white-space:nowrap;">' + escapeHtml(LABEL[r.status]) + '</span></td>' +
+                '<td>' + escapeHtml(r.insurer) + '</td>' +
+                '<td style="white-space:nowrap;">' + (r.end ? escapeHtml(fmtDate(r.end)) : '-') + '</td>' +
+                '<td style="white-space:nowrap;font-weight:bold;color:' + dcolor + ';">' + escapeHtml(dtxt) + '</td>' +
+                '<td>' + escapeHtml(r.notes) + '</td></tr>';
+        }).join('');
+
+        const statusSel = $('insStatus') ? $('insStatus').value : 'ALL';
+        const q = ($('insSearch').value || '').trim();
+        const filterNote = [
+            statusSel !== 'ALL' ? 'Status: ' + (LABEL[statusSel] || statusSel) : '',
+            q ? 'Search: "' + q + '"' : ''
+        ].filter(Boolean).join(' &bull; ');
+
+        const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Searched Insurance Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; color: #0f172a; background: #ffffff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        h1 { text-align: center; color: #0f172a; text-transform: uppercase; font-size: 24px; margin-bottom: 5px; }
+        .report-meta { text-align: center; font-size: 14px; color: #334155; margin-bottom: 25px; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
+        th, td { border: 1px solid #64748b; padding: 10px 12px; text-align: left; font-size: 14px; line-height: 1.4; word-break: break-word; color: #0f172a; vertical-align: middle; }
+        th { background-color: #cbd5e1 !important; font-weight: bold; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
+        tr:nth-child(even) { background-color: #f8fafc; }
+        @media print { body { margin: 10px; } tr { page-break-inside: avoid; } th { background-color: #cbd5e1 !important; } }
+    </style>
+</head>
+<body>
+    <h1>Insurance Register Report</h1>
+    <div class="report-meta">
+        Exported On: ${new Date().toLocaleString()} &bull; Total Records: ${data.length}${filterNote ? '<br>' + filterNote : ''}
+    </div>
+    <table>
+        <thead><tr>${cols.map(c => '<th>' + c + '</th>').join('')}</tr></thead>
+        <tbody>${rowsHTML}</tbody>
+    </table>
+</body>
+</html>`;
+
+        const blob = new Blob([html], { type: 'text/html;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `Searched_Insurance_Report_${new Date().toISOString().slice(0, 10)}.html`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+    }
+
     function switchTab(tab) {
         const ins = tab === 'insurance';
         const showEl = ins ? $('insuranceView') : $('inventoryView');
@@ -3008,14 +3077,9 @@ window.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('#insTable th[data-k]').forEach(th => th.onclick = () => {
             sortDir = sortKey === th.dataset.k ? -sortDir : 1; sortKey = th.dataset.k; render();
         });
-        // Export Searched: same HTML report (with embedded photos) as the Inventory tab,
-        // limited to the insurance rows currently shown after search/status filters.
-        $('insExportButton').onclick = () => {
-            const data = insFilteredRows
-                .map(r => inventoryData.find(x => x._rowId === r.id))
-                .filter(Boolean);
-            downloadSearchedHTML(data);
-        };
+        // Export Searched: HTML report with exactly the columns/rows shown in the
+        // Insurance Register table (after search + status filters). No photos.
+        $('insExportButton').onclick = exportInsuranceHTML;
         $('insDetailOverlay').addEventListener('mousedown', e => { if (e.target === $('insDetailOverlay')) closeDetail(); });
         document.addEventListener('keydown', e => {
             if (e.key === 'Escape' && $('insDetailOverlay').style.display === 'flex') closeDetail();
