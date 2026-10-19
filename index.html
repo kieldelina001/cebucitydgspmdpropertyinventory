@@ -1202,6 +1202,36 @@
         @media (prefers-reduced-motion:reduce) {
             .ins-kpi.alert-red, .ins-kpi.alert-red .v, .ins-b-EXPIRED::before, .app-tab .tab-badge.has-expired { animation:none; }
         }
+        /* ✨ Entrance + motion */
+        @keyframes insFadeUp { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
+        @keyframes insPop { from { opacity:0; transform:scale(.9) translateY(12px); } to { opacity:1; transform:none; } }
+        @keyframes insSlideIn { from { opacity:0; transform:translateX(-14px); } to { opacity:1; transform:none; } }
+        @keyframes insGrow { from { transform:scaleX(0); } to { transform:scaleX(1); } }
+        @keyframes insBell { 0%,60%,100% { transform:rotate(0); } 10% { transform:rotate(-18deg); } 20% { transform:rotate(16deg); } 30% { transform:rotate(-13deg); } 40% { transform:rotate(10deg); } 50% { transform:rotate(-5deg); } }
+        @keyframes insWiggle { 0%,88%,100% { transform:translateX(0); } 90% { transform:translateX(-3px); } 93% { transform:translateX(3px); } 96% { transform:translateX(-2px); } }
+        @keyframes insShimmer { from { background-position:200% 0; } to { background-position:-200% 0; } }
+        .view-enter { animation:insFadeUp .45s ease both; }
+        .ins-cell { display:block; }
+        .ins-cell .ins-kpi { width:100%; height:100%; }
+        .ins-play .ins-cell { animation:insFadeUp .55s cubic-bezier(.2,.8,.2,1) both; animation-delay:calc(var(--i) * 90ms); }
+        .ins-play .ins-bar i { transform-origin:left; animation:insGrow .9s cubic-bezier(.2,.8,.2,1) both; animation-delay:.25s; }
+        .ins-play .ins-health { animation:insFadeUp .5s ease both; animation-delay:.3s; }
+        .ins-play #insBody tr { animation:insFadeUp .4s ease both; animation-delay:calc(.45s + var(--r) * 35ms); }
+        .ins-bar { position:relative; }
+        .ins-bar::after { content:""; position:absolute; inset:0; pointer-events:none; background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.55) 50%,transparent 65%); background-size:200% 100%; animation:insShimmer 3.2s linear infinite; }
+        .ins-bell { display:inline-block; transform-origin:top center; animation:insBell 2.2s ease-in-out infinite; }
+        .ins-b-EXPIRED { animation:insWiggle 4s ease-in-out infinite; }
+        .ins-detail { animation:insPop .32s cubic-bezier(.2,.9,.3,1.15); }
+        .ins-detail .ins-row { animation:insSlideIn .4s ease both; animation-delay:calc(.12s + var(--i) * 70ms); }
+        .ins-detail .ins-notes { animation:insFadeUp .45s ease both; animation-delay:.5s; }
+        #insTable tbody tr { transition:background-color .12s ease, transform .15s ease; }
+        #insTable tbody tr:hover { transform:translateX(3px); }
+        .app-tab:active { transform:scale(.96); }
+        @media (prefers-reduced-motion:reduce) {
+            .view-enter, .ins-play .ins-cell, .ins-play .ins-bar i, .ins-play .ins-health, .ins-play #insBody tr,
+            .ins-bar::after, .ins-bell, .ins-b-EXPIRED, .ins-detail, .ins-detail .ins-row, .ins-detail .ins-notes { animation:none !important; }
+            #insTable tbody tr:hover { transform:none; }
+        }
         @media (max-width:768px) { .app-tabs { width:100%; } .app-tab { flex:1; justify-content:center; padding:10px 8px; } }
     </style>
 </head>
