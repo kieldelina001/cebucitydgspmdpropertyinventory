@@ -74,6 +74,8 @@ let tooltip, tooltipImg;
 let loadingOverlay, customNameModal;
 let countInsured, countNotInsured, countExpiring;
 let activeInsuranceFilter = 'ALL'; // Tracks which card is currently clicked
+let activeUnidFilter = 'ALL'; // 'ALL' | 'UNID_BUILDING' | 'UNID_LAND' | 'ID_BUILDING' | 'ID_LAND'
+let countUnidBuilding, countUnidLand;
 
 function resetAndFilterByItem(filterCategory, clickedValue) {
     // 1. Reset all filters and search inputs to default
@@ -131,6 +133,8 @@ countInsured = document.getElementById('countInsured');
 	countExpiring = document.getElementById('countExpiring');
 
     countBuilding = document.getElementById('countBuilding');
+    countUnidBuilding = document.getElementById('countUnidBuilding');
+    countUnidLand = document.getElementById('countUnidLand');
     countAssetMod = document.getElementById('countAssetMod'); 
     countFlood = document.getElementById('countFlood');
     countHospital = document.getElementById('countHospital');
@@ -438,6 +442,7 @@ function setupDashboardClickHandlers() {
         if (remarksFilter) remarksFilter.value = 'ALL';
         if (typeFilter) typeFilter.value = 'ALL';
         if (photoFilter) photoFilter.value = 'ALL';
+        activeUnidFilter = 'ALL';
         
         // Clear insurance UI filter if active
         if (typeof activeInsuranceFilter !== 'undefined') {
@@ -563,11 +568,13 @@ const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card')
 
    // --- 3. PROPERTY TYPE CARDS (Updated Keywords) ---
     const typeMappings = [
-        { id: 'countBuilding', keyword: 'BUILDING' },
+        { id: 'countBuilding', keyword: 'BUILDING', unid: 'ID_BUILDING' },
+        { id: 'countUnidBuilding', keyword: null, unid: 'UNID_BUILDING' },
         { id: 'countAssetMod', keyword: 'BUILDING MODIFICATION' }, // Changed from 'ASSET'
         { id: 'countFlood', keyword: 'FLOOD' },
         { id: 'countHospital', keyword: 'HOSPITAL' },
-        { id: 'countLand', keyword: 'LAND' },
+        { id: 'countLand', keyword: 'LAND', unid: 'ID_LAND' },
+        { id: 'countUnidLand', keyword: null, unid: 'UNID_LAND' },
         { id: 'countMarket', keyword: 'MARKET' },
         { id: 'countOtherInfra', keyword: 'OTHER INFRASTRUCTURE' },
         { id: 'countOtherLand', keyword: 'OTHER LAND' },
@@ -587,7 +594,8 @@ const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card')
             if (card) {
                 card.onclick = () => {
                     resetAllFilters(); // Reset everything first!
-                    if (typeFilter) {
+                    if (item.unid) activeUnidFilter = item.unid;
+                    if (item.keyword && typeFilter) {
                         const found = setDropdownByText(typeFilter, item.keyword);
                         if (!found && searchInput) {
                             searchInput.value = item.keyword; 
@@ -1208,6 +1216,27 @@ setInterval(() => {
     }
 }, 60 * 1000);
 
+// Has a Tax Declaration or any Transfer Certificate (TCT P1 / P2)?
+function hasOwnershipDocs(row) {
+    return ['tax declaration', 'transfer_cert1', 'transfer_cert2'].some(k => {
+        const hk = headerMapping[k];
+        return hk && row[hk] && String(row[hk]).trim() !== '';
+    });
+}
+
+// Returns 'BUILDING' / 'LAND' when the row is a plain Building or Land type with NO Tax Declaration and NO TCT, else null.
+// (Building Modifications, School, Hospital, Other Land, etc. are not affected.)
+function getUnidKind(row) {
+    const t = String(row[headerMapping['type']] || '').toUpperCase().trim();
+    if (hasOwnershipDocs(row)) return null;
+    if (t.includes('BUILDING MOD') || t.includes('ASSET MOD') || t.includes('SCHOOL') || t.includes('HOSPITAL') ||
+        t.includes('MARKET') || t.includes('OTHER') || t.includes('PARK') || t.includes('PLAZA') || t.includes('MONUMENT')) return null;
+    if (t.includes('LAND') || t === 'LOT') return 'LAND';
+    if (t.includes('FLOOD') || t.includes('WATER') || t.includes('ROAD') || t.includes('SLAUGHTERHOUSE')) return null;
+    if (t.includes('BUILDING')) return 'BUILDING';
+    return null;
+}
+
 function calculateStaticDashboardTotals(items) {
     if(!countTotal) return;
     countTotal.textContent = items.length;
@@ -1225,7 +1254,7 @@ const aKey = headerMapping['article/item'];
     let existing = 0, notfound = 0, verify = 0, photos = 0, taxdec = 0;
     
     let stats = {
-        'Building': 0, 'Building Modifications': 0, 'Flood Control': 0, 
+        'Building': 0, 'Unidentified Buildings': 0, 'Unidentified Lands': 0, 'Building Modifications': 0, 'Flood Control': 0, 
         'Hospital': 0, 'Land': 0, 'Markets': 0, 'Other Infrastructures': 0, 
         'Other Land Improvements': 0, 'Other Structures': 0, 
         'PARKS PLAZAS AND MONUMENTS': 0, 'Roads': 0, 'School Building': 0, 
@@ -1258,6 +1287,10 @@ const aKey = headerMapping['article/item'];
 
 
         
+        const unidKind = getUnidKind(row);
+        if (unidKind === 'BUILDING') { stats['Unidentified Buildings']++; return; }
+        if (unidKind === 'LAND') { stats['Unidentified Lands']++; return; }
+
         if (typeStr.includes('BUILDING MOD') || typeStr.includes('ASSET MOD')) stats['Building Modifications']++;
         else if (typeStr.includes('SCHOOL')) stats['School Building']++;
         else if (typeStr.includes('HOSPITAL')) stats['Hospital']++;
@@ -1281,6 +1314,8 @@ const aKey = headerMapping['article/item'];
     if(countTaxDec) countTaxDec.textContent = taxdec;
     
     if(countBuilding) countBuilding.textContent = stats['Building'];
+    if(countUnidBuilding) countUnidBuilding.textContent = stats['Unidentified Buildings'];
+    if(countUnidLand) countUnidLand.textContent = stats['Unidentified Lands'];
     if(countAssetMod) countAssetMod.textContent = stats['Building Modifications'];
     if(countFlood) countFlood.textContent = stats['Flood Control'];
     if(countHospital) countHospital.textContent = stats['Hospital'];
@@ -1360,7 +1395,16 @@ function executeSearch(resetPage = true) {
                 : (status === activeInsuranceFilter);
         }
         // ------------------------------------
-        return matchText && matchRem && matchType && matchPhoto && matchInsurance;
+        let matchUnid = true;
+        if (activeUnidFilter !== 'ALL') {
+            const kind = getUnidKind(row);
+            const t = String(row[tKey] || '').toUpperCase();
+            if (activeUnidFilter === 'UNID_BUILDING') matchUnid = (kind === 'BUILDING');
+            else if (activeUnidFilter === 'UNID_LAND') matchUnid = (kind === 'LAND');
+            else if (activeUnidFilter === 'ID_BUILDING') matchUnid = (kind === null && t.includes('BUILDING') && !t.includes('MOD') && !t.includes('SCHOOL') && !t.includes('OTHER') && !t.includes('ASSET'));
+            else if (activeUnidFilter === 'ID_LAND') matchUnid = (kind === null && (t.includes('LAND') || t === 'LOT') && !t.includes('OTHER'));
+        }
+        return matchText && matchRem && matchType && matchPhoto && matchInsurance && matchUnid;
     });
 
     if (foundCountDisplay) foundCountDisplay.textContent = `(${currentFilteredData.length} records active)`;
@@ -1725,6 +1769,7 @@ function setInsuranceFilter(filterMode, cardId) {
     if (remarksFilter) remarksFilter.value = 'ALL';
     if (typeFilter) typeFilter.value = 'ALL';
     if (photoFilter) photoFilter.value = 'ALL';
+    activeUnidFilter = 'ALL';
 
     // Set insurance filter mode directly
     activeInsuranceFilter = filterMode;
@@ -1793,6 +1838,7 @@ if(resetFiltersButton) {
 
         // Clear insurance filter
         activeInsuranceFilter = 'ALL';
+        activeUnidFilter = 'ALL';
 
         // Remove insurance card highlighting
         document.querySelectorAll('.ins-card').forEach(card => {
