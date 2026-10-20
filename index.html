@@ -1315,12 +1315,14 @@
         .dash-card, .type-card { transition: transform .2s var(--ease-out), box-shadow .2s var(--ease-out), border-color .2s ease; }
         .dash-card:hover, .type-card:hover { transform: translateY(-2px); }
 
-        /* Row hover: soft highlight + accent bar instead of scaling the row */
-        #inventoryTable tbody tr, #insTable tbody tr { transition: background-color .15s var(--ease-std); }
-        #inventoryTable tbody tr:hover { transform: none; }
-        #inventoryTable tbody tr:hover td { box-shadow: none; border-radius: 0; background-color: var(--blue-100); border-bottom-color: var(--line); }
-        #inventoryTable tbody tr:hover td:first-child, #insTable tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 var(--blue-500); }
-        #inventoryTable tbody tr:hover td.no-data, #insTable tbody tr:hover td.no-data { box-shadow: none; background-color: transparent; }
+        /* Row hover: identical lift effect on BOTH tables (Inventory + Insurance) */
+        #inventoryTable tbody tr, #insTable tbody tr { position: relative; transform: scale(1); transition: background-color .2s ease, transform .28s var(--ease-out); }
+        #inventoryTable tbody tr:hover, #insTable tbody tr:hover { transform: scale(1.015); z-index: 2; }
+        #inventoryTable tbody tr:hover td, #insTable tbody tr:hover td { background-color: var(--blue-100); border-bottom-color: transparent; box-shadow: 0 8px 16px -8px rgba(15,42,74,.35); }
+        #inventoryTable tbody tr:hover td:first-child, #insTable tbody tr:hover td:first-child { border-radius: 8px 0 0 8px; box-shadow: inset 3px 0 0 var(--blue-500), 0 8px 16px -8px rgba(15,42,74,.35); }
+        #inventoryTable tbody tr:hover td:last-child, #insTable tbody tr:hover td:last-child { border-radius: 0 8px 8px 0; }
+        #inventoryTable tbody tr:has(td.no-data):hover, #insTable tbody tr:has(td.no-data):hover, .sk-row:hover { transform: none; }
+        #inventoryTable tbody tr:hover td.no-data, #insTable tbody tr:hover td.no-data { box-shadow: none; background-color: transparent; border-radius: 0; }
         #inventoryTable tbody tr:has(td.no-data), #insTable tbody tr:has(td.no-data), .sk-row { cursor: default; }
         .property-table-container { min-height: 180px; }
 
@@ -1429,6 +1431,7 @@
             .ux-toast, .ux-toast-bar, .chip, .empty-state, .empty-state svg, .ux-loader-card, #dynamicLoadingOverlay,
             #editModal, #editModal .modal-box, #insDetailOverlay, #insDetailOverlay .ins-detail, .sk-line, #uxProgress::before { animation: none !important; }
             .tab-indicator.ready, .clear-x, #uxSyncPill, .dash-card, .type-card { transition: none !important; }
+            #inventoryTable tbody tr:hover, #insTable tbody tr:hover { transform: none; }
         }
     </style>
 </head>
