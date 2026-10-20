@@ -676,6 +676,7 @@
             border: 1px solid var(--line);
             width: 100%;
             overflow-x: auto;
+            overflow-y: hidden;
             box-sizing: border-box;
             border-radius: var(--radius-md);
             box-shadow: var(--shadow-sm);
@@ -1018,6 +1019,14 @@
             border-radius: 8px;
         }
 
+        
+        /* Hide floating buttons (Log Out, page selector, Top, Admin) outside the app / on the login screen */
+        body.app-locked .floating-controls,
+        body.app-locked #floatingLogoutBtn,
+        body.app-locked #adminOpenBtn,
+        body.app-locked #paginationContainer,
+        body.app-locked #backToTopBtn { display: none !important; }
+
         /* --- Floating Controls --- */
         .floating-controls {
             position: fixed;
@@ -1225,7 +1234,7 @@
         .ins-detail .ins-row { animation:insSlideIn .4s ease both; animation-delay:calc(.12s + var(--i) * 70ms); }
         .ins-detail .ins-notes { animation:insFadeUp .45s ease both; animation-delay:.5s; }
         #insTable tbody tr { transition:background-color .12s ease, transform .15s ease; }
-        #insTable tbody tr:hover { transform:translateX(3px); }
+        #insTable tbody tr:hover { transform:none; }
         .app-tab:active { transform:scale(.96); }
         @media (prefers-reduced-motion:reduce) {
             .view-enter, .ins-play .ins-cell, .ins-play .ins-bar i, .ins-play .ins-health, .ins-play #insBody tr,
@@ -1243,7 +1252,7 @@
         .inv-play .table-section { animation:insFadeUp .5s ease backwards; animation-delay:1s; }
         #tableBody tr { animation:insFadeUp .35s ease backwards; animation-delay:calc(var(--r, 0) * 28ms); }
         #inventoryTable tbody tr { transition:background-color .12s ease, transform .15s ease; }
-        #inventoryTable tbody tr:hover { transform:translateX(3px); }
+        #inventoryTable tbody tr:hover { transform:none; }
         @media (prefers-reduced-motion:reduce) {
             .dash-card.inv-alert-red, .dash-card.inv-alert-amber, .dash-card.inv-alert-red .dash-value,
             .inv-play .dashboard-row .dash-card, .inv-play .dash-section-title, .inv-play .type-card,
@@ -1459,7 +1468,7 @@
                 <div class="filter-row" style="margin-top:22px;">
                     <div class="input-group">
                         <label class="input-label" for="insSearch">Search:</label>
-                        <input type="search" id="insSearch" class="input-box" placeholder="Article no., description, insurer, policy no....">
+                        <input type="search" id="insSearch" class="input-box" placeholder="Article no., description, insurer, policy ID....">
                     </div>
                     <div class="input-group">
                         <label class="input-label" for="insStatus">Status:</label>
