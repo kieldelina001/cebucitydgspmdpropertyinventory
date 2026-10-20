@@ -594,7 +594,9 @@ const cardTaxDec = document.getElementById('countTaxDec')?.closest('.dash-card')
             if (card) {
                 card.onclick = () => {
                     resetAllFilters(); // Reset everything first!
-                    if (item.unid) activeUnidFilter = item.unid;
+                    if (item.unid && item.unid.startsWith('ID_')) activeUnidFilter = item.unid;
+                    if (item.unid === 'UNID_BUILDING' && typeFilter) typeFilter.value = '__UNID_BUILDING__';
+                    if (item.unid === 'UNID_LAND' && typeFilter) typeFilter.value = '__UNID_LAND__';
                     if (item.keyword && typeFilter) {
                         const found = setDropdownByText(typeFilter, item.keyword);
                         if (!found && searchInput) {
@@ -953,6 +955,19 @@ function populateDropdown(type, selectEl, placeholderText) {
         opt.value = val; opt.textContent = val;
         selectEl.appendChild(opt);
     });
+
+    // Add "Unidentified Buildings" / "Unidentified Lands" to the Type dropdown (placed right after Building / Land)
+    if (type === 'type') {
+        const addUnid = (afterName, value, label) => {
+            const opt = document.createElement('option');
+            opt.value = value; opt.textContent = label;
+            const anchor = Array.from(selectEl.options).find(o => o.value.toUpperCase().trim() === afterName);
+            if (anchor && anchor.nextSibling) selectEl.insertBefore(opt, anchor.nextSibling);
+            else selectEl.appendChild(opt);
+        };
+        addUnid('BUILDING', '__UNID_BUILDING__', 'UNIDENTIFIED BUILDINGS');
+        addUnid('LAND', '__UNID_LAND__', 'UNIDENTIFIED LANDS');
+    }
 
     // NEW: Add an "Insured" option to the Remarks dropdown (based on Notes-derived insurance status)
     if (type === 'remarks') {
@@ -1375,8 +1390,13 @@ function executeSearch(resetPage = true) {
             }
         }
         
-        if (typF !== 'ALL') {
-            matchType = (String(row[tKey] || '') === typF);
+        if (typF === '__UNID_BUILDING__') {
+            matchType = (getUnidKind(row) === 'BUILDING');
+        } else if (typF === '__UNID_LAND__') {
+            matchType = (getUnidKind(row) === 'LAND');
+        } else if (typF !== 'ALL') {
+            // Plain Building / Land selections exclude the unidentified ones (they have their own options)
+            matchType = (String(row[tKey] || '') === typF) && getUnidKind(row) === null;
         }
         
         if (phoF !== 'ALL') {
@@ -1884,7 +1904,7 @@ if(resetFiltersButton) {
 	if(searchButton) searchButton.addEventListener('click', () => executeSearch(true));
     
     if(remarksFilter) remarksFilter.addEventListener('change', () => executeSearch(true));
-    if(typeFilter) typeFilter.addEventListener('change', () => executeSearch(true));
+    if(typeFilter) typeFilter.addEventListener('change', () => { activeUnidFilter = 'ALL'; executeSearch(true); });
     if(photoFilter) photoFilter.addEventListener('change', () => executeSearch(true));
     
     if(exportButton) exportButton.addEventListener('click', () => downloadDatasetCSV(inventoryData, 'Full_Inventory'));
