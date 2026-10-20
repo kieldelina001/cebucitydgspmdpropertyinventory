@@ -677,12 +677,13 @@
             width: 100%;
             overflow-x: auto;
             overflow-y: hidden;
+            padding-bottom: 8px;
             box-sizing: border-box;
             border-radius: var(--radius-md);
             box-shadow: var(--shadow-sm);
             background: #fff;
         }
-        .property-table { width: 100%; min-width: 900px; border-collapse: separate; border-spacing: 0; table-layout: auto; }
+        .property-table { width: calc(100% - 24px); margin: 0 12px; min-width: 900px; border-collapse: separate; border-spacing: 0; table-layout: auto; }
 
         .property-table th, .property-table td {
             border-bottom: 1px solid var(--line);
@@ -696,6 +697,7 @@
             vertical-align: middle;
         }
         .property-table th:last-child, .property-table td:last-child { border-right: none; }
+        .property-table tbody td { transition: background-color .25s ease, box-shadow .25s ease, border-radius .25s ease; }
 
         /* UPDATED BY column (narrow) */
         .property-table th:nth-child(13),
@@ -1233,8 +1235,11 @@
         .ins-detail { animation:insPop .32s cubic-bezier(.2,.9,.3,1.15); }
         .ins-detail .ins-row { animation:insSlideIn .4s ease both; animation-delay:calc(.12s + var(--i) * 70ms); }
         .ins-detail .ins-notes { animation:insFadeUp .45s ease both; animation-delay:.5s; }
-        #insTable tbody tr { transition:background-color .12s ease, transform .15s ease; }
-        #insTable tbody tr:hover { transform:none; }
+        #insTable tbody tr { position:relative; transform:scale(1); transform-origin:center; transition:background-color .25s ease, transform .28s cubic-bezier(.2,.8,.2,1); will-change:transform; }
+        #insTable tbody tr:hover { transform:scale(1.015); z-index:2; }
+        #insTable tbody tr:hover td { background-color:var(--blue-100); border-bottom-color:transparent; box-shadow:0 8px 16px -8px rgba(15,42,74,.35); }
+        #insTable tbody tr:hover td:first-child { border-radius:8px 0 0 8px; }
+        #insTable tbody tr:hover td:last-child { border-radius:0 8px 8px 0; }
         .app-tab:active { transform:scale(.96); }
         @media (prefers-reduced-motion:reduce) {
             .view-enter, .ins-play .ins-cell, .ins-play .ins-bar i, .ins-play .ins-health, .ins-play #insBody tr,
@@ -1251,8 +1256,11 @@
         .inv-play .filter-row { animation:insFadeUp .5s ease backwards; animation-delay:.9s; }
         .inv-play .table-section { animation:insFadeUp .5s ease backwards; animation-delay:1s; }
         #tableBody tr { animation:insFadeUp .35s ease backwards; animation-delay:calc(var(--r, 0) * 28ms); }
-        #inventoryTable tbody tr { transition:background-color .12s ease, transform .15s ease; }
-        #inventoryTable tbody tr:hover { transform:none; }
+        #inventoryTable tbody tr { position:relative; transform:scale(1); transform-origin:center; transition:background-color .25s ease, transform .28s cubic-bezier(.2,.8,.2,1); will-change:transform; }
+        #inventoryTable tbody tr:hover { transform:scale(1.015); z-index:2; }
+        #inventoryTable tbody tr:hover td { background-color:var(--blue-100); border-bottom-color:transparent; box-shadow:0 8px 16px -8px rgba(15,42,74,.35); }
+        #inventoryTable tbody tr:hover td:first-child { border-radius:8px 0 0 8px; }
+        #inventoryTable tbody tr:hover td:last-child { border-radius:0 8px 8px 0; }
         @media (prefers-reduced-motion:reduce) {
             .dash-card.inv-alert-red, .dash-card.inv-alert-amber, .dash-card.inv-alert-red .dash-value,
             .inv-play .dashboard-row .dash-card, .inv-play .dash-section-title, .inv-play .type-card,
