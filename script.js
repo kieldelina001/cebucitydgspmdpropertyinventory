@@ -33,12 +33,12 @@ const EXPORT_TABLE_CONFIG = [
     { display: "Photo 2", key: "photo 2" },
     { display: "Map Coordinates", key: "map coordinates" },
     { display: "Tax Declaration", key: "tax declaration" },
-    { display: "Transfer Certificate of Title Page 1", key: "transfer_cert1" },
-    { display: "Transfer Certificate of Title Page 2", key: "transfer_cert2" },
+    { display: "Transfer Certificate (TCT) P1", key: "transfer_cert1" },
+    { display: "Transfer Certificate (TCT) P2", key: "transfer_cert2" },
 ];
 // =========================================================================
 
-const displayHeaders = ["Article no./ TCT no.", "Description", "Notes", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Coordinates", "Tax Declaration", "Transfer Certificate of Title Page 1", "Transfer Certificate of Title Page 2", "UPDATED BY", "LAST UPDATE"];
+const displayHeaders = ["Article no./ TCT no.", "Description", "Notes", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Coordinates", "Tax Declaration", "Transfer Certificate (TCT) P1", "Transfer Certificate (TCT) P2", "UPDATED BY", "LAST UPDATE"];
 const targetHeadersLowercase = ["article/item", "description", "notes", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "transfer_cert1", "transfer_cert2", "updated by", "last update"];
 const popupOrderLowercase = ["article/item", "description", "notes", "unit value", "remarks", "type"]; 
 
@@ -1446,8 +1446,8 @@ function openPopUp(rowId, clickedPhotoKey = null) {
         { key: 'photo 2', label: 'Photo 2' },
         { key: 'map coordinates', label: 'Map Coordinates' },
         { key: 'tax declaration', label: 'Tax Declaration' },
-        { key: 'transfer_cert1', label: 'Transfer Certificate of Title Page 1' },
-        { key: 'transfer_cert2', label: 'Transfer Certificate of Title Page 2' }
+        { key: 'transfer_cert1', label: 'Transfer Certificate (TCT) P1' },
+        { key: 'transfer_cert2', label: 'Transfer Certificate (TCT) P2' }
     ];
 
     photoKeysDef.forEach(p => {
@@ -2925,7 +2925,7 @@ window.addEventListener('DOMContentLoaded', () => {
             <div class="ins-desc">${escapeHtml(r.description)}</div>
             <div class="ins-row" style="--i:0"><span>Status</span><span><span class="ins-badge ins-b-${r.status}">${LABEL[r.status]}</span></span></div>
             <div class="ins-row" style="--i:1"><span>Insurer</span><span>${escapeHtml(r.insurer)}</span></div>
-            <div class="ins-row" style="--i:2"><span>Policy no.</span><span>${escapeHtml(r.policy)}</span></div>
+            <div class="ins-row" style="--i:2"><span>Policy ID</span><span>${escapeHtml(r.policy)}</span></div>
             <div class="ins-row" style="--i:3"><span>Coverage end</span><span>${r.end ? fmtDate(r.end) : '-'}</span></div>
             <div class="ins-row" style="--i:4"><span>Time left</span><span>${timeLeft(r)}</span></div>
             <div class="ins-notes"><b>Notes (from sheet)</b>${escapeHtml(r.notes)}</div>
@@ -3091,4 +3091,24 @@ window.addEventListener('DOMContentLoaded', () => {
     refreshInsuranceCards = function () { baseRefresh(); render(); };
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+
+
+// =========================================================================
+// 🔒 HIDE FLOATING BUTTONS WHEN LOGGED OUT / ON LOGIN SCREEN
+// Toggles a body class (see .app-locked in index.html). Does not modify any
+// existing function.
+// =========================================================================
+(function () {
+    function syncLockState() {
+        const mainApp = document.getElementById('mainApp');
+        const appVisible = mainApp && mainApp.style.display !== 'none';
+        document.body.classList.toggle('app-locked', !(accessToken && appVisible));
+    }
+    window.addEventListener('DOMContentLoaded', () => {
+        syncLockState();
+        const mainApp = document.getElementById('mainApp');
+        if (mainApp) new MutationObserver(syncLockState).observe(mainApp, { attributes: true, attributeFilter: ['style'] });
+        setInterval(syncLockState, 250);
+    });
 })();
