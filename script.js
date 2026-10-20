@@ -165,14 +165,14 @@ countInsured = document.getElementById('countInsured');
         loadingOverlay = document.createElement('div');
         loadingOverlay.id = 'dynamicLoadingOverlay';
         loadingOverlay.innerHTML = `
-        <div style="text-align: center; color: #ffffff !important; font-family: Arial, sans-serif !important; z-index: 100000 !important;">
-            <div style="width: 80px !important; height: 80px !important; border: 8px solid rgba(255,255,255,0.2) !important; border-radius: 50% !important; border-top-color: #28a745 !important; animation: spin 0.4s linear infinite !important; margin: 0 auto 20px auto !important; box-shadow: 0 0 20px rgba(40, 167, 69, 0.6) !important;"></div>
-            <div id="loadingOverlayText" style="font-size: 20px !important; font-weight: bold !important; color: #ffffff !important; text-shadow: 1px 1px 5px rgba(0,0,0,0.5) !important;">Connecting...</div>
+        <div class="ux-loader-card" role="status" aria-live="polite">
+            <span class="ux-spinner"></span>
+            <span id="loadingOverlayText">Connecting...</span>
         </div>
     `;
         Object.assign(loadingOverlay.style, {
             position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
-            backgroundColor: 'rgba(0, 0, 0, 0.85)', display: 'none', justifyContent: 'center',
+            backgroundColor: 'rgba(11, 31, 58, 0.45)', backdropFilter: 'blur(4px)', webkitBackdropFilter: 'blur(4px)', display: 'none', justifyContent: 'center',
             alignItems: 'center', zIndex: '150000', transition: 'opacity 0.2s ease'
         });
         const styleSheet = document.createElement("style");
@@ -888,7 +888,7 @@ closeBtn.onclick = function() {
             }
 
         } else {
-            alert("Connection failed or you have been logged out from Google. Please log in again.");
+            toastAlert("Connection failed or you have been logged out from Google. Please log in again.");
     // Normal logout for actual session disconnections
     performLogout(false); 
         }
@@ -1712,6 +1712,7 @@ function finalizeSaveData(operatorName) {
         .then(() => {
             // Silently hide the loading screen, close the modal, and refresh
             hideLoading();
+            showToast('Changes submitted — refreshing the latest data.', 'success');
             closeModal(); 
         })
         .catch(() => {
@@ -1768,6 +1769,10 @@ function openUploadWindow() {
 }
 
 function closeModal() {
+    animateOut(editModal, closeModalNow);
+}
+
+function closeModalNow() {
     if (editModal) editModal.style.display = 'none';
     
     // Unlocks the background scroll
@@ -1937,7 +1942,7 @@ if(resetFiltersButton) {
         confirmNameBtn.addEventListener('click', () => {
             const operatorInput = document.getElementById('custom-operator-input');
             const nameVal = operatorInput ? operatorInput.value.trim() : '';
-            if(!nameVal) { alert("Authorization Denied: Operator name required."); return; }
+            if(!nameVal) { toastAlert("Authorization Denied: Operator name required."); return; }
             if (customNameModal) customNameModal.style.display = 'none';
             finalizeSaveData(nameVal);
         });
@@ -1946,7 +1951,7 @@ if(resetFiltersButton) {
 
 function downloadDatasetCSV(data, filenamePrefix) {
     if(!data || data.length === 0) {
-        alert("Export Nullified: No dataset active for export.");
+        toastAlert("Export Nullified: No dataset active for export.");
         return;
     }
     const headerRow = rawHeaders.join(",");
@@ -2065,7 +2070,7 @@ function isExportPhotoKey(tKey) {
 // 🌐 Export Searched HTML with Photos Downloaded & Embedded as Base64
 async function downloadSearchedHTML(data) {
     if (!data || data.length === 0) {
-        alert("Export Nullified: No dataset active for export.");
+        toastAlert("Export Nullified: No dataset active for export.");
         return;
     }
 
@@ -2250,7 +2255,7 @@ async function downloadSearchedHTML(data) {
     if (failedCount > 0) {
         const list = Array.from(failedItems).slice(0, 10).join(', ');
         const more = failedItems.size > 10 ? ` and ${failedItems.size - 10} more` : '';
-        alert(
+        toastAlert(
             `Report saved, but ${failedCount} photo(s) could not be downloaded and will NOT show offline.\n\n` +
             `Affected items: ${list}${more}\n\nCheck your connection or the photo sharing settings, then export again.`
         );
@@ -2814,7 +2819,7 @@ window.addEventListener('DOMContentLoaded', () => {
             modalModified = true; // closing the modal refreshes the table from the sheet
             renderModalPhotoViewer();
         } catch (err) {
-            alert('Could not delete photo: ' + err.message);
+            toastAlert('Could not delete photo: ' + err.message);
             btn.disabled = false;
             btn.textContent = originalText;
         }
@@ -2865,9 +2870,9 @@ window.addEventListener('DOMContentLoaded', () => {
     let playing = false, playTimer = null;
     function countUp(el, to) {
         if (matchMedia('(prefers-reduced-motion: reduce)').matches || to === 0) { el.textContent = to; return; }
-        const t0 = performance.now(), dur = 800;
+        const t0 = performance.now(), dur = 650;
         (function step(now) {
-            const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+            const p = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - p, 4);
             el.textContent = Math.round(to * e);
             if (p < 1) requestAnimationFrame(step);
         })(t0);
@@ -3005,14 +3010,17 @@ window.addEventListener('DOMContentLoaded', () => {
         document.body.style.overflow = 'hidden';
     }
     function closeDetail() {
-        $('insDetailOverlay').style.display = 'none';
-        document.body.style.overflow = '';
+        animateOut($('insDetailOverlay'), () => {
+            $('insDetailOverlay').style.display = 'none';
+            // Don't unlock page scroll if the property popup was just opened from this window
+            if (!editModal || editModal.style.display !== 'flex') document.body.style.overflow = '';
+        });
     }
 
     function exportInsuranceHTML() {
         const data = insFilteredRows;
         if (!data || data.length === 0) {
-            alert("Export Nullified: No dataset active for export.");
+            toastAlert("Export Nullified: No dataset active for export.");
             return;
         }
         const BADGE = { INSURED: ['#dcfce7', '#166534'], EXPIRING: ['#fef3c7', '#92400e'], EXPIRED: ['#fee2e2', '#991b1b'], NOT_INSURED: ['#e2e8f0', '#334155'] };
@@ -3076,6 +3084,7 @@ window.addEventListener('DOMContentLoaded', () => {
         link.click();
         document.body.removeChild(link);
         setTimeout(() => URL.revokeObjectURL(url), 10000);
+        showToast('Insurance report exported — check your downloads folder.', 'success');
     }
 
     function switchTab(tab) {
@@ -3177,4 +3186,331 @@ window.addEventListener('DOMContentLoaded', () => {
         if (mainApp) new MutationObserver(syncLockState).observe(mainApp, { attributes: true, attributeFilter: ['style'] });
         setInterval(syncLockState, 250);
     });
+})();
+
+
+// =========================================================================
+// ✨ UX POLISH LAYER
+// Toasts, skeleton loading, sliding tab indicator, animated modal close,
+// clearable search boxes, active-filter chips, empty states, table fades.
+// =========================================================================
+function uxReduced() {
+    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+}
+
+// ---------- Toast notifications (replace alert boxes) ----------
+const UX_TOAST_ICONS = {
+    success: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M7.5 12.5l3 3 6-6.5"/></svg>',
+    error:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.5v5.5M12 16.4v.1"/></svg>',
+    warning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l9.5 16.5h-19z"/><path d="M12 10v4.5M12 17.4v.1"/></svg>',
+    info:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M12 11v5.5M12 7.6v.1"/></svg>'
+};
+
+function removeToast(t, instant) {
+    if (!t || t._gone) return;
+    t._gone = true;
+    clearTimeout(t._timer);
+    if (instant || uxReduced()) { t.remove(); return; }
+    t.classList.add('out');
+    setTimeout(() => t.remove(), 220);
+}
+
+function showToast(message, type, duration) {
+    type = UX_TOAST_ICONS[type] ? type : 'info';
+    duration = duration || (type === 'error' || type === 'warning' ? 7000 : 4200);
+    let host = document.getElementById('toastHost');
+    if (!host) {
+        host = document.createElement('div');
+        host.id = 'toastHost';
+        host.setAttribute('role', 'status');
+        host.setAttribute('aria-live', 'polite');
+        document.body.appendChild(host);
+    }
+    while (host.children.length >= 4) removeToast(host.firstElementChild, true);
+
+    const t = document.createElement('div');
+    t.className = 'ux-toast ux-toast-' + type;
+    t.style.setProperty('--dur', duration + 'ms');
+    t.innerHTML = '<span class="ux-toast-ic">' + UX_TOAST_ICONS[type] + '</span><div class="ux-toast-msg"></div>' +
+                  '<button type="button" class="ux-toast-x" aria-label="Dismiss">&times;</button><i class="ux-toast-bar"></i>';
+    t.querySelector('.ux-toast-msg').textContent = String(message);
+    t.querySelector('.ux-toast-x').addEventListener('click', () => removeToast(t));
+
+    let remaining = duration, startedAt = Date.now();
+    const start = () => { startedAt = Date.now(); t.classList.remove('paused'); t._timer = setTimeout(() => removeToast(t), remaining); };
+    const pause = () => { clearTimeout(t._timer); remaining -= Date.now() - startedAt; t.classList.add('paused'); };
+    t.addEventListener('mouseenter', pause);
+    t.addEventListener('mouseleave', start);
+    host.appendChild(t);
+    start();
+    return t;
+}
+
+// Drop-in replacement for alert(): picks a sensible toast type and duration
+function toastAlert(msg) {
+    const m = String(msg == null ? '' : msg);
+    const type = /could not be downloaded|log in again|session/i.test(m) ? 'warning' : 'error';
+    showToast(m, type, Math.min(14000, 4000 + m.length * 45));
+}
+
+// ---------- Animated close for modals ----------
+function animateOut(el, done, ms) {
+    ms = ms || 170;
+    if (!el || el.style.display === 'none' || getComputedStyle(el).display === 'none' || uxReduced()) { done(); return; }
+    if (el._closing) return;
+    el._closing = true;
+    el.classList.add('is-closing');
+    setTimeout(() => { el.classList.remove('is-closing'); el._closing = false; done(); }, ms);
+}
+
+(function () {
+    const $ = id => document.getElementById(id);
+    const ease = 'cubic-bezier(.16,1,.3,1)';
+
+    // ---------- 1. Skeleton loading + soft sync indicator ----------
+    const baseShowLoading = showLoading, baseHideLoading = hideLoading;
+
+    function skRows(cols, rows) {
+        let html = '';
+        for (let i = 0; i < rows; i++) {
+            html += '<tr class="sk-row">';
+            for (let j = 0; j < cols; j++) html += '<td><span class="sk-line" style="width:' + (38 + ((i * 37 + j * 53) % 52)) + '%"></span></td>';
+            html += '</tr>';
+        }
+        return html;
+    }
+    function skeletonize(tb, cols, rows) {
+        if (!tb) return;
+        if (!tb.querySelector('.sk-row')) tb.__skPrev = tb.innerHTML;
+        tb.innerHTML = skRows(cols, rows);
+    }
+    function ensureSyncUI() {
+        if (!$('uxProgress')) {
+            const bar = document.createElement('div'); bar.id = 'uxProgress'; bar.setAttribute('aria-hidden', 'true');
+            document.body.appendChild(bar);
+            const pill = document.createElement('div'); pill.id = 'uxSyncPill'; pill.setAttribute('role', 'status');
+            pill.innerHTML = '<span class="ux-spinner"></span><span id="uxSyncText"></span>';
+            document.body.appendChild(pill);
+        }
+    }
+    function startSoftSync(msg) {
+        ensureSyncUI();
+        const initial = !isAppInitialized;
+        document.body.classList.add('is-syncing');
+        if (initial) document.body.classList.add('is-initial-load');
+        $('uxSyncText').textContent = msg || 'Syncing…';
+        $('uxProgress').classList.add('on');
+        $('uxSyncPill').classList.add('on');
+        if (initial) {
+            skeletonize($('tableBody'), displayHeaders.length, 7);
+            skeletonize($('insBody'), 7, 5);
+        }
+    }
+    function endSoftSync() {
+        document.body.classList.remove('is-syncing', 'is-initial-load');
+        if ($('uxProgress')) { $('uxProgress').classList.remove('on'); $('uxSyncPill').classList.remove('on'); }
+        ['tableBody', 'insBody'].forEach(id => {
+            const tb = $(id);
+            if (tb && tb.querySelector('.sk-row')) { tb.innerHTML = tb.__skPrev || ''; tb.__skPrev = null; }
+        });
+    }
+    showLoading = function (msg) {
+        if (/^\s*(syncing|connecting)/i.test(msg || '')) { startSoftSync(msg); return; }
+        baseShowLoading(msg);
+    };
+    hideLoading = function () { endSoftSync(); baseHideLoading(); };
+
+    // ---------- 4. Sliding tab indicator ----------
+    function placeIndicator(first) {
+        const tabs = document.querySelector('.app-tabs'), ind = $('tabIndicator');
+        const act = document.querySelector('.app-tab.active');
+        if (!tabs || !ind || !act || !act.offsetWidth) return;
+        ind.style.width = act.offsetWidth + 'px';
+        ind.style.transform = 'translateX(' + act.offsetLeft + 'px)';
+        tabs.classList.add('has-indicator');
+        if (first) requestAnimationFrame(() => requestAnimationFrame(() => ind.classList.add('ready')));
+    }
+    function initTabIndicator() {
+        const tabs = document.querySelector('.app-tabs');
+        if (!tabs) return;
+        placeIndicator(true);
+        document.querySelectorAll('.app-tab').forEach(t => new MutationObserver(() => placeIndicator(false)).observe(t, { attributes: true, attributeFilter: ['class'] }));
+        if (window.ResizeObserver) new ResizeObserver(() => placeIndicator(false)).observe(tabs);
+        window.addEventListener('resize', () => placeIndicator(false));
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => placeIndicator(false));
+    }
+
+    // ---------- 8. Clearable search inputs + busy export buttons ----------
+    function makeClearable(input, onClear) {
+        if (!input || input.closest('.clearable')) return;
+        const wrap = document.createElement('span');
+        wrap.className = 'clearable';
+        input.parentNode.insertBefore(wrap, input);
+        wrap.appendChild(input);
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'clear-x'; b.setAttribute('aria-label', 'Clear search'); b.innerHTML = '&times;';
+        wrap.appendChild(b);
+        const sync = () => wrap.classList.toggle('has-value', !!input.value);
+        input.addEventListener('input', sync);
+        b.addEventListener('click', () => { input.value = ''; sync(); input.focus(); onClear(); });
+        wrap._sync = sync; sync();
+    }
+    function initBusyButtons() {
+        document.addEventListener('click', e => {
+            const b = e.target.closest && e.target.closest('#exportButton, #exportFilteredButton, #insExportButton');
+            if (!b) return;
+            b.classList.add('btn-busy');
+            setTimeout(() => b.classList.remove('btn-busy'), 900);
+        }, true);
+        setInterval(() => document.querySelectorAll('.clearable').forEach(w => w._sync && w._sync()), 300);
+    }
+
+    // ---------- 9. Active-filter chips ----------
+    function selText(sel) { const o = sel.options[sel.selectedIndex]; return o ? o.textContent.trim() : sel.value; }
+    function renderChips(host, list, onClearAll) {
+        if (!host) return;
+        const sig = list.map(c => c.key + '|' + c.label).join('~');
+        if (host.__sig === sig) return;
+        const prev = host.__keys || new Set();
+        host.__sig = sig; host.__keys = new Set(list.map(c => c.key));
+        host.innerHTML = '';
+        host.classList.toggle('has-chips', list.length > 0);
+        list.forEach(c => {
+            const el = document.createElement('span');
+            el.className = 'chip' + (prev.has(c.key) ? '' : ' chip-new');
+            const txt = document.createElement('span'); txt.className = 'chip-txt'; txt.textContent = c.label; txt.title = c.label;
+            const x = document.createElement('button'); x.type = 'button'; x.innerHTML = '&times;';
+            x.setAttribute('aria-label', 'Remove filter: ' + c.label);
+            x.addEventListener('click', c.clear);
+            el.appendChild(txt); el.appendChild(x); host.appendChild(el);
+        });
+        if (list.length > 1) {
+            const a = document.createElement('button'); a.type = 'button'; a.className = 'chip-clear-all'; a.textContent = 'Clear all';
+            a.addEventListener('click', onClearAll); host.appendChild(a);
+        }
+    }
+
+    // Inventory chips
+    const INV_INS_LABEL = { INSURED: 'Insured', NOT_INSURED: 'Not insured', EXPIRING: 'Expiring soon' };
+    const INV_UNID_LABEL = { ID_BUILDING: 'Buildings with Tax Dec / TCT', ID_LAND: 'Lands with Tax Dec / TCT' };
+    function invNothingLeft() {
+        return !(searchInput && searchInput.value.trim()) && (!remarksFilter || remarksFilter.value === 'ALL') &&
+               (!typeFilter || typeFilter.value === 'ALL') && (!photoFilter || photoFilter.value === 'ALL') &&
+               activeInsuranceFilter === 'ALL' && activeUnidFilter === 'ALL';
+    }
+    function invFinishClear() {
+        if (invNothingLeft() && resetFiltersButton) resetFiltersButton.click(); else executeSearch(true);
+    }
+    function invChipList() {
+        const l = [];
+        const q = searchInput ? searchInput.value.trim() : '';
+        if (q) l.push({ key: 'q', label: 'Search: “' + q + '”', clear: () => { searchInput.value = ''; invFinishClear(); } });
+        if (remarksFilter && remarksFilter.value !== 'ALL') l.push({ key: 'rem', label: 'Remarks: ' + selText(remarksFilter), clear: () => { remarksFilter.value = 'ALL'; invFinishClear(); } });
+        if (typeFilter && typeFilter.value !== 'ALL') l.push({ key: 'type', label: 'Type: ' + selText(typeFilter), clear: () => { typeFilter.value = 'ALL'; activeUnidFilter = 'ALL'; invFinishClear(); } });
+        if (activeUnidFilter in INV_UNID_LABEL) l.push({ key: 'unid', label: INV_UNID_LABEL[activeUnidFilter], clear: () => { activeUnidFilter = 'ALL'; invFinishClear(); } });
+        if (photoFilter && photoFilter.value !== 'ALL') l.push({ key: 'media', label: 'Media: ' + selText(photoFilter), clear: () => { photoFilter.value = 'ALL'; invFinishClear(); } });
+        if (activeInsuranceFilter !== 'ALL') l.push({ key: 'ins', label: 'Insurance: ' + (INV_INS_LABEL[activeInsuranceFilter] || activeInsuranceFilter), clear: () => {
+            activeInsuranceFilter = 'ALL';
+            document.querySelectorAll('.ins-card').forEach(c => { c.style.transform = 'scale(1)'; c.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)'; c.style.backgroundColor = '#f8f9fa'; });
+            const cb = $('clearInsFilterBtn'); if (cb) cb.style.display = 'none';
+            invFinishClear();
+        } });
+        return l;
+    }
+    function updateInvChips() {
+        renderChips($('invChips'), invChipList(), () => { if (resetFiltersButton) resetFiltersButton.click(); });
+    }
+    const baseExecuteSearch = executeSearch;
+    executeSearch = function () {
+        const out = baseExecuteSearch.apply(this, arguments);
+        updateInvChips();
+        return out;
+    };
+
+    // Insurance chips
+    function updateInsChips() {
+        const host = $('insChips'); if (!host) return;
+        const l = [];
+        const q = $('insSearch') ? $('insSearch').value.trim() : '';
+        if (q) l.push({ key: 'q', label: 'Search: “' + q + '”', clear: () => { $('insSearch').value = ''; $('insSearch').dispatchEvent(new Event('input')); } });
+        if ($('insStatus') && $('insStatus').value !== 'ALL') l.push({ key: 'st', label: 'Status: ' + selText($('insStatus')), clear: () => { $('insStatus').value = 'ALL'; $('insStatus').dispatchEvent(new Event('change')); } });
+        renderChips(host, l, () => $('insReset').click());
+    }
+
+    // ---------- 10. Empty states ----------
+    const ES_BASE = '<rect x="14" y="10" width="64" height="76" rx="8" fill="#eaf3fb" stroke="#bcd6ee" stroke-width="2"/><rect x="26" y="26" width="30" height="5" rx="2.5" fill="#bcd6ee"/><rect x="26" y="40" width="42" height="5" rx="2.5" fill="#d3e5f5"/><rect x="26" y="54" width="36" height="5" rx="2.5" fill="#d3e5f5"/><circle cx="82" cy="58" r="20" fill="#fff" stroke="#2b83cf" stroke-width="5"/><path d="M97 73l14 14" stroke="#2b83cf" stroke-width="6" stroke-linecap="round"/>';
+    const ES_NONE  = '<svg viewBox="0 0 120 96" fill="none" aria-hidden="true">' + ES_BASE + '<path d="M75 51l14 14M89 51L75 65" stroke="#94a3b8" stroke-width="4" stroke-linecap="round"/></svg>';
+    const ES_READY = '<svg viewBox="0 0 120 96" fill="none" aria-hidden="true">' + ES_BASE + '<circle cx="74" cy="58" r="2.6" fill="#94a3b8"/><circle cx="82" cy="58" r="2.6" fill="#94a3b8"/><circle cx="90" cy="58" r="2.6" fill="#94a3b8"/></svg>';
+    function emptyHTML(icon, title, sub, buttons) {
+        return '<div class="empty-state">' + icon + '<div class="es-title">' + title + '</div><div class="es-sub">' + sub + '</div>' +
+               (buttons ? '<div class="es-actions">' + buttons + '</div>' : '') + '</div>';
+    }
+    function enhanceEmpty(tb, kind) {
+        const td = tb.querySelector('td.no-data:not([data-ux])');
+        if (!td) return;
+        const txt = td.textContent || '';
+        if (/no (insurance )?records match/i.test(txt)) {
+            td.dataset.ux = '1';
+            td.innerHTML = emptyHTML(ES_NONE, 'No matching records', 'Nothing fits the current search or filters. Try different keywords, or clear the filters to start over.',
+                '<button type="button" class="es-btn" data-es="clear">Clear filters</button>');
+            td.querySelector('[data-es="clear"]').addEventListener('click', () => { (kind === 'ins' ? $('insReset') : resetFiltersButton).click(); });
+        } else if (/data loaded successfully/i.test(txt)) {
+            td.dataset.ux = '1';
+            td.innerHTML = emptyHTML(ES_READY, 'Ready when you are', 'Search above, pick a filter, or click a dashboard card to view records.',
+                '<button type="button" class="es-btn secondary" data-es="all">Show all records</button>');
+            td.querySelector('[data-es="all"]').addEventListener('click', () => executeSearch(true));
+        }
+    }
+
+    // ---------- 5. Table fade on rebuild + count-pill pulse ----------
+    function watchTables() {
+        [['tableBody', 'inv'], ['insBody', 'ins']].forEach(([id, kind]) => {
+            const tb = $(id); if (!tb) return;
+            let raf = 0;
+            new MutationObserver(() => {
+                enhanceEmpty(tb, kind);
+                if (kind === 'ins') updateInsChips();
+                if (tb.querySelector('.sk-row') || uxReduced() || !tb.animate) return;
+                cancelAnimationFrame(raf);
+                raf = requestAnimationFrame(() => tb.animate([{ opacity: .45 }, { opacity: 1 }], { duration: 220, easing: ease }));
+            }).observe(tb, { childList: true });
+        });
+        ['foundCountDisplay', 'insCount'].forEach(id => {
+            const el = $(id); if (!el || !el.animate) return;
+            if (id === 'foundCountDisplay') el.style.display = 'inline-block';
+            new MutationObserver(() => { if (!uxReduced()) el.animate([{ transform: 'scale(.92)', opacity: .4 }, { transform: 'scale(1)', opacity: 1 }], { duration: 260, easing: ease }); })
+                .observe(el, { childList: true, characterData: true, subtree: true });
+        });
+    }
+
+    // ---------- Success toasts for exports ----------
+    const baseCSV = downloadDatasetCSV;
+    downloadDatasetCSV = function (data, prefix) {
+        const ok = data && data.length;
+        const r = baseCSV.apply(this, arguments);
+        if (ok) showToast('Export ready — the full inventory CSV was downloaded.', 'success');
+        return r;
+    };
+    const baseHTMLExport = downloadSearchedHTML;
+    downloadSearchedHTML = async function (data) {
+        const ok = data && data.length;
+        const r = await baseHTMLExport.apply(this, arguments);
+        if (ok) showToast('Report exported — check your downloads folder.', 'success');
+        return r;
+    };
+
+    // ---------- Init ----------
+    function init() {
+        initTabIndicator();
+        initBusyButtons();
+        makeClearable($('searchInput'), invFinishClear);
+        makeClearable($('insSearch'), () => { $('insSearch').dispatchEvent(new Event('input')); });
+        watchTables();
+        if ($('resetFiltersButton')) $('resetFiltersButton').addEventListener('click', () => setTimeout(updateInvChips, 0));
+        if ($('insSearch')) $('insSearch').addEventListener('input', updateInsChips);
+        if ($('insStatus')) $('insStatus').addEventListener('change', updateInsChips);
+        if ($('insReset')) $('insReset').addEventListener('click', () => setTimeout(updateInsChips, 0));
+        updateInvChips(); updateInsChips();
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
