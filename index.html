@@ -161,24 +161,42 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            min-height: 100vh;
             height: 100vh;
-            background:
-                radial-gradient(900px 500px at 15% 10%, rgba(87, 161, 224, 0.35), transparent 60%),
-                radial-gradient(800px 500px at 90% 90%, rgba(43, 131, 207, 0.28), transparent 60%),
-                linear-gradient(135deg, var(--navy-900), var(--navy-700));
+            position: relative;
+            isolation: isolate;
             padding: 20px;
             box-sizing: border-box;
+            /* Cebu City Government wallpaper (keep CCG_BG.jpg in the same folder as index.html) */
+            background-color: #dbeafe;
+            background-image:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0) 40%, rgba(11, 31, 58, 0.10) 100%),
+                url("CCG_BG.jpg");
+            background-size: cover;
+            background-position: 35% center;
+            background-repeat: no-repeat;
         }
         .login-box {
-            background-color: var(--surface);
+            position: relative;
+            z-index: 2;
+            background: rgba(255, 255, 255, 0.74);
+            -webkit-backdrop-filter: blur(18px) saturate(1.35);
+            backdrop-filter: blur(18px) saturate(1.35);
             padding: 44px 40px 32px;
-            border-radius: 20px;
-            box-shadow: 0 30px 70px rgba(0, 0, 0, 0.35);
+            border-radius: 22px;
+            border: 1px solid rgba(255, 255, 255, 0.85);
+            border-top: 5px solid var(--blue-600);
+            box-shadow:
+                0 30px 70px rgba(18, 41, 74, 0.28),
+                0 8px 20px rgba(29, 111, 184, 0.14),
+                inset 0 1px 0 rgba(255, 255, 255, 0.9);
             text-align: center;
             width: 100%;
             max-width: 420px;
-            border-top: 5px solid var(--blue-500);
             box-sizing: border-box;
+        }
+        @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+            .login-box { background: rgba(255, 255, 255, 0.95); }
         }
         .logo-container {
             display: flex;
@@ -212,9 +230,9 @@
         .login-btn {
             width: 100%;
             padding: 13px 14px;
-            background-color: #ffffff;
-            color: #3c4043;
-            border: 1px solid var(--line-strong);
+            background-color: rgba(255, 255, 255, 0.95);
+            color: #1f2937;
+            border: 1px solid rgba(29, 111, 184, 0.35);
             border-radius: 10px;
             font-size: 15px;
             font-weight: 600;
@@ -241,10 +259,24 @@
             min-height: 20px;
         }
         .login-box > div[style*="border-top"] {
-            color: var(--ink-500) !important;
-            border-top: 1px solid var(--line) !important;
+            color: var(--ink-700) !important;
+            border-top: 1px solid rgba(29, 111, 184, 0.22) !important;
             font-size: 11.5px !important;
             line-height: 1.6 !important;
+        }
+
+
+        .lg-footer {
+            position: absolute; left: 0; right: 0; bottom: 14px; z-index: 2; text-align: center;
+            color: #ffffff; font-size: 11.5px; letter-spacing: 1.4px; text-transform: uppercase; font-weight: 700;
+            text-shadow: 0 1px 8px rgba(11, 31, 58, 0.75);
+            padding: 0 12px;
+        }
+        .lg-footer i { display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: #ffffff; margin: 0 10px; vertical-align: middle; }
+        @media (max-width: 600px) {
+            #loginScreen { background-position: 22% center; }
+            .login-box { padding: 34px 24px 26px; }
+            .lg-footer { font-size: 9.5px; letter-spacing: 1px; }
         }
 
         /* --- Main App Styles --- */
@@ -1450,6 +1482,7 @@
 
     <!-- 🔑 MODIFIED LOGIN SCREEN FOR OAUTH TOKEN (GIS) -->
     <div id="loginScreen">
+        <div class="lg-footer">City Government of Cebu<i></i>Department of General Services</div>
         <div class="login-box">
             <div class="logo-container">
                 <img src="Ph_seal_cebucity.png" alt="Cebu City Seal" class="login-logo" onerror="this.style.display='none'">
