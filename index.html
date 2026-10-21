@@ -158,45 +158,97 @@
 
         /* --- Login Screen Styles --- */
         #loginScreen {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            height: 100vh;
             position: relative;
-            isolation: isolate;
-            padding: 20px;
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            height: 100vh;
+            padding: 20px 8vw;
             box-sizing: border-box;
-            /* Cebu City Government wallpaper (keep CCG_BG.jpg in the same folder as index.html) */
-            background-color: #dbeafe;
-            background-image:
-                linear-gradient(180deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0) 40%, rgba(11, 31, 58, 0.10) 100%),
-                url("CCG_BG.jpg");
-            background-size: cover;
-            background-position: 35% center;
-            background-repeat: no-repeat;
+            overflow: hidden;
+            /* Wallpaper: city skyline + City Hall, graded navy for readability */
+            background:
+                linear-gradient(90deg, rgba(8, 24, 56, 0.35) 0%, rgba(8, 24, 56, 0) 55%),
+                url("login_bg.jpg") right center / cover no-repeat,
+                linear-gradient(135deg, var(--navy-900), var(--navy-700));
         }
+        /* Footer line on the login wallpaper */
+        #loginScreen::after {
+            content: "Real Estate Inventory  \00B7  Authorized Personnel Only";
+            position: absolute;
+            left: 0; right: 0; bottom: 18px;
+            text-align: center;
+            font-size: 11.5px;
+            font-weight: 500;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.78);
+            text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+            pointer-events: none;
+        }
+        /* Branded header on the login wallpaper (live text, stays sharp on any screen) */
+        .login-brand {
+            position: absolute;
+            top: 34px;
+            left: 8vw;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            color: #fff;
+            pointer-events: none;
+        }
+        .login-brand img {
+            width: 62px;
+            height: 62px;
+            object-fit: contain;
+            filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.35));
+        }
+        .login-brand-divider {
+            width: 2px;
+            height: 52px;
+            background: rgba(255, 255, 255, 0.45);
+        }
+        .login-brand-title {
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            line-height: 1.15;
+            text-transform: uppercase;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+        }
+        .login-brand-tag {
+            margin-top: 6px;
+            font-size: 11px;
+            font-weight: 500;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: rgba(205, 222, 248, 0.95);
+        }
+        @media (max-width: 900px) {
+            .login-brand { left: 0; right: 0; top: 22px; justify-content: center; }
+            .login-brand img { width: 44px; height: 44px; }
+            .login-brand-divider { height: 38px; }
+            .login-brand-title { font-size: 16px; }
+            .login-brand-tag { display: none; }
+        }
+        @media (max-height: 640px) { .login-brand { display: none; } }
+
         .login-box {
             position: relative;
-            z-index: 2;
-            background: rgba(255, 255, 255, 0.74);
-            -webkit-backdrop-filter: blur(18px) saturate(1.35);
-            backdrop-filter: blur(18px) saturate(1.35);
+            z-index: 1;
+            background-color: rgba(255, 255, 255, 0.93);
+            -webkit-backdrop-filter: blur(14px) saturate(140%);
+            backdrop-filter: blur(14px) saturate(140%);
+            border: 1px solid rgba(255, 255, 255, 0.55);
             padding: 44px 40px 32px;
-            border-radius: 22px;
-            border: 1px solid rgba(255, 255, 255, 0.85);
-            border-top: 5px solid var(--blue-600);
-            box-shadow:
-                0 30px 70px rgba(18, 41, 74, 0.28),
-                0 8px 20px rgba(29, 111, 184, 0.14),
-                inset 0 1px 0 rgba(255, 255, 255, 0.9);
+            border-radius: 20px;
+            box-shadow: 0 30px 70px rgba(4, 14, 36, 0.45), 0 2px 8px rgba(4, 14, 36, 0.2);
             text-align: center;
             width: 100%;
             max-width: 420px;
+            border-top: 5px solid var(--blue-500);
             box-sizing: border-box;
-        }
-        @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-            .login-box { background: rgba(255, 255, 255, 0.95); }
         }
         .logo-container {
             display: flex;
@@ -230,9 +282,9 @@
         .login-btn {
             width: 100%;
             padding: 13px 14px;
-            background-color: rgba(255, 255, 255, 0.95);
-            color: #1f2937;
-            border: 1px solid rgba(29, 111, 184, 0.35);
+            background-color: #ffffff;
+            color: #3c4043;
+            border: 1px solid var(--line-strong);
             border-radius: 10px;
             font-size: 15px;
             font-weight: 600;
@@ -259,24 +311,22 @@
             min-height: 20px;
         }
         .login-box > div[style*="border-top"] {
-            color: var(--ink-700) !important;
-            border-top: 1px solid rgba(29, 111, 184, 0.22) !important;
+            color: var(--ink-500) !important;
+            border-top: 1px solid var(--line) !important;
             font-size: 11.5px !important;
             line-height: 1.6 !important;
         }
 
-
-        .lg-footer {
-            position: absolute; left: 0; right: 0; bottom: 14px; z-index: 2; text-align: center;
-            color: #ffffff; font-size: 11.5px; letter-spacing: 1.4px; text-transform: uppercase; font-weight: 700;
-            text-shadow: 0 1px 8px rgba(11, 31, 58, 0.75);
-            padding: 0 12px;
-        }
-        .lg-footer i { display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: #ffffff; margin: 0 10px; vertical-align: middle; }
-        @media (max-width: 600px) {
-            #loginScreen { background-position: 22% center; }
-            .login-box { padding: 34px 24px 26px; }
-            .lg-footer { font-size: 9.5px; letter-spacing: 1px; }
+        @media (max-width: 900px) {
+            #loginScreen {
+                justify-content: center;
+                padding: 20px;
+                background:
+                    linear-gradient(180deg, rgba(8, 24, 56, 0.45), rgba(8, 24, 56, 0.25)),
+                    url("login_bg.jpg") 72% center / cover no-repeat,
+                    linear-gradient(135deg, var(--navy-900), var(--navy-700));
+            }
+            #loginScreen::after { font-size: 9.5px; letter-spacing: 0.1em; padding: 0 16px; }
         }
 
         /* --- Main App Styles --- */
@@ -1482,7 +1532,14 @@
 
     <!-- 🔑 MODIFIED LOGIN SCREEN FOR OAUTH TOKEN (GIS) -->
     <div id="loginScreen">
-        <div class="lg-footer">City Government of Cebu<i></i>Department of General Services</div>
+        <div class="login-brand">
+            <img src="Ph_seal_cebucity.png" alt="" onerror="this.style.display='none'">
+            <div class="login-brand-divider"></div>
+            <div>
+                <div class="login-brand-title">Cebu City Government</div>
+                <div class="login-brand-tag">Public Service &middot; Good Governance &middot; A Better Cebu</div>
+            </div>
+        </div>
         <div class="login-box">
             <div class="logo-container">
                 <img src="Ph_seal_cebucity.png" alt="Cebu City Seal" class="login-logo" onerror="this.style.display='none'">
