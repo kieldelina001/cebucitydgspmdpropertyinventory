@@ -2118,7 +2118,7 @@ async function downloadSearchedHTML(data) {
         const row = data[i];
         const itemKey = headerMapping['article/item'];
         const itemName = itemKey ? String(row[itemKey] || '').trim() : '';
-        tableRowsHTML += '<tr>';
+        tableRowsHTML += `<tr><td class="col-no">${i + 1}</td>`;
 
         for (let j = 0; j < EXPORT_TABLE_CONFIG.length; j++) {
             const col = EXPORT_TABLE_CONFIG[j];
@@ -2151,7 +2151,7 @@ async function downloadSearchedHTML(data) {
         tableRowsHTML += '</tr>';
     }
 
-    let headersHTML = '';
+    let headersHTML = '<th class="col-no">No.</th>';
     EXPORT_TABLE_CONFIG.forEach(col => {
         headersHTML += `<th>${col.display}</th>`;
     });
@@ -2159,6 +2159,11 @@ async function downloadSearchedHTML(data) {
     const failNote = failedCount > 0
         ? `<br><span style="color:#b91c1c;">&#9888; ${failedCount} photo(s) could not be downloaded and are marked in the table.</span>`
         : '';
+
+    const headerHTML = await exportBuildHeader(
+        'Real Estate Inventory Report',
+        `Exported On: ${new Date().toLocaleString()} &bull; Total Records: ${data.length}${failNote}`
+    );
 
     const htmlContent = `<!DOCTYPE html>
 <html lang="en">
@@ -2215,6 +2220,7 @@ async function downloadSearchedHTML(data) {
         tr:nth-child(even) {
             background-color: #f8fafc;
         }
+${EXPORT_HEADER_CSS}
         @media print {
             body { margin: 10px; }
             table { page-break-inside: auto; }
@@ -2224,10 +2230,7 @@ async function downloadSearchedHTML(data) {
     </style>
 </head>
 <body>
-    <h1>Real Estate Inventory Report</h1>
-    <div class="report-meta">
-        Exported On: ${new Date().toLocaleString()} &bull; Total Records: ${data.length}${failNote}
-    </div>
+    ${headerHTML}
     <table>
         <thead>
             <tr>${headersHTML}</tr>
@@ -2261,6 +2264,58 @@ async function downloadSearchedHTML(data) {
         );
     }
 }
+
+// =========================================================================
+// 🏛️ REPORT HEADER LOGOS (Cebu City seal + DGS) for the exported reports
+// Logos are embedded as base64 so they still show when the downloaded
+// report is opened or printed from the Downloads folder.
+// =========================================================================
+const EXPORT_LOGO_LEFT  = 'Ph_seal_cebucity.png';
+const EXPORT_LOGO_RIGHT = 'dgs_logo.png';
+const EXPORT_LOGO_SIZE_PX = 60; // small logo size on the printed page
+
+async function exportLoadLogo(src) {
+    try {
+        const res = await fetch(src);
+        if (!res.ok) return '';
+        const blob = await res.blob();
+        return await new Promise((resolve) => {
+            const r = new FileReader();
+            r.onload = () => resolve(r.result);
+            r.onerror = () => resolve('');
+            r.readAsDataURL(blob);
+        });
+    } catch (e) {
+        return src; // fallback: relative link (works if the report sits next to the image files)
+    }
+}
+
+// Returns the CSS + the HTML for the header row (logo | title + meta | logo)
+async function exportBuildHeader(titleText, metaHTML) {
+    const [left, right] = await Promise.all([
+        exportLoadLogo(EXPORT_LOGO_LEFT),
+        exportLoadLogo(EXPORT_LOGO_RIGHT)
+    ]);
+    const img = (src, alt) => src
+        ? `<img class="report-logo" src="${src}" alt="${alt}" onerror="this.style.visibility='hidden'">`
+        : `<span class="report-logo"></span>`;
+    return `<div class="report-header">
+        ${img(left, 'Cebu City Seal')}
+        <div class="report-header-text">
+            <h1>${titleText}</h1>
+            <div class="report-meta">${metaHTML}</div>
+        </div>
+        ${img(right, 'DGS Logo')}
+    </div>`;
+}
+
+const EXPORT_HEADER_CSS = `
+        .report-header { display: flex; align-items: center; justify-content: center; gap: 18px; margin-bottom: 15px; }
+        .report-header-text { flex: 1; text-align: center; }
+        .report-header-text h1 { margin: 0 0 5px 0; }
+        .report-header-text .report-meta { margin-bottom: 0; }
+        .report-logo { width: ${EXPORT_LOGO_SIZE_PX}px; height: ${EXPORT_LOGO_SIZE_PX}px; object-fit: contain; flex: 0 0 auto; display: block; }
+        th.col-no, td.col-no { width: 40px; min-width: 40px; text-align: center; font-weight: bold; white-space: nowrap; }`;
 
 function escapeHtml(str) {
     return String(str)
@@ -3017,19 +3072,20 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function exportInsuranceHTML() {
+    async function exportInsuranceHTML() {
         const data = insFilteredRows;
         if (!data || data.length === 0) {
             toastAlert("Export Nullified: No dataset active for export.");
             return;
         }
         const BADGE = { INSURED: ['#dcfce7', '#166534'], EXPIRING: ['#fef3c7', '#92400e'], EXPIRED: ['#fee2e2', '#991b1b'], NOT_INSURED: ['#e2e8f0', '#334155'] };
-        const cols = ['Article no./ TCT no.', 'Description', 'Status', 'Insurer', 'Coverage End', 'Days Left', 'Notes'];
-        const rowsHTML = data.map(r => {
+        const cols = ['No.', 'Article no./ TCT no.', 'Description', 'Status', 'Insurer', 'Coverage End', 'Days Left', 'Notes'];
+        const rowsHTML = data.map((r, idx) => {
             const dtxt = r.days === null ? '-' : r.days < 0 ? Math.abs(r.days) + ' days overdue' : r.days + ' days';
             const dcolor = r.days === null ? '#0f172a' : r.days < 0 ? '#dc2626' : r.days <= INSURANCE_EXPIRING_DAYS ? '#b45309' : '#0f172a';
             const b = BADGE[r.status] || BADGE.NOT_INSURED;
             return '<tr>' +
+                '<td class="col-no">' + (idx + 1) + '</td>' +
                 '<td>' + escapeHtml(r.article) + '</td>' +
                 '<td>' + escapeHtml(r.description) + '</td>' +
                 '<td><span style="background:' + b[0] + ';color:' + b[1] + ';padding:3px 10px;border-radius:999px;font-weight:bold;font-size:12px;white-space:nowrap;">' + escapeHtml(LABEL[r.status]) + '</span></td>' +
@@ -3046,6 +3102,11 @@ window.addEventListener('DOMContentLoaded', () => {
             q ? 'Search: "' + q + '"' : ''
         ].filter(Boolean).join(' &bull; ');
 
+        const headerHTML = await exportBuildHeader(
+            'Insurance Register Report',
+            `Exported On: ${new Date().toLocaleString()} &bull; Total Records: ${data.length}${filterNote ? '<br>' + filterNote : ''}`
+        );
+
         const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3059,16 +3120,14 @@ window.addEventListener('DOMContentLoaded', () => {
         th, td { border: 1px solid #64748b; padding: 10px 12px; text-align: left; font-size: 14px; line-height: 1.4; word-break: break-word; color: #0f172a; vertical-align: middle; }
         th { background-color: #cbd5e1 !important; font-weight: bold; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
         tr:nth-child(even) { background-color: #f8fafc; }
+${EXPORT_HEADER_CSS}
         @media print { body { margin: 10px; } tr { page-break-inside: avoid; } th { background-color: #cbd5e1 !important; } }
     </style>
 </head>
 <body>
-    <h1>Insurance Register Report</h1>
-    <div class="report-meta">
-        Exported On: ${new Date().toLocaleString()} &bull; Total Records: ${data.length}${filterNote ? '<br>' + filterNote : ''}
-    </div>
+    ${headerHTML}
     <table>
-        <thead><tr>${cols.map(c => '<th>' + c + '</th>').join('')}</tr></thead>
+        <thead><tr>${cols.map(c => c === 'No.' ? '<th class="col-no">No.</th>' : '<th>' + c + '</th>').join('')}</tr></thead>
         <tbody>${rowsHTML}</tbody>
     </table>
 </body>
