@@ -2490,7 +2490,7 @@ window.addEventListener('DOMContentLoaded', () => {
 // 🛡️ ADMIN PANEL (front-end)
 // Only shown to ADMIN_EMAIL. Lets the admin:
 //   • view / add / edit / delete Gmail accounts in "Authorized Accounts"
-//   • view access requests and Approve / Dismiss them
+//   • review pending access requests (Accept -> Authorized Accounts, Deny -> marked "Denied" in the sheet, then hidden)
 //   • delete a property photo (Drive file + sheet link) from the photo viewer
 // NOTE: hiding the buttons here is cosmetic only — the Apps Script backend
 // (handleAdminAction in code.gs) independently verifies the admin's Google
@@ -2501,9 +2501,10 @@ window.addEventListener('DOMContentLoaded', () => {
     const ADMIN_EMAIL = "kieldelina001@gmail.com";
     const acc = { headers: [], emailCol: 0, rows: [], editingRow: null };
     const req = { headers: [], emailCol: 2, rows: [], loaded: false };
-    let tab = 'accounts';
     let busy = false;
     let els = null;
+    let confirmCb = null;
+    let toastTimer = null;
 
     function esc(s) {
         return String(s == null ? '' : s)
@@ -2539,17 +2540,107 @@ window.addEventListener('DOMContentLoaded', () => {
         return json;
     }
 
-    function setStatus(msg, type) {
+    // ---------------------------------------------------------------- UI HELPERS
+    function toast(msg, type) {
         if (!els) return;
-        els.status.textContent = msg || '';
-        els.status.style.color = type === 'error' ? '#b91c1c' : (type === 'ok' ? '#15803d' : '#475569');
+        clearTimeout(toastTimer);
+        els.toast.className = 'adm-toast' + (msg ? ' on ' + (type || 'info') : '');
+        els.toast.querySelector('.adm-toast-msg').textContent = msg || '';
+        if (msg) toastTimer = setTimeout(() => { els.toast.classList.remove('on'); }, type === 'error' ? 7000 : 3800);
     }
 
     function setBusy(b) {
         busy = b;
         if (!els) return;
+        els.panel.classList.toggle('is-busy', b);
         els.panel.querySelectorAll('button, input').forEach(el => { el.disabled = b; });
-        els.panel.style.cursor = b ? 'progress' : '';
+    }
+
+    function askConfirm(opts, cb) {
+        els.cfTitle.textContent = opts.title;
+        els.cfText.innerHTML = opts.html;
+        els.cfOk.textContent = opts.ok;
+        els.cfOk.className = 'adm-btn ' + (opts.danger ? 'adm-red' : 'adm-green');
+        els.cf.classList.add('on');
+        confirmCb = cb;
+        els.cfOk.focus();
+    }
+    function closeConfirm() { els.cf.classList.remove('on'); confirmCb = null; }
+
+    function initials(email) {
+        const n = String(email || '?').split('@')[0].replace(/[^a-zA-Z0-9]+/g, ' ').trim();
+        const p = n.split(' ');
+        return ((p[0] || '?')[0] + (p[1] ? p[1][0] : '')).toUpperCase();
+    }
+
+    // ---------------------------------------------------------------- REQUESTS
+    function statusColIdx() {
+        return req.headers.findIndex(h => /^\s*(status|reviewed on)\s*$/i.test(h || ''));
+    }
+    function hiddenReqCols() {
+        const hidden = {};
+        req.headers.forEach((h, i) => { if (/^\s*(status|reviewed on)\s*$/i.test(h || '')) hidden[i] = true; });
+        return hidden;
+    }
+    function reqStatus(r) {
+        if (r.denied === true) return 'denied';
+        if (r.status) return String(r.status).toLowerCase();
+        const i = req.headers.findIndex(h => /^\s*status\s*$/i.test(h || ''));
+        return i >= 0 ? String(r.values[i] || '').trim().toLowerCase() : '';
+    }
+    function isPending(r) {
+        if (r.authorized) return false;
+        const st = reqStatus(r);
+        return st !== 'denied' && st !== 'approved';
+    }
+    function pendingRows() { return req.rows.filter(isPending); }
+
+    function applyRequests(p) {
+        req.headers = p.headers || [];
+        req.emailCol = (p.emailCol == null) ? 2 : p.emailCol;
+        req.rows = p.rows || [];
+        req.loaded = true;
+        render();
+    }
+
+    function renderRequests() {
+        const rows = pendingRows().reverse(); // newest first
+        els.reqBadge.textContent = rows.length;
+        els.reqBadge.className = 'adm-badge' + (rows.length ? ' hot' : '');
+        els.reqSub.textContent = rows.length
+            ? rows.length + ' waiting for your decision'
+            : 'No pending requests';
+
+        if (!req.loaded) { els.reqBody.innerHTML = '<div class="adm-empty">Loading requests…</div>'; return; }
+        if (!rows.length) {
+            els.reqBody.innerHTML = '<div class="adm-empty"><div class="adm-empty-ic">✓</div><b>You\'re all caught up</b><span>New access requests will appear here.</span></div>';
+            return;
+        }
+
+        const hidden = hiddenReqCols();
+        const cols = req.headers.map((h, i) => i).filter(i => !hidden[i]);
+        let html = '<table><thead><tr>' +
+            cols.map(i => '<th>' + esc(req.headers[i] || ('Column ' + (i + 1))) + '</th>').join('') +
+            '<th class="adm-th-act">Decision</th></tr></thead><tbody>';
+
+        rows.forEach(r => {
+            const email = (r.values[req.emailCol] || '').trim();
+            html += '<tr>';
+            cols.forEach(c => {
+                const v = r.values[c] || '';
+                if (c === req.emailCol) {
+                    html += '<td><div class="adm-user"><span class="adm-avatar">' + esc(initials(email)) + '</span><span class="adm-email">' + esc(email) + '</span></div></td>';
+                } else {
+                    html += '<td class="' + (v ? '' : 'adm-muted') + '">' + (v ? esc(v) : '—') + '</td>';
+                }
+            });
+            html += '<td class="adm-act"><div class="adm-btngrp">' +
+                '<button class="adm-btn adm-green" data-ract="approve" data-row="' + r.row + '" data-email="' + esc(email) + '">✓ Accept</button>' +
+                '<button class="adm-btn adm-red-o" data-ract="deny" data-row="' + r.row + '" data-email="' + esc(email) + '">✕ Deny</button>' +
+                '</div></td></tr>';
+        });
+        html += '</tbody></table>';
+        els.reqBody.innerHTML = html;
     }
 
     // ---------------------------------------------------------------- ACCOUNTS
@@ -2564,132 +2655,91 @@ window.addEventListener('DOMContentLoaded', () => {
     function renderAccounts() {
         const q = els.search.value.trim().toLowerCase();
         const rows = acc.rows.filter(r => !q || r.values.some(v => String(v).toLowerCase().includes(q)));
-        els.count.textContent = rows.length + (q ? ' of ' + acc.rows.length : '') + ' account(s)';
+        els.count.textContent = rows.length + (q ? ' of ' + acc.rows.length : '');
 
-        let html = '<thead><tr><th>#</th>' +
+        let html = '<table><thead><tr><th style="width:44px;">#</th>' +
             acc.headers.map((h, i) => '<th>' + esc(h || ('Column ' + (i + 1))) + '</th>').join('') +
-            '<th style="width:190px;">Actions</th></tr></thead><tbody>';
+            '<th class="adm-th-act">Actions</th></tr></thead><tbody>';
 
         if (rows.length === 0) {
-            html += '<tr><td colspan="' + (acc.headers.length + 2) + '" style="text-align:center;color:#64748b;padding:20px;">No accounts found.</td></tr>';
+            html += '<tr><td colspan="' + (acc.headers.length + 2) + '" class="adm-muted" style="text-align:center;padding:26px;">No accounts found.</td></tr>';
         }
 
         rows.forEach((r, idx) => {
             const isEditing = acc.editingRow === r.row;
             const emailVal = r.values[acc.emailCol] || '';
             const isAdminRow = emailVal.trim().toLowerCase() === ADMIN_EMAIL;
-            html += '<tr><td>' + (idx + 1) + '</td>';
+            html += '<tr><td class="adm-muted">' + (idx + 1) + '</td>';
             acc.headers.forEach((h, c) => {
                 const v = r.values[c] || '';
                 if (c === acc.emailCol && isEditing) {
                     html += '<td><input type="email" class="adm-edit-input" id="admEditInput" value="' + esc(v) + '"></td>';
+                } else if (c === acc.emailCol) {
+                    html += '<td><div class="adm-user"><span class="adm-avatar sm">' + esc(initials(v)) + '</span><span class="adm-email">' + esc(v) + '</span>' +
+                        (isAdminRow ? '<span class="adm-tag">ADMIN</span>' : '') + '</div></td>';
                 } else {
-                    html += '<td>' + esc(v) + (c === acc.emailCol && isAdminRow ? ' <span class="adm-tag">ADMIN</span>' : '') + '</td>';
+                    html += '<td>' + esc(v) + '</td>';
                 }
             });
             if (isEditing) {
-                html += '<td><button class="adm-btn adm-green" data-act="save" data-row="' + r.row + '">Save</button> ' +
-                        '<button class="adm-btn adm-gray" data-act="cancel">Cancel</button></td>';
+                html += '<td class="adm-act"><div class="adm-btngrp"><button class="adm-btn adm-green" data-act="save" data-row="' + r.row + '">Save</button>' +
+                        '<button class="adm-btn adm-gray" data-act="cancel">Cancel</button></div></td>';
             } else if (isAdminRow) {
-                html += '<td><span style="color:#94a3b8;font-size:12px;">Protected</span></td>';
+                html += '<td class="adm-act"><span class="adm-muted" style="font-size:12px;">Protected</span></td>';
             } else {
-                html += '<td><button class="adm-btn adm-blue" data-act="edit" data-row="' + r.row + '">Edit</button> ' +
-                        '<button class="adm-btn adm-red" data-act="delete" data-row="' + r.row + '">Delete</button></td>';
+                html += '<td class="adm-act"><div class="adm-btngrp"><button class="adm-btn adm-ghost" data-act="edit" data-row="' + r.row + '">Edit</button>' +
+                        '<button class="adm-btn adm-red-o" data-act="delete" data-row="' + r.row + '">Delete</button></div></td>';
             }
             html += '</tr>';
         });
-        html += '</tbody>';
+        html += '</tbody></table>';
         els.table.innerHTML = html;
 
         const inp = document.getElementById('admEditInput');
         if (inp) { inp.focus(); inp.select(); }
     }
 
-    // ---------------------------------------------------------------- REQUESTS
-    function applyRequests(p) {
-        req.headers = p.headers || [];
-        req.emailCol = (p.emailCol == null) ? 2 : p.emailCol;
-        req.rows = p.rows || [];
-        req.loaded = true;
-        render();
-    }
-
-    function renderRequests() {
-        const q = els.search.value.trim().toLowerCase();
-        // newest first (the sheet appends new requests at the bottom)
-        const rows = req.rows.slice().reverse()
-            .filter(r => !q || r.values.some(v => String(v).toLowerCase().includes(q)));
-        const pending = req.rows.filter(r => !r.authorized).length;
-        els.count.textContent = rows.length + (q ? ' of ' + req.rows.length : '') + ' request(s) • ' + pending + ' pending';
-
-        let html = '<thead><tr>' +
-            req.headers.map((h, i) => '<th>' + esc(h || ('Column ' + (i + 1))) + '</th>').join('') +
-            '<th>Status</th><th style="width:190px;">Actions</th></tr></thead><tbody>';
-
-        if (rows.length === 0) {
-            html += '<tr><td colspan="' + (req.headers.length + 2) + '" style="text-align:center;color:#64748b;padding:20px;">No access requests.</td></tr>';
-        }
-
-        rows.forEach(r => {
-            html += '<tr>';
-            req.headers.forEach((h, c) => { html += '<td>' + esc(r.values[c] || '') + '</td>'; });
-            html += r.authorized
-                ? '<td><span class="adm-tag" style="background:#dcfce7;color:#166534;">AUTHORIZED</span></td>'
-                : '<td><span class="adm-tag" style="background:#fef3c7;color:#92400e;">PENDING</span></td>';
-            const em = esc((r.values[req.emailCol] || '').trim());
-            html += '<td>' +
-                (r.authorized ? '' : '<button class="adm-btn adm-green" data-ract="approve" data-row="' + r.row + '" data-email="' + em + '">Approve</button> ') +
-                '<button class="adm-btn adm-red" data-ract="dismiss" data-row="' + r.row + '" data-email="' + em + '">Dismiss</button></td></tr>';
-        });
-        html += '</tbody>';
-        els.table.innerHTML = html;
-    }
-
     // ---------------------------------------------------------------- COMMON
     function render() {
         if (!els) return;
-        els.tabAccounts.classList.toggle('adm-tab-active', tab === 'accounts');
-        els.tabRequests.classList.toggle('adm-tab-active', tab === 'requests');
-        const pending = req.rows.filter(r => !r.authorized).length;
-        els.tabRequests.textContent = '📨 Access Requests' + (req.loaded ? ' (' + pending + ')' : '');
-        els.addRow.style.display = tab === 'accounts' ? 'flex' : 'none';
-        if (tab === 'accounts') renderAccounts(); else renderRequests();
+        renderRequests();
+        renderAccounts();
     }
 
     async function loadAll(msg) {
         setBusy(true);
-        setStatus('Loading...', 'info');
+        toast('Loading…', 'info');
         let errMsg = '';
         try { applyAccounts(await adminCall('adminList')); } catch (err) { errMsg = err.message; }
         try { applyRequests(await adminCall('adminRequests')); }
         catch (err) { errMsg = errMsg || ('Access requests: ' + err.message); }
         setBusy(false);
         render();
-        if (errMsg) setStatus(errMsg, 'error'); else setStatus(msg || '', 'ok');
+        if (errMsg) toast(errMsg, 'error'); else toast(msg || '', 'ok');
     }
 
     async function runWrite(action, extra) {
         setBusy(true);
-        setStatus('Saving to Google Sheet...', 'info');
+        toast('Saving to Google Sheet…', 'info');
         try {
             const p = await adminCall(action, extra);
-            if (action === 'adminApproveRequest' || action === 'adminDismissRequest') {
+            if (action === 'adminApproveRequest' || action === 'adminDenyRequest') {
                 if (p.accounts) applyAccounts(p.accounts);
                 applyRequests(p);
             } else {
                 applyAccounts(p);
             }
-            setStatus(p.message || 'Done.', 'ok');
+            toast(p.message || 'Done.', 'ok');
             return true;
         } catch (err) {
-            setStatus(err.message, 'error');
+            toast(err.message, 'error');
             return false;
         } finally { setBusy(false); render(); }
     }
 
     function findRow(rowNum) { return acc.rows.find(r => r.row === Number(rowNum)); }
 
-    function onTableClick(e) {
+    function onPanelClick(e) {
         const btn = e.target.closest('button');
         if (!btn || busy) return;
 
@@ -2699,10 +2749,12 @@ window.addEventListener('DOMContentLoaded', () => {
             const email = btn.getAttribute('data-email') || '';
             if (ract === 'approve') {
                 runWrite('adminApproveRequest', { row: row, email: email });
-            } else if (ract === 'dismiss') {
-                if (confirm('Dismiss the request from ' + email + '?\nThis removes it from the Request Access sheet.')) {
-                    runWrite('adminDismissRequest', { row: row, email: email });
-                }
+            } else if (ract === 'deny') {
+                askConfirm({
+                    title: 'Deny access request?',
+                    html: '<b>' + esc(email) + '</b> will be marked <b>Denied</b> in the Request Access sheet and removed from this list. The record is kept in the sheet.',
+                    ok: 'Deny request', danger: true
+                }, () => runWrite('adminDenyRequest', { row: row, email: email }));
             }
             return;
         }
@@ -2711,61 +2763,103 @@ window.addEventListener('DOMContentLoaded', () => {
         const rowNum = btn.getAttribute('data-row');
         const r = rowNum ? findRow(rowNum) : null;
         if (act === 'edit' && r) { acc.editingRow = r.row; render(); }
-        else if (act === 'cancel') { acc.editingRow = null; render(); setStatus('', 'info'); }
+        else if (act === 'cancel') { acc.editingRow = null; render(); toast('', 'info'); }
         else if (act === 'save' && r) {
             const input = document.getElementById('admEditInput');
             runWrite('adminUpdate', { row: r.row, oldEmail: (r.values[acc.emailCol] || '').trim(), email: input ? input.value.trim() : '' });
         }
         else if (act === 'delete' && r) {
-            const em = r.values[acc.emailCol] || '';
-            if (confirm('Remove ' + em + ' from the authorized accounts?\nThey will no longer be able to open the web app.')) {
-                runWrite('adminDelete', { row: r.row, email: em.trim() });
-            }
+            const em = (r.values[acc.emailCol] || '').trim();
+            askConfirm({
+                title: 'Remove this account?',
+                html: '<b>' + esc(em) + '</b> will be removed from Authorized Accounts and will no longer be able to open the web app.',
+                ok: 'Remove account', danger: true
+            }, () => runWrite('adminDelete', { row: r.row, email: em }));
         }
     }
 
     async function onAdd() {
         const email = els.addInput.value.trim();
-        if (!email) { setStatus('Enter an email address to add.', 'error'); return; }
+        if (!email) { toast('Enter an email address to add.', 'error'); return; }
         const ok = await runWrite('adminAdd', { email: email });
         if (ok) els.addInput.value = '';
-    }
-
-    function switchTab(t) {
-        if (busy) return;
-        tab = t;
-        els.search.value = '';
-        setStatus('', 'info');
-        render();
     }
 
     function buildUI() {
         const style = document.createElement('style');
         style.textContent = `
-        #adminOpenBtn{position:fixed;top:20px;right:130px;background:#4f46e5;color:#fff;border:none;padding:10px 18px;border-radius:5px;font-weight:bold;cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,.3);z-index:999999;display:none;transition:background-color .2s;}
-        #adminOpenBtn:hover{background:#4338ca;}
-        #adminOverlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:300000;padding:15px;box-sizing:border-box;}
-        #adminPanel{background:#fff;border-radius:8px;width:100%;max-width:950px;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 8px 30px rgba(0,0,0,.4);font-family:Arial,sans-serif;overflow:hidden;}
-        #adminPanel .adm-head{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:#1e293b;color:#fff;}
-        #adminPanel .adm-head h3{margin:0;font-size:18px;}
-        #adminPanel .adm-close{background:transparent;border:none;color:#fff;font-size:24px;cursor:pointer;line-height:1;}
-        #adminPanel .adm-tabs{display:flex;gap:4px;padding:10px 20px 0;background:#f8fafc;border-bottom:1px solid #e2e8f0;}
-        #adminPanel .adm-tab{background:transparent;border:none;border-bottom:3px solid transparent;padding:9px 14px;font-weight:bold;font-size:14px;color:#64748b;cursor:pointer;}
-        #adminPanel .adm-tab-active{color:#4f46e5;border-bottom-color:#4f46e5;}
-        #adminPanel .adm-body{padding:16px 20px;overflow:auto;}
-        #adminPanel .adm-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;}
-        #adminPanel input[type=text],#adminPanel input[type=email],#adminPanel input[type=search]{padding:9px 10px;border:1px solid #cbd5e1;border-radius:4px;font-size:14px;box-sizing:border-box;}
-        #adminPanel .adm-grow{flex:1;min-width:180px;}
-        .adm-btn{border:none;color:#fff;padding:7px 12px;border-radius:4px;cursor:pointer;font-weight:bold;font-size:13px;}
-        .adm-btn:disabled{opacity:.5;cursor:not-allowed;}
-        .adm-blue{background:#2563eb;}.adm-red{background:#dc2626;}.adm-green{background:#16a34a;}.adm-gray{background:#64748b;}
-        #adminPanel .adm-tablewrap{overflow:auto;border:1px solid #e2e8f0;border-radius:6px;max-height:50vh;}
-        #adminPanel table{width:100%;border-collapse:collapse;font-size:14px;}
-        #adminPanel th{background:#f1f5f9;text-align:left;padding:9px 10px;position:sticky;top:0;border-bottom:1px solid #e2e8f0;color:#334155;}
-        #adminPanel td{padding:8px 10px;border-bottom:1px solid #f1f5f9;color:#1e293b;word-break:break-word;}
-        .adm-edit-input{width:100%;}
-        .adm-tag{background:#e0e7ff;color:#3730a3;font-size:10px;padding:2px 6px;border-radius:10px;font-weight:bold;margin-left:4px;}
-        #adminStatus{min-height:20px;margin-top:10px;font-size:13px;font-weight:bold;}
+        #adminOpenBtn{position:fixed;top:20px;right:130px;background:linear-gradient(180deg,#1b3a63,#0b1f3a);color:#fff;border:none;padding:10px 18px;border-radius:999px;font:600 13px Inter,sans-serif;letter-spacing:.3px;cursor:pointer;box-shadow:0 4px 12px rgba(11,31,58,.35);z-index:999999;display:none;transition:transform .15s,box-shadow .15s;}
+        #adminOpenBtn:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(11,31,58,.4);}
+        #adminOverlay{position:fixed;inset:0;background:rgba(11,31,58,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:300000;padding:16px;box-sizing:border-box;}
+        #adminPanel{--b:#2b83cf;position:relative;background:#f8fafc;border-radius:18px;width:100%;max-width:1020px;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(15,23,42,.35);font-family:Inter,'Segoe UI',Arial,sans-serif;color:#0f172a;overflow:hidden;animation:admPop .26s cubic-bezier(.16,1,.3,1);}
+        @keyframes admPop{from{opacity:0;transform:translateY(10px) scale(.97);}to{opacity:1;transform:none;}}
+        #adminPanel.is-busy{cursor:progress;}
+        #adminPanel .adm-head{display:flex;align-items:center;gap:14px;padding:18px 24px;background:linear-gradient(135deg,#0b1f3a,#1b3a63);color:#fff;}
+        #adminPanel .adm-head-ic{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:20px;}
+        #adminPanel .adm-head h3{margin:0;font-size:18px;font-weight:800;letter-spacing:-.01em;}
+        #adminPanel .adm-head p{margin:2px 0 0;font-size:12.5px;color:#b9cdea;}
+        #adminPanel .adm-head-sp{flex:1;}
+        #adminPanel .adm-iconbtn{background:rgba(255,255,255,.12);border:none;color:#fff;height:36px;min-width:36px;padding:0 12px;border-radius:10px;font:600 13px Inter,sans-serif;cursor:pointer;transition:background .15s;}
+        #adminPanel .adm-iconbtn:hover:not(:disabled){background:rgba(255,255,255,.24);}
+        #adminPanel .adm-iconbtn:disabled{opacity:.5;cursor:not-allowed;}
+        #adminPanel .adm-body{padding:20px 24px 24px;overflow:auto;display:flex;flex-direction:column;gap:20px;}
+        #adminPanel .adm-card{background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 1px 2px rgba(15,23,42,.05);overflow:hidden;}
+        #adminPanel .adm-card-head{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid #eef2f7;flex-wrap:wrap;}
+        #adminPanel .adm-card-head h4{margin:0;font-size:15px;font-weight:800;color:#0b1f3a;letter-spacing:-.01em;display:flex;align-items:center;gap:10px;}
+        #adminPanel .adm-card-sub{font-size:12.5px;color:#64748b;}
+        #adminPanel .adm-badge{min-width:22px;height:22px;padding:0 7px;border-radius:999px;background:#e2e8f0;color:#334155;font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;}
+        #adminPanel .adm-badge.hot{background:#f59e0b;color:#3b2a04;}
+        #adminPanel .adm-pill{font-size:12px;font-weight:700;color:#1d6fb8;background:#e3effa;padding:3px 10px;border-radius:999px;}
+        #adminPanel .adm-tools{display:flex;gap:10px;flex-wrap:wrap;padding:14px 20px;background:#f8fafc;border-bottom:1px solid #eef2f7;}
+        #adminPanel .adm-tools .adm-add{display:flex;gap:8px;flex:2;min-width:260px;}
+        #adminPanel .adm-grow{flex:1;min-width:150px;}
+        #adminPanel input[type=email],#adminPanel input[type=search]{padding:0 12px;height:38px;border:1px solid #cbd5e1;border-radius:10px;font:14px Inter,sans-serif;box-sizing:border-box;background:#fff;color:#0f172a;transition:border-color .15s,box-shadow .15s;}
+        #adminPanel input:focus{outline:none;border-color:#2b83cf;box-shadow:0 0 0 3px rgba(43,131,207,.18);}
+        #adminPanel .adm-btn{border:1px solid transparent;color:#fff;height:34px;padding:0 14px;border-radius:9px;cursor:pointer;font:600 13px Inter,sans-serif;white-space:nowrap;transition:transform .12s,box-shadow .12s,background .12s,color .12s;}
+        #adminPanel .adm-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 10px rgba(15,23,42,.18);}
+        #adminPanel .adm-btn:active:not(:disabled){transform:scale(.97);}
+        #adminPanel .adm-btn:disabled{opacity:.5;cursor:not-allowed;}
+        #adminPanel .adm-green{background:linear-gradient(180deg,#22c55e,#16a34a);}
+        #adminPanel .adm-red{background:linear-gradient(180deg,#ef4444,#dc2626);}
+        #adminPanel .adm-red-o{background:#fff;color:#dc2626;border-color:#fca5a5;}
+        #adminPanel .adm-red-o:hover:not(:disabled){background:#fee2e2;}
+        #adminPanel .adm-gray{background:#64748b;}
+        #adminPanel .adm-ghost{background:#fff;color:#1d6fb8;border-color:#b6d4f0;}
+        #adminPanel .adm-ghost:hover:not(:disabled){background:#e3effa;}
+        #adminPanel .adm-primary{background:linear-gradient(180deg,#2b83cf,#1d6fb8);height:38px;}
+        #adminPanel .adm-scroll{overflow:auto;}
+        #adminPanel .adm-scroll.req{max-height:280px;}
+        #adminPanel .adm-scroll.acc{max-height:320px;}
+        #adminPanel table{width:100%;border-collapse:collapse;font-size:13.5px;}
+        #adminPanel th{background:#f1f5f9;text-align:left;padding:10px 16px;position:sticky;top:0;z-index:1;border-bottom:1px solid #e2e8f0;color:#475569;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;white-space:nowrap;}
+        #adminPanel td{padding:11px 16px;border-bottom:1px solid #f1f5f9;color:#1e293b;word-break:break-word;vertical-align:middle;}
+        #adminPanel tbody tr{transition:background .12s;}
+        #adminPanel tbody tr:hover{background:#f1f7fd;}
+        #adminPanel tbody tr:last-child td{border-bottom:none;}
+        #adminPanel .adm-th-act,#adminPanel .adm-act{text-align:right;white-space:nowrap;width:1%;}
+        #adminPanel .adm-btngrp{display:inline-flex;gap:8px;}
+        #adminPanel .adm-muted{color:#94a3b8;}
+        #adminPanel .adm-user{display:flex;align-items:center;gap:10px;}
+        #adminPanel .adm-avatar{flex:none;width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#57a1e0,#1d6fb8);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+        #adminPanel .adm-avatar.sm{width:28px;height:28px;font-size:11px;background:linear-gradient(135deg,#94a3b8,#64748b);}
+        #adminPanel .adm-email{font-weight:600;}
+        #adminPanel .adm-tag{background:#e0e7ff;color:#3730a3;font-size:10px;padding:2px 8px;border-radius:999px;font-weight:700;letter-spacing:.5px;}
+        #adminPanel .adm-edit-input{width:100%;min-width:200px;}
+        #adminPanel .adm-empty{display:flex;flex-direction:column;align-items:center;gap:4px;padding:30px 16px;color:#64748b;font-size:13px;text-align:center;}
+        #adminPanel .adm-empty b{color:#0b1f3a;font-size:14px;}
+        #adminPanel .adm-empty-ic{width:44px;height:44px;border-radius:50%;background:#dcfce7;color:#16a34a;font-size:22px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-bottom:6px;}
+        #adminPanel .adm-toast{position:absolute;left:50%;bottom:18px;transform:translate(-50%,16px);opacity:0;pointer-events:none;background:#0b1f3a;color:#fff;padding:11px 18px;border-radius:12px;font-size:13px;font-weight:600;box-shadow:0 10px 30px rgba(15,23,42,.35);max-width:88%;transition:opacity .2s,transform .25s cubic-bezier(.16,1,.3,1);z-index:5;border-left:4px solid #57a1e0;}
+        #adminPanel .adm-toast.on{opacity:1;transform:translate(-50%,0);}
+        #adminPanel .adm-toast.ok{border-left-color:#22c55e;}
+        #adminPanel .adm-toast.error{border-left-color:#ef4444;background:#7f1d1d;}
+        #adminPanel .adm-cf{position:absolute;inset:0;background:rgba(11,31,58,.45);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:10;padding:16px;}
+        #adminPanel .adm-cf.on{display:flex;}
+        #adminPanel .adm-cf-box{background:#fff;border-radius:16px;padding:24px;max-width:400px;width:100%;box-shadow:0 20px 50px rgba(15,23,42,.35);animation:admPop .2s cubic-bezier(.16,1,.3,1);}
+        #adminPanel .adm-cf-box h5{margin:0 0 8px;font-size:17px;font-weight:800;color:#0b1f3a;}
+        #adminPanel .adm-cf-box p{margin:0 0 20px;font-size:13.5px;line-height:1.55;color:#475569;}
+        #adminPanel .adm-cf-actions{display:flex;justify-content:flex-end;gap:10px;}
+        @media (max-width:640px){#adminOpenBtn{right:20px;top:12px;} #adminPanel .adm-body{padding:14px;} #adminPanel .adm-head{padding:14px 16px;} #adminPanel .adm-head p{display:none;}}
+        @media (prefers-reduced-motion:reduce){#adminPanel,#adminPanel .adm-cf-box{animation:none;} #adminPanel .adm-toast{transition:none;}}
         `;
         document.head.appendChild(style);
 
@@ -2777,24 +2871,48 @@ window.addEventListener('DOMContentLoaded', () => {
         const overlay = document.createElement('div');
         overlay.id = 'adminOverlay';
         overlay.innerHTML = `
-        <div id="adminPanel">
-            <div class="adm-head"><h3>🛡️ Admin Panel</h3><button class="adm-close" id="adminCloseBtn" title="Close">&times;</button></div>
-            <div class="adm-tabs">
-                <button class="adm-tab adm-tab-active" id="adminTabAccounts">👥 Authorized Accounts</button>
-                <button class="adm-tab" id="adminTabRequests">📨 Access Requests</button>
+        <div id="adminPanel" role="dialog" aria-modal="true" aria-label="Admin Panel">
+            <div class="adm-head">
+                <div class="adm-head-ic">🛡️</div>
+                <div><h3>Admin Panel</h3><p>Manage who can access the Real Estate Inventory</p></div>
+                <div class="adm-head-sp"></div>
+                <button class="adm-iconbtn" id="adminRefreshBtn" title="Refresh">↻ Refresh</button>
+                <button class="adm-iconbtn" id="adminCloseBtn" title="Close" style="font-size:20px;">&times;</button>
             </div>
             <div class="adm-body">
-                <div class="adm-row" id="adminAddRow">
-                    <input type="email" id="adminAddInput" class="adm-grow" placeholder="Add Gmail account (e.g. name@gmail.com)">
-                    <button class="adm-btn adm-green" id="adminAddBtn">➕ Add Email</button>
+                <section class="adm-card">
+                    <div class="adm-card-head">
+                        <h4>📨 Access Requests <span class="adm-badge" id="admReqBadge">0</span></h4>
+                        <span class="adm-card-sub" id="admReqSub"></span>
+                    </div>
+                    <div class="adm-scroll req" id="admReqBody"></div>
+                </section>
+
+                <section class="adm-card">
+                    <div class="adm-card-head">
+                        <h4>👥 Authorized Accounts <span class="adm-pill" id="adminCount">0</span></h4>
+                    </div>
+                    <div class="adm-tools">
+                        <div class="adm-add">
+                            <input type="email" id="adminAddInput" class="adm-grow" placeholder="Add Gmail account (e.g. name@gmail.com)">
+                            <button class="adm-btn adm-primary" id="adminAddBtn">＋ Add Email</button>
+                        </div>
+                        <input type="search" id="adminSearchInput" class="adm-grow" placeholder="Search accounts…">
+                    </div>
+                    <div class="adm-scroll acc" id="adminTable"></div>
+                </section>
+            </div>
+
+            <div class="adm-toast" id="adminToast"><span class="adm-toast-msg"></span></div>
+            <div class="adm-cf" id="adminConfirm">
+                <div class="adm-cf-box">
+                    <h5 id="adminCfTitle"></h5>
+                    <p id="adminCfText"></p>
+                    <div class="adm-cf-actions">
+                        <button class="adm-btn adm-gray" id="adminCfCancel">Cancel</button>
+                        <button class="adm-btn adm-red" id="adminCfOk">Confirm</button>
+                    </div>
                 </div>
-                <div class="adm-row">
-                    <input type="search" id="adminSearchInput" class="adm-grow" placeholder="Search...">
-                    <button class="adm-btn adm-gray" id="adminRefreshBtn">🔄 Refresh</button>
-                    <span id="adminCount" style="font-size:13px;color:#64748b;"></span>
-                </div>
-                <div class="adm-tablewrap"><table id="adminTable"></table></div>
-                <div id="adminStatus"></div>
             </div>
         </div>`;
         document.body.appendChild(overlay);
@@ -2804,19 +2922,25 @@ window.addEventListener('DOMContentLoaded', () => {
             overlay: overlay,
             panel: document.getElementById('adminPanel'),
             table: document.getElementById('adminTable'),
+            reqBody: document.getElementById('admReqBody'),
+            reqBadge: document.getElementById('admReqBadge'),
+            reqSub: document.getElementById('admReqSub'),
             search: document.getElementById('adminSearchInput'),
             addInput: document.getElementById('adminAddInput'),
-            addRow: document.getElementById('adminAddRow'),
             count: document.getElementById('adminCount'),
-            status: document.getElementById('adminStatus'),
-            tabAccounts: document.getElementById('adminTabAccounts'),
-            tabRequests: document.getElementById('adminTabRequests')
+            toast: document.getElementById('adminToast'),
+            cf: document.getElementById('adminConfirm'),
+            cfTitle: document.getElementById('adminCfTitle'),
+            cfText: document.getElementById('adminCfText'),
+            cfOk: document.getElementById('adminCfOk')
         };
 
         openBtn.addEventListener('click', () => {
             if (!isAdminSession()) return;
             overlay.style.display = 'flex';
             document.body.style.overflow = 'hidden';
+            req.loaded = false;
+            render();
             loadAll('');
         });
         document.getElementById('adminCloseBtn').addEventListener('click', closeAdmin);
@@ -2824,16 +2948,24 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('adminAddBtn').addEventListener('click', onAdd);
         els.addInput.addEventListener('keydown', e => { if (e.key === 'Enter') onAdd(); });
         document.getElementById('adminRefreshBtn').addEventListener('click', () => loadAll('Refreshed.'));
-        els.tabAccounts.addEventListener('click', () => switchTab('accounts'));
-        els.tabRequests.addEventListener('click', () => switchTab('requests'));
-        els.search.addEventListener('input', render);
-        els.table.addEventListener('click', onTableClick);
+        els.search.addEventListener('input', renderAccounts);
+        els.reqBody.addEventListener('click', onPanelClick);
+        els.table.addEventListener('click', onPanelClick);
+        document.getElementById('adminCfCancel').addEventListener('click', closeConfirm);
+        els.cfOk.addEventListener('click', () => { const cb = confirmCb; closeConfirm(); if (cb) cb(); });
+        els.cf.addEventListener('mousedown', e => { if (e.target === els.cf) closeConfirm(); });
+        overlay.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                if (els.cf.classList.contains('on')) closeConfirm();
+                else if (!busy) closeAdmin();
+            }
+        });
         els.table.addEventListener('keydown', e => {
             if (e.target && e.target.id === 'admEditInput') {
                 if (e.key === 'Enter') {
                     const r = findRow(acc.editingRow);
                     if (r) runWrite('adminUpdate', { row: r.row, oldEmail: (r.values[acc.emailCol] || '').trim(), email: e.target.value.trim() });
-                } else if (e.key === 'Escape') { acc.editingRow = null; render(); }
+                } else if (e.key === 'Escape') { e.stopPropagation(); acc.editingRow = null; render(); }
             }
         });
     }
@@ -2843,6 +2975,8 @@ window.addEventListener('DOMContentLoaded', () => {
         els.overlay.style.display = 'none';
         document.body.style.overflow = '';
         acc.editingRow = null;
+        closeConfirm();
+        toast('', 'info');
     }
 
     // ---------------------------------------------------------------- PHOTO DELETE
