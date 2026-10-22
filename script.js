@@ -229,6 +229,48 @@ window.addEventListener('scroll', () => {
     }
 });
 
+// 🔄 LOGIN SCREEN STATE (idle / waiting for Google popup / verifying / error)
+let loginWaitTimer = null;
+function setLoginState(state, msg) {
+    const btn = document.getElementById('customLoginBtn');
+    const box = document.querySelector('.login-box');
+    const err = document.getElementById('loginError');
+    clearTimeout(loginWaitTimer);
+    if (!btn || !box || !err) return;
+
+    btn.dataset.defaultHtml = btn.dataset.defaultHtml || btn.innerHTML;
+    const busy = (state === 'waiting' || state === 'verifying');
+    box.classList.toggle('is-waiting', busy);
+    btn.disabled = busy;
+    btn.setAttribute('aria-busy', busy ? 'true' : 'false');
+
+    if (state === 'waiting') {
+        btn.innerHTML = '<span class="login-spinner"></span>Waiting for Google sign-in\u2026';
+        err.className = 'error-msg info';
+        err.textContent = 'Complete the sign-in in the Google window that just opened.';
+        // If nothing happens for a while (popup hidden behind the page), let the user try again
+        loginWaitTimer = setTimeout(() => {
+            btn.disabled = false;
+            btn.innerHTML = '<span class="login-spinner"></span>Reopen Google sign-in';
+            err.textContent = "Don't see the Google window? Click the button to reopen it.";
+        }, 10000);
+    } else if (state === 'verifying') {
+        btn.innerHTML = '<span class="login-spinner"></span>Verifying account access\u2026';
+        err.className = 'error-msg info';
+        err.textContent = '';
+    } else {
+        btn.innerHTML = btn.dataset.defaultHtml;
+        err.className = 'error-msg';
+        err.textContent = (state === 'error' && msg) ? msg : '';
+    }
+}
+
+function requestGoogleLogin(client) {
+    setLoginState('waiting');
+    try { client.requestAccessToken(); }
+    catch (e) { setLoginState('error', 'Could not open Google sign-in. Please try again.'); }
+}
+
 // 🔐 SECURE INITIALIZER & GOOGLE IDENTITY TOKEN INTEGRATION (ROBUST 1-CLICK FIX)
 function getOrCreateTokenClient() {
     if (!tokenClient && window.google && google.accounts && google.accounts.oauth2) {
@@ -241,7 +283,7 @@ function getOrCreateTokenClient() {
                 if (tokenResponse && tokenResponse.access_token) {
                     accessToken = tokenResponse.access_token;
                     const loginErr = document.getElementById('loginError');
-                    if (loginErr) loginErr.textContent = 'Verifying account access...';
+                    setLoginState('verifying');
 
                     // 🔑 NEW LOGIN FLOW:
                     // 1. Get the signed-in Gmail account
@@ -267,7 +309,7 @@ function getOrCreateTokenClient() {
                         return checkAuthorizedAccount(profile.email);
                     })
                     .then(isAuthorized => {
-                        if (loginErr) loginErr.textContent = '';
+                        setLoginState('idle');
 
                         if (isAuthorized) {
                             // ✅ Authorized -> Main Page
@@ -287,11 +329,21 @@ function getOrCreateTokenClient() {
                         // ⚠️ Cannot reach/read the Authorized Accounts sheet, or lost session -> Log In Again
                         console.error('Authorization check failed:', err);
                         accessToken = null;
-                        if (loginErr) loginErr.textContent = 'Could not verify account access (Authorized Accounts sheet unreachable). Please log in again.';
+                        setLoginState('error', 'Could not verify account access (Authorized Accounts sheet unreachable). Please log in again.');
                     });
                 } else {
-                    const loginErr = document.getElementById('loginError');
-                    if (loginErr) loginErr.textContent = 'Google Sign-In authorization failed.';
+                    setLoginState('error', 'Google Sign-In authorization failed.');
+                }
+            },
+            // Popup closed by the user, or blocked by the browser
+            error_callback: (err) => {
+                const type = err && err.type;
+                if (type === 'popup_closed') {
+                    setLoginState('idle');
+                } else if (type === 'popup_failed_to_open') {
+                    setLoginState('error', 'Your browser blocked the Google sign-in window. Please allow pop-ups for this site and try again.');
+                } else {
+                    setLoginState('error', 'Google Sign-In was interrupted. Please try again.');
                 }
             }
         });
@@ -624,7 +676,7 @@ function initApp() {
             if (client) {
                 const loginErr = document.getElementById('loginError');
                 if (loginErr) loginErr.textContent = '';
-                client.requestAccessToken();
+                requestGoogleLogin(client);
             } else {
                 // Fallback: If Google GSI script is still loading, retry after 500ms automatically
                 const loginErr = document.getElementById('loginError');
@@ -634,7 +686,7 @@ function initApp() {
                     client = getOrCreateTokenClient();
                     if (client) {
                         if (loginErr) loginErr.textContent = '';
-                        client.requestAccessToken();
+                        requestGoogleLogin(client);
                     } else {
                         if (loginErr) loginErr.textContent = 'Google Sign-In failed to load. Please check your network connection or refresh.';
                     }
@@ -2365,7 +2417,7 @@ function checkSessionStatus() {
 
             // Optional: Automatically trigger the Google Sign-In popup again
             let client = getOrCreateTokenClient();
-            if (client) client.requestAccessToken();
+            if (client) { setLoginState('idle'); requestGoogleLogin(client); }
         };
     }
 }

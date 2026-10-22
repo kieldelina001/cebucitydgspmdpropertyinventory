@@ -329,6 +329,23 @@
             #loginScreen::after { font-size: 9.5px; letter-spacing: 0.1em; padding: 0 16px; }
         }
 
+        /* --- Login: waiting-for-Google state --- */
+        .login-btn:disabled { cursor: progress; transform: none; box-shadow: var(--shadow-sm); }
+        .login-btn:disabled:hover { background-color: #ffffff; border-color: var(--line-strong); }
+        .login-spinner {
+            width: 18px; height: 18px; flex: none;
+            border: 3px solid var(--blue-100);
+            border-top-color: var(--blue-500);
+            border-radius: 50%;
+            animation: loginSpin .7s linear infinite;
+        }
+        @keyframes loginSpin { to { transform: rotate(360deg); } }
+        .login-box.is-waiting { border-top-color: var(--blue-400); }
+        .login-box.is-waiting .login-logo,
+        .login-box.is-waiting h2 { opacity: .55; transition: opacity .25s ease; }
+        .error-msg.info { color: var(--blue-600); font-weight: 500; }
+        @media (prefers-reduced-motion: reduce) { .login-spinner { animation-duration: 1.6s; } }
+
         /* --- Main App Styles --- */
         #mainApp { margin: 28px 20px; }
 
