@@ -3161,6 +3161,21 @@ window.addEventListener('DOMContentLoaded', () => {
         return m ? m[1].trim() : '-';
     }
 
+    // Sum Insured: read from Notes ("Sum Insured: 10,000,000"), else fall back to the Unit Value column
+    function parseAmount(txt) {
+        const m = String(txt || '').match(/-?\d[\d,]*(?:\.\d+)?/);
+        if (!m) return null;
+        const n = parseFloat(m[0].replace(/,/g, ''));
+        return isNaN(n) ? null : n;
+    }
+    function parseSumInsured(notes, unitValue) {
+        const m = notes.match(/sum\s*insured\s*[:\-]?\s*(?:php|p|\u20b1)?\s*(\d[\d,]*(?:\.\d+)?)/i);
+        if (m) return parseFloat(m[1].replace(/,/g, ''));
+        return parseAmount(unitValue);
+    }
+    const fmtPeso = n => n === null || n === undefined ? '-'
+        : '\u20b1 ' + Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
     function details(row) {
         const notes = String(row[headerMapping['notes']] || '');
         const status = getInsuranceStatus(notes);
@@ -3179,6 +3194,7 @@ window.addEventListener('DOMContentLoaded', () => {
             id: row._rowId, status, end, days, notes,
             insurer: (function () { const p = parseInsurer(notes); return p !== '-' ? p : (status === 'NOT_INSURED' ? '-' : DEFAULT_INSURER); })(),
             policy: parsePolicy(notes),
+            sumInsured: parseSumInsured(notes, row[headerMapping['unit value']]),
             article: String(row[headerMapping['article/item']] || ''),
             description: String(row[headerMapping['description']] || '')
         };
@@ -3238,8 +3254,9 @@ window.addEventListener('DOMContentLoaded', () => {
             <div class="ins-row" style="--i:0"><span>Status</span><span><span class="ins-badge ins-b-${r.status}">${LABEL[r.status]}</span></span></div>
             <div class="ins-row" style="--i:1"><span>Insurer</span><span>${escapeHtml(r.insurer)}</span></div>
             <div class="ins-row" style="--i:2"><span>Policy ID</span><span>${escapeHtml(r.policy)}</span></div>
-            <div class="ins-row" style="--i:3"><span>Coverage end</span><span>${r.end ? fmtDate(r.end) : '-'}</span></div>
-            <div class="ins-row" style="--i:4"><span>Time left</span><span>${timeLeft(r)}</span></div>
+            <div class="ins-row" style="--i:3"><span>Sum Insured</span><span>${fmtPeso(r.sumInsured)}</span></div>
+            <div class="ins-row" style="--i:4"><span>Coverage end</span><span>${r.end ? fmtDate(r.end) : '-'}</span></div>
+            <div class="ins-row" style="--i:5"><span>Time left</span><span>${timeLeft(r)}</span></div>
             <div class="ins-notes"><b>Notes (from sheet)</b>${escapeHtml(r.notes)}</div>
             <div class="modal-actions" style="margin-top:20px;padding-top:16px;">
                 <button class="modal-btn btn-edit" id="insOpenRecord">Open Property Record</button>
