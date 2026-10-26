@@ -3411,10 +3411,16 @@ showToast(linked > 0
         const root = $('insDetail');
         if (!root) return;
         root.querySelectorAll('.modal-field textarea').forEach(t => {
+            t.rows = 1;                       // drop the fixed row count, otherwise it acts as a minimum height
             t.style.overflow = 'hidden';
             t.style.resize = 'none';
-            t.style.height = 'auto';
-            t.style.height = (t.scrollHeight + 2) + 'px';
+            t.style.minHeight = '0';
+            t.style.height = '0px';           // collapse first so scrollHeight = real text height
+            const cs = getComputedStyle(t);
+            const border = (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.borderBottomWidth) || 0);
+            const pad = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+            const h = t.scrollHeight;         // text + padding
+            t.style.height = (cs.boxSizing === 'border-box' ? h + border : h - pad) + 'px';
         });
     }
     window.addEventListener('resize', () => {
