@@ -1778,45 +1778,239 @@ function finalizeSaveData(operatorName) {
     }
 }
 
+// =========================================================================
+// 📸 IN-APP UPLOAD PHOTOS WINDOW (replaces the old UploadForm.html popup)
+// =========================================================================
+const UP_SLOTS = {
+    1: { key: 'photo 1',          label: 'Structure Photo 1',      empty: '📸 Click to Choose Photo 1' },
+    2: { key: 'photo 2',          label: 'Structure Photo 2',      empty: '📸 Click to Choose Photo 2' },
+    3: { key: 'map coordinates',  label: 'Map Coordinates Photo',  empty: '🗺️ Click to Choose Map Photo' },
+    4: { key: 'tax declaration',  label: 'Tax Declaration Photo',  empty: '📄 Click to Choose Tax Dec Photo' }
+};
+let upFiles = { 1: null, 2: null, 3: null, 4: null };
+let upItemCode = '';
+let upBusy = false;
+let upWired = false;
+
+function upEl(id) { return document.getElementById(id); }
+
+function upCheckReady() {
+    const hasPhoto = Object.values(upFiles).some(f => f !== null);
+    const hasName = upEl('upUploader').value.trim() !== '';
+    upEl('upSubmitBtn').disabled = upBusy || !(hasPhoto && hasName);
+}
+
+function upSetStatus(cls, text) {
+    const st = upEl('upStatus');
+    st.className = 'up-status ' + cls;
+    st.textContent = text;
+}
+
+function upViewExisting(url) {
+    const direct = getDirectImageUrl(url) || url;
+    window.open(direct, '_blank', 'noopener');
+}
+
+function upRenderExisting(index, url) {
+    const el = upEl('upExisting' + index);
+    if (url && String(url).trim() !== '') {
+        el.className = 'up-existing has';
+        el.innerHTML = '✅ Already uploaded — <a href="#">view current photo</a>. Choosing a new file will replace it.';
+        el.querySelector('a').addEventListener('click', e => { e.preventDefault(); upViewExisting(String(url).trim()); });
+    } else {
+        el.className = 'up-existing none';
+        el.textContent = '— No photo uploaded yet —';
+    }
+}
+
+function upResetSlot(index) {
+    upFiles[index] = null;
+    const input = upEl('upFile' + index);
+    input.value = '';
+    const pick = upEl('upPick' + index);
+    pick.classList.remove('has-file');
+    const img = pick.querySelector('img');
+    if (img.src && img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
+    img.removeAttribute('src');
+    pick.querySelector('span').textContent = UP_SLOTS[index].empty;
+}
+
+function upOnFileChosen(index) {
+    const input = upEl('upFile' + index);
+    const pick = upEl('upPick' + index);
+    const img = pick.querySelector('img');
+    if (img.src && img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
+    if (input.files && input.files.length > 0) {
+        const f = input.files[0];
+        upFiles[index] = f;
+        pick.classList.add('has-file');
+        img.src = URL.createObjectURL(f);
+        pick.querySelector('span').textContent = 'Selected: ' + f.name;
+    } else {
+        upResetSlot(index);
+    }
+    upCheckReady();
+}
+
+// Shrinks large phone photos before sending (keeps requests small and fast).
+// Falls back to the original file if the browser can't decode it.
+function upPrepareImage(file) {
+    const MAX_DIM = 1800, QUALITY = 0.85;
+    const readRaw = () => new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve({ base64: String(fr.result).split(',')[1], type: file.type || 'image/jpeg', name: file.name });
+        fr.onerror = () => reject(new Error('Could not read "' + file.name + '".'));
+        fr.readAsDataURL(file);
+    });
+    return new Promise(resolve => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+            try {
+                let w = img.naturalWidth, h = img.naturalHeight;
+                const scale = Math.min(1, MAX_DIM / Math.max(w, h));
+                w = Math.round(w * scale); h = Math.round(h * scale);
+                const canvas = document.createElement('canvas');
+                canvas.width = w; canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);
+                ctx.drawImage(img, 0, 0, w, h);
+                const dataUrl = canvas.toDataURL('image/jpeg', QUALITY);
+                URL.revokeObjectURL(url);
+                resolve({
+                    base64: dataUrl.split(',')[1],
+                    type: 'image/jpeg',
+                    name: file.name.replace(/\.[^.]+$/, '') + '.jpg'
+                });
+            } catch (e) { URL.revokeObjectURL(url); readRaw().then(resolve, () => resolve(null)); }
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); readRaw().then(resolve, () => resolve(null)); };
+        img.src = url;
+    });
+}
+
+function upWireOnce() {
+    if (upWired) return;
+    upWired = true;
+    [1, 2, 3, 4].forEach(i => upEl('upFile' + i).addEventListener('change', () => upOnFileChosen(i)));
+    upEl('upSubmitBtn').addEventListener('click', upStartUpload);
+    upEl('upCancelBtn').addEventListener('click', closeUploadWindow);
+    upEl('upCloseX').addEventListener('click', closeUploadWindow);
+    upEl('uploadPhotosOverlay').addEventListener('mousedown', e => {
+        if (e.target === upEl('uploadPhotosOverlay')) closeUploadWindow();
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && upEl('uploadPhotosOverlay').style.display === 'flex') closeUploadWindow();
+    });
+}
+
 function openUploadWindow() {
     if (activeEditIndex === null) return;
     const itemData = inventoryData.find(r => r._rowId === activeEditIndex);
     if (!itemData) return;
+    upWireOnce();
 
-    const articleKey = headerMapping['article/item'];
-    const itemCode = itemData[articleKey] || 'Unknown';
-    // 🔧 FIX: pass the signed-in Gmail account so the Apps Script upload page
-    // can prefill "Your Name" (Session.getActiveUser() doesn't work for
-    // regular Gmail accounts, so it has to be sent explicitly here).
-    const uploadUrl = GOOGLE_APPS_SCRIPT_URL + "?itemCode=" + encodeURIComponent(itemCode) + "&userEmail=" + encodeURIComponent(loggedInUser || "") + "&secret=" + encodeURIComponent(API_SECRET);
+    upItemCode = String(itemData[headerMapping['article/item']] || 'Unknown');
+    upEl('upItemCode').textContent = upItemCode;
+    upEl('upUploader').value = loggedInUser || '';
+    [1, 2, 3, 4].forEach(i => {
+        upResetSlot(i);
+        const k = headerMapping[UP_SLOTS[i].key];
+        upRenderExisting(i, k ? itemData[k] : '');
+    });
+    upBusy = false;
+    upEl('upSpinner').style.display = 'none';
+    upSetStatus('', '');
+    upCheckReady();
 
-    // NOTE: script.google.com sends its own X-Frame-Options/CSP headers that
-    // block it from being loaded inside an iframe on another site, so it has
-    // to be opened as a real popup window rather than embedded in-page.
-    const popupWidth = 520;
-    const popupHeight = 840;
-    const left = (window.screen.width - popupWidth) / 2;
-    const top = (window.screen.height - popupHeight) / 2;
-    const popupFeatures = "width=" + popupWidth + ",height=" + popupHeight +
-        ",left=" + left + ",top=" + top +
-        ",toolbar=no,location=no,menubar=no,status=no,scrollbars=yes,resizable=yes";
+    upEl('uploadPhotosOverlay').style.display = 'flex';
+}
 
-    const popupRef = window.open(uploadUrl, "uploadPhotosWindow", popupFeatures);
-    modalModified = true;
+function closeUploadWindow() {
+    if (upBusy) return; // don't allow closing mid-upload
+    [1, 2, 3, 4].forEach(upResetSlot);
+    upEl('uploadPhotosOverlay').style.display = 'none';
+}
 
-    // Blur the ENTIRE page (not just #mainApp) while the popup is open, since
-    // editModal (the property details modal) is a sibling of #mainApp, not a
-    // child of it, and needs to be covered too. Remove the blur automatically
-    // the instant the popup closes, whether it closed itself after a
-    // successful upload, via its own Close button, or the user closed it.
-    if (popupRef) {
-        document.body.classList.add('dashboard-blurred');
-        const watchPopup = setInterval(function() {
-            if (popupRef.closed) {
-                document.body.classList.remove('dashboard-blurred');
-                clearInterval(watchPopup);
+async function upStartUpload() {
+    const uploader = upEl('upUploader').value.trim();
+    const chosen = [1, 2, 3, 4].filter(i => upFiles[i]);
+    if (!uploader || chosen.length === 0) {
+        toastAlert('Please select at least one photo before submitting.');
+        return;
+    }
+    const article0 = upItemCode;
+    const rowId0 = activeEditIndex;
+
+    upBusy = true;
+    upEl('upSubmitBtn').disabled = true;
+    upEl('upCancelBtn').disabled = true;
+    upEl('upCloseX').disabled = true;
+    upEl('upSpinner').style.display = 'block';
+    upSetStatus('loading', 'Processing images...');
+
+    try {
+        const params = new URLSearchParams();
+        params.append('action', 'uploadPhotos');
+        params.append('secret', API_SECRET);
+        params.append('itemCode', article0);
+        params.append('updatedby', uploader);
+        for (const i of chosen) {
+            const p = await upPrepareImage(upFiles[i]);
+            if (!p) throw new Error('Could not read "' + upFiles[i].name + '".');
+            params.append('photo' + i + 'Data', p.base64);
+            params.append('photo' + i + 'Type', p.type);
+            params.append('photo' + i + 'Name', p.name);
+        }
+
+        upSetStatus('loading', 'Uploading to Drive & updating sheet row... This may take a moment.');
+
+        let result = null;
+        try {
+            const resp = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                method: 'POST',
+                body: params.toString(),
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+            });
+            result = await resp.json();
+        } catch (e) {
+            // The browser may be unable to read the reply even though the request
+            // went through. Do NOT resend (it would create duplicate files).
+            result = null;
+        }
+
+        if (result && result.success === false) throw new Error(result.message || 'Upload was rejected.');
+
+        upBusy = false;
+        upEl('upCancelBtn').disabled = false;
+        upEl('upCloseX').disabled = false;
+        closeUploadWindow();
+        showToast((result && result.message ? result.message.replace(/^✅\s*/, '') : 'Photos uploaded') + ' — syncing the sheet.', 'success');
+
+        // Reload from the sheet (it can lag a few seconds), then refresh the open details window
+        const slotKeys = chosen.map(i => headerMapping[UP_SLOTS[i].key]).filter(Boolean);
+        const before = {};
+        const old = inventoryData.find(r => r._rowId === rowId0);
+        slotKeys.forEach(k => { before[k] = old ? String(old[k] || '') : ''; });
+        let changed = false;
+        for (let n = 0; n < 6 && !changed; n++) {
+            await new Promise(r => setTimeout(r, n === 0 && result ? 800 : 2500));
+            await loadInventoryFromGoogleSheets(true);
+            const fresh = inventoryData.find(r => String(r[headerMapping['article/item']] || '') === article0);
+            changed = !!(fresh && slotKeys.some(k => String(fresh[k] || '') !== before[k]));
+            if (changed) {
+                if (editModal && editModal.style.display === 'flex') openPopUp(fresh._rowId);
             }
-        }, 400);
+        }
+        if (!changed) toastAlert('Uploaded, but the sheet has not updated yet. Reopen this record in a moment.');
+    } catch (err) {
+        console.error(err);
+        upBusy = false;
+        upEl('upSpinner').style.display = 'none';
+        upEl('upCancelBtn').disabled = false;
+        upEl('upCloseX').disabled = false;
+        upSetStatus('error', 'Upload Error: ' + (err && err.message ? err.message : err));
+        upCheckReady();
     }
 }
 
