@@ -3348,8 +3348,7 @@ showToast(linked > 0
                 <div class="photo-actions-container">
                     <button type="button" class="photo-action-btn" id="insPolicyDownloadBtn">Download Policy Copy</button>
                 </div>
-                <iframe src="https://drive.google.com/file/d/${fid}/preview" title="Policy Copy" loading="lazy"
-                    style="width:100%;height:100%;min-height:470px;border:0;border-radius:8px;background:#0b1424;margin-top:34px;"></iframe>
+                <img id="insPolicyImg" alt="Policy Copy" src="${escapeHtml(getDirectImageUrl(r.policyUrl, 'view') || ('https://lh3.googleusercontent.com/d/' + fid))}">
             </div>
             <div class="photo-caption">Policy Copy</div>`;
     }
@@ -3395,6 +3394,16 @@ showToast(linked > 0
         $('insDetailX').onclick = closeDetail;
         const pcDl = $('insPolicyDownloadBtn');
         if (pcDl) pcDl.onclick = () => openPolicyCopyTab(r.policyUrl);
+        // Photos show as an image (same method as the inventory tab). If the file can't be
+        // shown as an image (e.g. a PDF), fall back to the Drive viewer.
+        const pcImg = $('insPolicyImg');
+        if (pcImg) pcImg.onerror = () => {
+            const fr = document.createElement('iframe');
+            fr.src = 'https://drive.google.com/file/d/' + fid + '/preview';
+            fr.title = 'Policy Copy';
+            fr.style.cssText = 'width:100%;height:100%;min-height:470px;border:0;border-radius:8px;background:#0b1424;margin-top:34px;';
+            pcImg.replaceWith(fr);
+        };
         const pcBtn = $('insPolicyUploadBtn'), pcInput = $('insPolicyFile');
         pcBtn.onclick = () => pcInput.click();
         pcInput.onchange = () => { const f = pcInput.files && pcInput.files[0]; if (f) uploadPolicyCopy(r.id, f); pcInput.value = ''; };
