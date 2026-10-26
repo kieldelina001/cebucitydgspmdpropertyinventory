@@ -3401,7 +3401,26 @@ showToast(linked > 0
         $('insOpenRecord').onclick = () => { closeDetail(); openPopUp(id); };
         $('insDetailOverlay').style.display = 'flex';
         document.body.style.overflow = 'hidden';
+        // Size the Description / Notes boxes to fit all their text (no inner scrollbar).
+        // Must run after the window is visible, otherwise scrollHeight is 0.
+        fitInsTextareas();
+        requestAnimationFrame(fitInsTextareas);
+        setTimeout(fitInsTextareas, 150);
     }
+    function fitInsTextareas() {
+        const root = $('insDetail');
+        if (!root) return;
+        root.querySelectorAll('.modal-field textarea').forEach(t => {
+            t.style.overflow = 'hidden';
+            t.style.resize = 'none';
+            t.style.height = 'auto';
+            t.style.height = (t.scrollHeight + 2) + 'px';
+        });
+    }
+    window.addEventListener('resize', () => {
+        const ov = $('insDetailOverlay');
+        if (ov && ov.style.display === 'flex') fitInsTextareas();
+    });
     function closeDetail() {
         animateOut($('insDetailOverlay'), () => {
             $('insDetailOverlay').style.display = 'none';
