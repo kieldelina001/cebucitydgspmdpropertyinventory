@@ -1582,39 +1582,145 @@
         }
     
         /* --- In-app Upload Photos window --- */
-        #uploadPhotosOverlay { z-index: 100100; }
+        #uploadPhotosOverlay { z-index: 100100; opacity: 0; transition: opacity .22s ease; }
+        #uploadPhotosOverlay.up-open { opacity: 1; }
         #uploadPhotosOverlay .up-box {
-            background: #fff; border-radius: 18px; width: 520px; max-width: 95%;
-            max-height: 92vh; overflow-y: auto; padding: 26px 28px 24px; position: relative;
-            box-shadow: var(--shadow-lg); border: 1px solid var(--line);
-            border-top: 5px solid var(--cyan); box-sizing: border-box; text-align: center;
+            display: flex; flex-direction: column; width: 680px; max-width: 95%; max-height: 92vh;
+            background: #fff; border-radius: 20px; overflow: hidden; position: relative;
+            box-shadow: 0 30px 70px rgba(11,31,58,.35), 0 8px 20px rgba(11,31,58,.15);
+            border: 1px solid var(--line);
+            transform: translateY(18px) scale(.96); opacity: 0;
+            transition: transform .38s cubic-bezier(.16,1,.3,1), opacity .25s ease;
         }
-        #uploadPhotosOverlay .up-title { font-size: 18px; font-weight: 800; color: var(--navy-900); text-transform: uppercase; letter-spacing: 1.2px; margin: 0 0 12px; }
-        #uploadPhotosOverlay .up-badge { display: inline-block; background: var(--line); color: var(--navy-900); font-weight: 700; padding: 6px 12px; border-radius: 6px; margin-bottom: 8px; font-size: 14px; }
-        #uploadPhotosOverlay .up-hint { font-size: 13px; color: var(--ink-500); margin-bottom: 16px; }
-        #uploadPhotosOverlay .up-field { text-align: left; margin: 0 auto 14px; width: 92%; }
-        #uploadPhotosOverlay .up-label { display: block; font-weight: 700; font-size: 13px; color: var(--navy-900); margin-bottom: 4px; }
-        #uploadPhotosOverlay input[type="text"] { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid var(--line-strong); border-radius: 6px; font-size: 14px; background: var(--line); cursor: not-allowed; }
-        #uploadPhotosOverlay .up-existing { font-size: 12px; margin: 2px 0 6px; line-height: 1.4; }
-        #uploadPhotosOverlay .up-existing.has { color: #1a7a3c; }
-        #uploadPhotosOverlay .up-existing.has a { color: var(--cyan); font-weight: 700; text-decoration: underline; cursor: pointer; }
-        #uploadPhotosOverlay .up-existing.none { color: var(--ink-400); font-style: italic; }
+        #uploadPhotosOverlay.up-open .up-box { transform: none; opacity: 1; }
+
+        /* header */
+        #uploadPhotosOverlay .up-head {
+            padding: 20px 28px 18px; color: #fff; position: relative; overflow: hidden;
+            background: linear-gradient(135deg, var(--navy-900), var(--navy-700) 55%, var(--cyan));
+            background-size: 160% 160%; animation: upGradient 9s ease infinite;
+        }
+        @keyframes upGradient { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+        #uploadPhotosOverlay .up-head::after {
+            content: ""; position: absolute; right: -40px; top: -60px; width: 180px; height: 180px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,255,255,.18), transparent 70%); pointer-events: none;
+        }
+        #uploadPhotosOverlay .up-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 1.8px; text-transform: uppercase; opacity: .75; }
+        #uploadPhotosOverlay .up-title { font-size: 21px; font-weight: 800; margin: 4px 0 10px; letter-spacing: .2px; color: #fff; text-transform: none; }
+        #uploadPhotosOverlay .up-meta { display: flex; flex-wrap: wrap; gap: 8px; }
+        #uploadPhotosOverlay .up-chip {
+            display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600;
+            background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.25); padding: 5px 11px; border-radius: 999px;
+            backdrop-filter: blur(4px);
+        }
+        #uploadPhotosOverlay .up-x {
+            position: absolute; top: 14px; right: 16px; width: 34px; height: 34px; border-radius: 50%; border: none; z-index: 2;
+            background: rgba(255,255,255,.14); color: #fff; font-size: 22px; line-height: 1; cursor: pointer;
+            transition: background .2s, transform .25s;
+        }
+        #uploadPhotosOverlay .up-x:hover:not(:disabled) { background: rgba(255,255,255,.3); transform: rotate(90deg); }
+        #uploadPhotosOverlay .up-x:disabled { opacity: .4; cursor: not-allowed; }
+
+        /* body */
+        #uploadPhotosOverlay .up-body { padding: 20px 28px 8px; overflow-y: auto; background: #f8fafc; flex: 1 1 auto; }
+        #uploadPhotosOverlay .up-hint { font-size: 13px; color: var(--ink-500); margin: 0 0 14px; text-align: left; }
+        #uploadPhotosOverlay .up-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        @media (max-width: 560px) { #uploadPhotosOverlay .up-grid { grid-template-columns: 1fr; } }
+        #uploadPhotosOverlay .up-card {
+            background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 12px 12px 12px; text-align: left;
+            box-shadow: var(--shadow-sm); opacity: 0; transform: translateY(12px);
+            transition: box-shadow .2s, border-color .2s;
+        }
+        #uploadPhotosOverlay.up-open .up-card { animation: upCardIn .45s cubic-bezier(.16,1,.3,1) forwards; animation-delay: calc(var(--i) * 70ms + 120ms); }
+        @keyframes upCardIn { to { opacity: 1; transform: none; } }
+        #uploadPhotosOverlay .up-card:hover { box-shadow: var(--shadow-md); border-color: var(--line-strong); }
+        #uploadPhotosOverlay .up-card.ready { border-color: #86efac; }
+        #uploadPhotosOverlay .up-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+        #uploadPhotosOverlay .up-label { font-weight: 700; font-size: 13px; color: var(--navy-900); margin: 0; }
+        #uploadPhotosOverlay .up-state { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+        #uploadPhotosOverlay .up-state.none { background: #f1f5f9; color: var(--ink-400); }
+        #uploadPhotosOverlay .up-state.has  { background: #dcfce7; color: #166534; }
+        #uploadPhotosOverlay .up-state.new  { background: #cffafe; color: #0e7490; }
         #uploadPhotosOverlay .up-pick {
-            display: flex; align-items: center; justify-content: center; gap: 10px; box-sizing: border-box;
-            width: 100%; padding: 14px 10px; border: 1px dashed var(--cyan); border-radius: 6px;
-            background: #f0fbfd; color: #0e6a80; font-weight: 700; font-size: 13px; cursor: pointer; transition: background .2s;
+            position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+            height: 124px; border: 2px dashed #a5d8e6; border-radius: 10px; background: #f3fbfd; cursor: pointer; overflow: hidden;
+            transition: background .2s, border-color .2s, transform .2s; text-align: center; padding: 8px; box-sizing: border-box;
         }
-        #uploadPhotosOverlay .up-pick:hover { background: #dff5f9; }
+        #uploadPhotosOverlay .up-pick:hover, #uploadPhotosOverlay .up-pick.drag { background: #e2f6fa; border-color: var(--cyan); }
+        #uploadPhotosOverlay .up-pick.drag { transform: scale(1.02); }
         #uploadPhotosOverlay .up-pick input { display: none; }
-        #uploadPhotosOverlay .up-pick img { width: 44px; height: 44px; object-fit: cover; border-radius: 4px; display: none; }
-        #uploadPhotosOverlay .up-pick.has-file img { display: block; }
-        #uploadPhotosOverlay .up-actions { display: flex; gap: 10px; justify-content: center; margin-top: 18px; }
-        #uploadPhotosOverlay .up-spinner { display: none; width: 28px; height: 28px; border: 4px solid rgba(0,0,0,.1); border-top-color: var(--cyan); border-radius: 50%; animation: upSpin 1s linear infinite; margin: 14px auto 0; }
-        @keyframes upSpin { to { transform: rotate(360deg); } }
-        #uploadPhotosOverlay .up-status { margin-top: 12px; font-weight: 700; font-size: 14px; min-height: 18px; }
-        #uploadPhotosOverlay .up-status.loading { color: #b45309; }
-        #uploadPhotosOverlay .up-status.error { color: var(--red); }
+        #uploadPhotosOverlay .up-ico { font-size: 26px; line-height: 1; transition: transform .25s; }
+        #uploadPhotosOverlay .up-pick:hover .up-ico { transform: translateY(-3px) scale(1.08); }
+        #uploadPhotosOverlay .up-ptext { font-size: 12px; font-weight: 700; color: #0e6a80; }
+        #uploadPhotosOverlay .up-psub { font-size: 11px; color: var(--ink-400); }
+        #uploadPhotosOverlay .up-pick img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
+        #uploadPhotosOverlay .up-pick.has-file { border-style: solid; border-color: #4ade80; background: #000; }
+        #uploadPhotosOverlay .up-pick.has-file img { display: block; animation: upFade .35s ease; }
+        #uploadPhotosOverlay .up-pick.has-file .up-ico, #uploadPhotosOverlay .up-pick.has-file .up-ptext, #uploadPhotosOverlay .up-pick.has-file .up-psub { display: none; }
+        @keyframes upFade { from { opacity: 0; transform: scale(1.05); } to { opacity: 1; transform: none; } }
+        #uploadPhotosOverlay .up-fname {
+            position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 8px 6px; font-size: 11px; font-weight: 600; color: #fff;
+            background: linear-gradient(transparent, rgba(0,0,0,.72)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: none; text-align: left;
+        }
+        #uploadPhotosOverlay .up-pick.has-file .up-fname { display: block; }
+        #uploadPhotosOverlay .up-remove {
+            position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; border-radius: 50%; border: none; display: none; z-index: 2;
+            background: rgba(15,23,42,.72); color: #fff; font-size: 16px; line-height: 1; cursor: pointer; transition: background .2s, transform .2s;
+        }
+        #uploadPhotosOverlay .up-remove:hover { background: var(--red); transform: scale(1.1); }
+        #uploadPhotosOverlay .up-pick.has-file .up-remove { display: block; }
+        #uploadPhotosOverlay .up-view { display: inline-block; margin-top: 8px; font-size: 12px; font-weight: 600; color: var(--cyan); cursor: pointer; text-decoration: none; }
+        #uploadPhotosOverlay .up-view:hover { text-decoration: underline; }
+        #uploadPhotosOverlay .up-view[hidden] { display: none; }
+        #uploadPhotosOverlay .up-note { font-size: 11px; color: var(--ink-400); margin-top: 2px; }
+
+        /* progress + status */
+        #uploadPhotosOverlay .up-progress { height: 5px; background: #e2e8f0; border-radius: 999px; overflow: hidden; margin: 14px 0 0; display: none; position: relative; }
+        #uploadPhotosOverlay .up-progress.on { display: block; }
+        #uploadPhotosOverlay .up-bar { height: 100%; width: 0; background: linear-gradient(90deg, var(--cyan), #22d3ee); border-radius: 999px; transition: width .3s ease; }
+        #uploadPhotosOverlay .up-progress.indet .up-bar { width: 40%; animation: upIndet 1.3s ease-in-out infinite; }
+        @keyframes upIndet { from { transform: translateX(-100%); } to { transform: translateX(260%); } }
+        #uploadPhotosOverlay .up-status { margin: 10px 0 0; font-size: 13px; font-weight: 600; min-height: 18px; text-align: left; transition: color .2s; }
+        #uploadPhotosOverlay .up-status.loading { color: #0e7490; }
+        #uploadPhotosOverlay .up-status.error { color: var(--red); animation: upShake .4s; }
         #uploadPhotosOverlay .up-status.success { color: var(--green); }
+        @keyframes upShake { 20%,60% { transform: translateX(-5px); } 40%,80% { transform: translateX(5px); } }
+
+        /* footer */
+        #uploadPhotosOverlay .up-foot {
+            display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+            padding: 14px 28px; background: #fff; border-top: 1px solid var(--line); flex: 0 0 auto;
+        }
+        #uploadPhotosOverlay .up-count { font-size: 12.5px; color: var(--ink-500); font-weight: 600; }
+        #uploadPhotosOverlay .up-btns { display: flex; gap: 10px; margin-left: auto; }
+        #uploadPhotosOverlay .up-btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 22px; border-radius: 10px;
+            font-size: 14px; font-weight: 700; cursor: pointer; border: 1px solid transparent; transition: transform .15s, box-shadow .2s, background .2s, opacity .2s;
+        }
+        #uploadPhotosOverlay .up-btn:disabled { opacity: .45; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+        #uploadPhotosOverlay .up-btn-primary { background: linear-gradient(180deg, #22c55e, var(--green)); color: #fff; box-shadow: 0 6px 16px rgba(22,163,74,.28); }
+        #uploadPhotosOverlay .up-btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(22,163,74,.35); }
+        #uploadPhotosOverlay .up-btn-primary:active:not(:disabled) { transform: translateY(0); }
+        #uploadPhotosOverlay .up-btn-primary.ready { animation: upPulse 1.8s ease-out 2; }
+        @keyframes upPulse { 0% { box-shadow: 0 0 0 0 rgba(34,197,94,.55); } 100% { box-shadow: 0 0 0 14px rgba(34,197,94,0); } }
+        #uploadPhotosOverlay .up-btn-ghost { background: #fff; color: var(--ink-500); border-color: var(--line-strong); }
+        #uploadPhotosOverlay .up-btn-ghost:hover:not(:disabled) { background: #f1f5f9; }
+        #uploadPhotosOverlay .up-btn .up-spin { width: 15px; height: 15px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: upSpin .8s linear infinite; display: none; }
+        #uploadPhotosOverlay .up-btn.busy .up-spin { display: inline-block; }
+        @keyframes upSpin { to { transform: rotate(360deg); } }
+
+        /* success overlay */
+        #uploadPhotosOverlay .up-done { position: absolute; inset: 0; background: rgba(255,255,255,.96); display: none; flex-direction: column; align-items: center; justify-content: center; gap: 12px; z-index: 5; }
+        #uploadPhotosOverlay .up-done.on { display: flex; animation: upFade .3s ease; }
+        #uploadPhotosOverlay .up-done svg { width: 76px; height: 76px; }
+        #uploadPhotosOverlay .up-done circle { stroke: var(--green); stroke-width: 3; fill: none; stroke-dasharray: 166; stroke-dashoffset: 166; }
+        #uploadPhotosOverlay .up-done path { stroke: var(--green); stroke-width: 4; fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 48; stroke-dashoffset: 48; }
+        #uploadPhotosOverlay .up-done.on circle { animation: upDraw .6s ease forwards; }
+        #uploadPhotosOverlay .up-done.on path { animation: upDraw .4s .45s ease forwards; }
+        @keyframes upDraw { to { stroke-dashoffset: 0; } }
+        #uploadPhotosOverlay .up-done-t { font-size: 17px; font-weight: 800; color: var(--navy-900); }
+        #uploadPhotosOverlay .up-done-s { font-size: 13px; color: var(--ink-500); }
+        @media (prefers-reduced-motion: reduce) { #uploadPhotosOverlay *, #uploadPhotosOverlay { animation-duration: .01ms !important; transition-duration: .01ms !important; } #uploadPhotosOverlay .up-card { opacity: 1; transform: none; } }
     </style>
 </head>
 <body>
@@ -1880,44 +1986,80 @@
 
     <!-- 📸 IN-APP UPLOAD PHOTOS WINDOW -->
     <div id="uploadPhotosOverlay" class="modal-overlay">
-        <div class="up-box">
-            <button id="upCloseX" class="close-x-btn" type="button">&times;</button>
-            <h2 class="up-title">Upload Property Photos</h2>
-            <div class="up-badge">Item: <span id="upItemCode"></span></div>
-            <div class="up-hint">Please provide <strong>at least one</strong> photo.</div>
-
-            <div class="up-field">
-                <label class="up-label" for="upUploader">Your Name <span style="color:#dc2626;">*</span></label>
-                <input type="text" id="upUploader" disabled>
+        <div class="up-box" role="dialog" aria-modal="true" aria-labelledby="upTitle">
+            <div class="up-head">
+                <button id="upCloseX" class="up-x" type="button" aria-label="Close">&times;</button>
+                <div class="up-eyebrow">Property Management</div>
+                <h2 class="up-title" id="upTitle">Upload Property Photos</h2>
+                <div class="up-meta">
+                    <span class="up-chip">🏷️ Item: <span id="upItemCode"></span></span>
+                    <span class="up-chip">👤 <span id="upUploaderLabel"></span></span>
+                </div>
+                <input type="hidden" id="upUploader">
             </div>
-
-            <div class="up-field">
-                <span class="up-label">Structure Photo 1</span>
-                <div class="up-existing" id="upExisting1"></div>
-                <label class="up-pick" id="upPick1"><input type="file" id="upFile1" accept="image/*"><img alt=""><span>📸 Click to Choose Photo 1</span></label>
+            <div class="up-body">
+                <p class="up-hint">Add <strong>at least one</strong> photo. Choosing a new file for a slot that already has a photo will replace it.</p>
+                <div class="up-grid">
+                    <div class="up-card" style="--i:0" id="upCard1">
+                        <div class="up-card-top"><h4 class="up-label">Structure Photo 1</h4><span class="up-state none" id="upState1">Empty</span></div>
+                        <label class="up-pick" id="upPick1">
+                            <input type="file" id="upFile1" accept="image/*">
+                            <img alt="">
+                            <span class="up-ico">📸</span><span class="up-ptext">Choose Photo 1</span><span class="up-psub">or drag &amp; drop here</span>
+                            <span class="up-fname"></span>
+                            <button type="button" class="up-remove" id="upRemove1" title="Remove selection">&times;</button>
+                        </label>
+                        <a class="up-view" id="upExisting1" hidden>View current photo</a>
+                    </div>
+                    <div class="up-card" style="--i:1" id="upCard2">
+                        <div class="up-card-top"><h4 class="up-label">Structure Photo 2</h4><span class="up-state none" id="upState2">Empty</span></div>
+                        <label class="up-pick" id="upPick2">
+                            <input type="file" id="upFile2" accept="image/*">
+                            <img alt="">
+                            <span class="up-ico">📸</span><span class="up-ptext">Choose Photo 2</span><span class="up-psub">or drag &amp; drop here</span>
+                            <span class="up-fname"></span>
+                            <button type="button" class="up-remove" id="upRemove2" title="Remove selection">&times;</button>
+                        </label>
+                        <a class="up-view" id="upExisting2" hidden>View current photo</a>
+                    </div>
+                    <div class="up-card" style="--i:2" id="upCard3">
+                        <div class="up-card-top"><h4 class="up-label">Map Coordinates</h4><span class="up-state none" id="upState3">Empty</span></div>
+                        <label class="up-pick" id="upPick3">
+                            <input type="file" id="upFile3" accept="image/*">
+                            <img alt="">
+                            <span class="up-ico">🗺️</span><span class="up-ptext">Choose Map Photo</span><span class="up-psub">or drag &amp; drop here</span>
+                            <span class="up-fname"></span>
+                            <button type="button" class="up-remove" id="upRemove3" title="Remove selection">&times;</button>
+                        </label>
+                        <a class="up-view" id="upExisting3" hidden>View current photo</a>
+                    </div>
+                    <div class="up-card" style="--i:3" id="upCard4">
+                        <div class="up-card-top"><h4 class="up-label">Tax Declaration</h4><span class="up-state none" id="upState4">Empty</span></div>
+                        <label class="up-pick" id="upPick4">
+                            <input type="file" id="upFile4" accept="image/*">
+                            <img alt="">
+                            <span class="up-ico">📄</span><span class="up-ptext">Choose Tax Dec Photo</span><span class="up-psub">or drag &amp; drop here</span>
+                            <span class="up-fname"></span>
+                            <button type="button" class="up-remove" id="upRemove4" title="Remove selection">&times;</button>
+                        </label>
+                        <a class="up-view" id="upExisting4" hidden>View current photo</a>
+                    </div>
+                </div>
+                <div class="up-progress" id="upProgress"><div class="up-bar" id="upBar"></div></div>
+                <div class="up-status" id="upStatus"></div>
             </div>
-            <div class="up-field">
-                <span class="up-label">Structure Photo 2</span>
-                <div class="up-existing" id="upExisting2"></div>
-                <label class="up-pick" id="upPick2"><input type="file" id="upFile2" accept="image/*"><img alt=""><span>📸 Click to Choose Photo 2</span></label>
+            <div class="up-foot">
+                <span class="up-count" id="upCount">No photos selected</span>
+                <div class="up-btns">
+                    <button id="upCancelBtn" class="up-btn up-btn-ghost" type="button">Cancel</button>
+                    <button id="upSubmitBtn" class="up-btn up-btn-primary" type="button" disabled><span class="up-spin"></span><span id="upSubmitLabel">Upload &amp; Save Links</span></button>
+                </div>
             </div>
-            <div class="up-field">
-                <span class="up-label">Map Coordinates Photo</span>
-                <div class="up-existing" id="upExisting3"></div>
-                <label class="up-pick" id="upPick3"><input type="file" id="upFile3" accept="image/*"><img alt=""><span>🗺️ Click to Choose Map Photo</span></label>
+            <div class="up-done" id="upDone">
+                <svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="25"/><path d="M14 27l8 8 16-17"/></svg>
+                <div class="up-done-t">Photos saved</div>
+                <div class="up-done-s" id="upDoneSub">Syncing the sheet…</div>
             </div>
-            <div class="up-field">
-                <span class="up-label">Tax Declaration Photo</span>
-                <div class="up-existing" id="upExisting4"></div>
-                <label class="up-pick" id="upPick4"><input type="file" id="upFile4" accept="image/*"><img alt=""><span>📄 Click to Choose Tax Dec Photo</span></label>
-            </div>
-
-            <div class="up-actions">
-                <button id="upSubmitBtn" class="modal-btn btn-save" type="button" disabled>Upload &amp; Save Links</button>
-                <button id="upCancelBtn" class="modal-btn btn-close" type="button">Cancel</button>
-            </div>
-            <div id="upSpinner" class="up-spinner"></div>
-            <div id="upStatus" class="up-status"></div>
         </div>
     </div>
 

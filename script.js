@@ -1782,22 +1782,28 @@ function finalizeSaveData(operatorName) {
 // 📸 IN-APP UPLOAD PHOTOS WINDOW (replaces the old UploadForm.html popup)
 // =========================================================================
 const UP_SLOTS = {
-    1: { key: 'photo 1',          label: 'Structure Photo 1',      empty: '📸 Click to Choose Photo 1' },
-    2: { key: 'photo 2',          label: 'Structure Photo 2',      empty: '📸 Click to Choose Photo 2' },
-    3: { key: 'map coordinates',  label: 'Map Coordinates Photo',  empty: '🗺️ Click to Choose Map Photo' },
-    4: { key: 'tax declaration',  label: 'Tax Declaration Photo',  empty: '📄 Click to Choose Tax Dec Photo' }
+    1: { key: 'photo 1',         label: 'Structure Photo 1' },
+    2: { key: 'photo 2',         label: 'Structure Photo 2' },
+    3: { key: 'map coordinates', label: 'Map Coordinates' },
+    4: { key: 'tax declaration', label: 'Tax Declaration' }
 };
 let upFiles = { 1: null, 2: null, 3: null, 4: null };
+let upExistingUrls = { 1: '', 2: '', 3: '', 4: '' };
 let upItemCode = '';
 let upBusy = false;
 let upWired = false;
 
 function upEl(id) { return document.getElementById(id); }
+function upFmtSize(b) { return b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB'; }
 
 function upCheckReady() {
-    const hasPhoto = Object.values(upFiles).some(f => f !== null);
+    const n = Object.values(upFiles).filter(f => f !== null).length;
     const hasName = upEl('upUploader').value.trim() !== '';
-    upEl('upSubmitBtn').disabled = upBusy || !(hasPhoto && hasName);
+    const btn = upEl('upSubmitBtn');
+    const wasDisabled = btn.disabled;
+    btn.disabled = upBusy || !(n > 0 && hasName);
+    upEl('upCount').textContent = n === 0 ? 'No photos selected' : n + (n === 1 ? ' photo' : ' photos') + ' ready to upload';
+    btn.classList.toggle('ready', !btn.disabled && wasDisabled);
 }
 
 function upSetStatus(cls, text) {
@@ -1806,53 +1812,52 @@ function upSetStatus(cls, text) {
     st.textContent = text;
 }
 
-function upViewExisting(url) {
-    const direct = getDirectImageUrl(url) || url;
-    window.open(direct, '_blank', 'noopener');
+function upProgress(mode, pct) {
+    const p = upEl('upProgress'), bar = upEl('upBar');
+    p.classList.toggle('on', mode !== 'off');
+    p.classList.toggle('indet', mode === 'indet');
+    bar.style.width = mode === 'det' ? Math.max(4, pct) + '%' : '';
 }
 
-function upRenderExisting(index, url) {
-    const el = upEl('upExisting' + index);
-    if (url && String(url).trim() !== '') {
-        el.className = 'up-existing has';
-        el.innerHTML = '✅ Already uploaded — <a href="#">view current photo</a>. Choosing a new file will replace it.';
-        el.querySelector('a').addEventListener('click', e => { e.preventDefault(); upViewExisting(String(url).trim()); });
-    } else {
-        el.className = 'up-existing none';
-        el.textContent = '— No photo uploaded yet —';
-    }
+function upRefreshSlotUI(i) {
+    const hasNew = !!upFiles[i];
+    const state = upEl('upState' + i);
+    const has = upExistingUrls[i] && String(upExistingUrls[i]).trim() !== '';
+    upEl('upCard' + i).classList.toggle('ready', hasNew);
+    if (hasNew) { state.className = 'up-state new'; state.textContent = has ? 'Will replace' : 'New'; }
+    else if (has) { state.className = 'up-state has'; state.textContent = 'Uploaded ✓'; }
+    else { state.className = 'up-state none'; state.textContent = 'Empty'; }
+    const link = upEl('upExisting' + i);
+    link.hidden = !has;
 }
 
-function upResetSlot(index) {
-    upFiles[index] = null;
-    const input = upEl('upFile' + index);
-    input.value = '';
-    const pick = upEl('upPick' + index);
-    pick.classList.remove('has-file');
+function upResetSlot(i) {
+    upFiles[i] = null;
+    upEl('upFile' + i).value = '';
+    const pick = upEl('upPick' + i);
+    pick.classList.remove('has-file', 'drag');
     const img = pick.querySelector('img');
     if (img.src && img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
     img.removeAttribute('src');
-    pick.querySelector('span').textContent = UP_SLOTS[index].empty;
+    pick.querySelector('.up-fname').textContent = '';
+    upRefreshSlotUI(i);
 }
 
-function upOnFileChosen(index) {
-    const input = upEl('upFile' + index);
-    const pick = upEl('upPick' + index);
+function upSetFile(i, f) {
+    if (!f) return;
+    if (!/^image\//.test(f.type)) { showToast('Please choose an image file.', 'error'); return; }
+    const pick = upEl('upPick' + i);
     const img = pick.querySelector('img');
     if (img.src && img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
-    if (input.files && input.files.length > 0) {
-        const f = input.files[0];
-        upFiles[index] = f;
-        pick.classList.add('has-file');
-        img.src = URL.createObjectURL(f);
-        pick.querySelector('span').textContent = 'Selected: ' + f.name;
-    } else {
-        upResetSlot(index);
-    }
+    upFiles[i] = f;
+    img.src = URL.createObjectURL(f);
+    pick.classList.add('has-file');
+    pick.querySelector('.up-fname').textContent = f.name + ' · ' + upFmtSize(f.size);
+    upRefreshSlotUI(i);
     upCheckReady();
 }
 
-// Shrinks large phone photos before sending (keeps requests small and fast).
+// Shrinks large phone photos before sending (small requests, faster upload).
 // Falls back to the original file if the browser can't decode it.
 function upPrepareImage(file) {
     const MAX_DIM = 1800, QUALITY = 0.85;
@@ -1877,11 +1882,7 @@ function upPrepareImage(file) {
                 ctx.drawImage(img, 0, 0, w, h);
                 const dataUrl = canvas.toDataURL('image/jpeg', QUALITY);
                 URL.revokeObjectURL(url);
-                resolve({
-                    base64: dataUrl.split(',')[1],
-                    type: 'image/jpeg',
-                    name: file.name.replace(/\.[^.]+$/, '') + '.jpg'
-                });
+                resolve({ base64: dataUrl.split(',')[1], type: 'image/jpeg', name: file.name.replace(/\.[^.]+$/, '') + '.jpg' });
             } catch (e) { URL.revokeObjectURL(url); readRaw().then(resolve, () => resolve(null)); }
         };
         img.onerror = () => { URL.revokeObjectURL(url); readRaw().then(resolve, () => resolve(null)); };
@@ -1892,7 +1893,26 @@ function upPrepareImage(file) {
 function upWireOnce() {
     if (upWired) return;
     upWired = true;
-    [1, 2, 3, 4].forEach(i => upEl('upFile' + i).addEventListener('change', () => upOnFileChosen(i)));
+    [1, 2, 3, 4].forEach(i => {
+        const input = upEl('upFile' + i), pick = upEl('upPick' + i);
+        input.addEventListener('change', () => {
+            if (input.files && input.files[0]) upSetFile(i, input.files[0]);
+            else { upResetSlot(i); upCheckReady(); }
+        });
+        upEl('upRemove' + i).addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); upResetSlot(i); upCheckReady(); });
+        upEl('upExisting' + i).addEventListener('click', e => {
+            e.preventDefault();
+            const u = String(upExistingUrls[i] || '').trim();
+            if (u) window.open(getDirectImageUrl(u) || u, '_blank', 'noopener');
+        });
+        ['dragenter', 'dragover'].forEach(ev => pick.addEventListener(ev, e => { e.preventDefault(); if (!upBusy) pick.classList.add('drag'); }));
+        ['dragleave', 'drop'].forEach(ev => pick.addEventListener(ev, e => { e.preventDefault(); pick.classList.remove('drag'); }));
+        pick.addEventListener('drop', e => {
+            if (upBusy) return;
+            const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+            if (f) upSetFile(i, f);
+        });
+    });
     upEl('upSubmitBtn').addEventListener('click', upStartUpload);
     upEl('upCancelBtn').addEventListener('click', closeUploadWindow);
     upEl('upCloseX').addEventListener('click', closeUploadWindow);
@@ -1913,23 +1933,38 @@ function openUploadWindow() {
     upItemCode = String(itemData[headerMapping['article/item']] || 'Unknown');
     upEl('upItemCode').textContent = upItemCode;
     upEl('upUploader').value = loggedInUser || '';
+    upEl('upUploaderLabel').textContent = loggedInUser || 'Unknown user';
     [1, 2, 3, 4].forEach(i => {
-        upResetSlot(i);
         const k = headerMapping[UP_SLOTS[i].key];
-        upRenderExisting(i, k ? itemData[k] : '');
+        upExistingUrls[i] = k ? String(itemData[k] || '').trim() : '';
+        upResetSlot(i);
     });
     upBusy = false;
-    upEl('upSpinner').style.display = 'none';
+    upEl('upDone').classList.remove('on');
+    upEl('upSubmitBtn').classList.remove('busy');
+    upEl('upSubmitLabel').textContent = 'Upload & Save Links';
+    upEl('upCancelBtn').disabled = false;
+    upEl('upCloseX').disabled = false;
+    upProgress('off');
     upSetStatus('', '');
     upCheckReady();
 
-    upEl('uploadPhotosOverlay').style.display = 'flex';
+    const ov = upEl('uploadPhotosOverlay');
+    ov.style.display = 'flex';
+    void ov.offsetWidth;              // let the browser register the start state
+    ov.classList.add('up-open');
 }
 
-function closeUploadWindow() {
+function closeUploadWindow(instant) {
     if (upBusy) return; // don't allow closing mid-upload
-    [1, 2, 3, 4].forEach(upResetSlot);
-    upEl('uploadPhotosOverlay').style.display = 'none';
+    const ov = upEl('uploadPhotosOverlay');
+    ov.classList.remove('up-open');
+    setTimeout(() => {
+        if (!ov.classList.contains('up-open')) {
+            ov.style.display = 'none';
+            [1, 2, 3, 4].forEach(upResetSlot);
+        }
+    }, instant === true ? 0 : 260);
 }
 
 async function upStartUpload() {
@@ -1943,11 +1978,13 @@ async function upStartUpload() {
     const rowId0 = activeEditIndex;
 
     upBusy = true;
-    upEl('upSubmitBtn').disabled = true;
+    const btn = upEl('upSubmitBtn');
+    btn.disabled = true; btn.classList.add('busy');
+    upEl('upSubmitLabel').textContent = 'Uploading…';
     upEl('upCancelBtn').disabled = true;
     upEl('upCloseX').disabled = true;
-    upEl('upSpinner').style.display = 'block';
-    upSetStatus('loading', 'Processing images...');
+    upProgress('det', 4);
+    upSetStatus('loading', 'Preparing images…');
 
     try {
         const params = new URLSearchParams();
@@ -1955,15 +1992,20 @@ async function upStartUpload() {
         params.append('secret', API_SECRET);
         params.append('itemCode', article0);
         params.append('updatedby', uploader);
+        let done = 0;
         for (const i of chosen) {
             const p = await upPrepareImage(upFiles[i]);
             if (!p) throw new Error('Could not read "' + upFiles[i].name + '".');
             params.append('photo' + i + 'Data', p.base64);
             params.append('photo' + i + 'Type', p.type);
             params.append('photo' + i + 'Name', p.name);
+            done++;
+            upProgress('det', 4 + (done / chosen.length) * 40);
+            upSetStatus('loading', 'Preparing images… (' + done + '/' + chosen.length + ')');
         }
 
-        upSetStatus('loading', 'Uploading to Drive & updating sheet row... This may take a moment.');
+        upProgress('indet');
+        upSetStatus('loading', 'Uploading to Drive & updating the sheet row… this may take a moment.');
 
         let result = null;
         try {
@@ -1978,19 +2020,21 @@ async function upStartUpload() {
             // went through. Do NOT resend (it would create duplicate files).
             result = null;
         }
-
         if (result && result.success === false) throw new Error(result.message || 'Upload was rejected.');
 
+        // success animation
+        upProgress('off');
+        upEl('upDoneSub').textContent = (result && result.message ? result.message.replace(/^✅\s*/, '') : 'Photos uploaded') + ' — syncing the sheet…';
+        upEl('upDone').classList.add('on');
+        modalModified = true;
+        await new Promise(r => setTimeout(r, 1300));
         upBusy = false;
-        upEl('upCancelBtn').disabled = false;
-        upEl('upCloseX').disabled = false;
         closeUploadWindow();
-        showToast((result && result.message ? result.message.replace(/^✅\s*/, '') : 'Photos uploaded') + ' — syncing the sheet.', 'success');
 
         // Reload from the sheet (it can lag a few seconds), then refresh the open details window
         const slotKeys = chosen.map(i => headerMapping[UP_SLOTS[i].key]).filter(Boolean);
-        const before = {};
         const old = inventoryData.find(r => r._rowId === rowId0);
+        const before = {};
         slotKeys.forEach(k => { before[k] = old ? String(old[k] || '') : ''; });
         let changed = false;
         for (let n = 0; n < 6 && !changed; n++) {
@@ -1998,18 +2042,19 @@ async function upStartUpload() {
             await loadInventoryFromGoogleSheets(true);
             const fresh = inventoryData.find(r => String(r[headerMapping['article/item']] || '') === article0);
             changed = !!(fresh && slotKeys.some(k => String(fresh[k] || '') !== before[k]));
-            if (changed) {
-                if (editModal && editModal.style.display === 'flex') openPopUp(fresh._rowId);
-            }
+            if (changed && editModal && editModal.style.display === 'flex') openPopUp(fresh._rowId);
         }
-        if (!changed) toastAlert('Uploaded, but the sheet has not updated yet. Reopen this record in a moment.');
+        if (changed) showToast('Photos for ' + article0 + ' are now showing.', 'success');
+        else toastAlert('Uploaded, but the sheet has not updated yet. Reopen this record in a moment.');
     } catch (err) {
         console.error(err);
         upBusy = false;
-        upEl('upSpinner').style.display = 'none';
+        btn.classList.remove('busy');
+        upEl('upSubmitLabel').textContent = 'Upload & Save Links';
         upEl('upCancelBtn').disabled = false;
         upEl('upCloseX').disabled = false;
-        upSetStatus('error', 'Upload Error: ' + (err && err.message ? err.message : err));
+        upProgress('off');
+        upSetStatus('error', 'Upload error: ' + (err && err.message ? err.message : err));
         upCheckReady();
     }
 }
