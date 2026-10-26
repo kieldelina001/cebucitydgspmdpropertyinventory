@@ -3213,19 +3213,22 @@ window.addEventListener('DOMContentLoaded', () => {
             params.append('fileName', file.name);
             params.append('mimeType', file.type || 'application/octet-stream');
             params.append('fileData', data);
-            let confirmed = false;
+            let confirmed = false, linked = 0;
             try {
                 const resp = await fetch(GOOGLE_APPS_SCRIPT_URL, { method: 'POST', body: params.toString(), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
                 const j = await resp.json();
                 if (j && j.ok === false) throw new Error(j.error || 'Upload was rejected.');
                 confirmed = !!(j && j.ok);
+                linked = (j && j.linked) || 0;
             } catch (e) {
                 if (e && e.message && !/fetch|network|json|unexpected/i.test(e.message)) throw e;
                 // The browser couldn't read the reply, but the request was still sent.
                 // Do NOT resend (it would create a duplicate file) - verify by re-reading the sheet below.
             }
             hideLoading();
-            showToast('Policy copy uploaded — syncing the sheet.', 'success');
+showToast(linked > 0
+                ? 'Policy copy uploaded and also linked to ' + linked + ' other item' + (linked === 1 ? '' : 's') + ' with the same Policy ID — syncing the sheet.'
+                : 'Policy copy uploaded — syncing the sheet.', 'success');
             // Reload from the sheet (it can lag a few seconds) until the new link shows up
             let found = false;
             for (let i = 0; i < 6 && !found; i++) {
