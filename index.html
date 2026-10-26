@@ -189,7 +189,7 @@
         /* Credit line on the login wallpaper (sits just above the footer line) */
         .login-credit {
             position: absolute;
-            left: 0; right: 0; bottom: 42px;
+            left: 0; right: 0; bottom: 3px;
             text-align: center;
             font-size: 12px;
             padding: 0 16px;
@@ -198,7 +198,7 @@
             pointer-events: none;
         }
         .login-credit strong { color: #fff; }
-        @media (max-width: 600px) { .login-credit { font-size: 10.5px; bottom: 38px; } }
+        @media (max-width: 600px) { .login-credit { font-size: 10.5px; bottom: 3px; } }
         /* Branded header on the login wallpaper (live text, stays sharp on any screen) */
         .login-brand {
             position: absolute;
@@ -1414,6 +1414,26 @@
             #editModal, #editModal .modal-box, #editModal .modal-header,
             #editModal .modal-fields-side .modal-field, #editModal .modal-photo-side,
             #editModal .modal-actions { animation:none !important; }
+        }
+        /* ✨ Insurance Details window motion (same sequence as Property Details) */
+        #insDetailOverlay { animation:pdOverlayIn .25s ease; }
+        #insDetailOverlay .modal-header { animation:insFadeUp .4s ease both; animation-delay:.08s; }
+        #insDetailOverlay .modal-fields-side .modal-field { animation:insSlideIn .4s ease both; animation-delay:calc(.12s + var(--fi, 0) * 70ms); }
+        #insDetailOverlay .modal-fields-side .modal-field:nth-child(1) { --fi:0; }
+        #insDetailOverlay .modal-fields-side .modal-field:nth-child(2) { --fi:1; }
+        #insDetailOverlay .modal-fields-side .modal-field:nth-child(3) { --fi:2; }
+        #insDetailOverlay .modal-fields-side .modal-field:nth-child(4) { --fi:3; }
+        #insDetailOverlay .modal-fields-side .modal-field:nth-child(5) { --fi:4; }
+        #insDetailOverlay .modal-fields-side .modal-field:nth-child(6) { --fi:5; }
+        #insDetailOverlay .modal-fields-side .modal-field:nth-child(7) { --fi:6; }
+        #insDetailOverlay .modal-fields-side .modal-field:nth-child(8) { --fi:7; }
+        #insDetailOverlay .modal-fields-side .modal-field:nth-child(9) { --fi:8; }
+        #insDetailOverlay .modal-photo-side { animation:insFadeUp .5s ease both; animation-delay:.25s; }
+        #insDetailOverlay .modal-actions { animation:insFadeUp .45s ease both; animation-delay:.5s; }
+        @media (prefers-reduced-motion:reduce) {
+            #insDetailOverlay, #insDetailOverlay .modal-header,
+            #insDetailOverlay .modal-fields-side .modal-field, #insDetailOverlay .modal-photo-side,
+            #insDetailOverlay .modal-actions { animation:none !important; }
         }
     
         /* =========================================================
