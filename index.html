@@ -186,6 +186,19 @@
             text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
             pointer-events: none;
         }
+        /* Credit line on the login wallpaper (sits just above the footer line) */
+        .login-credit {
+            position: absolute;
+            left: 0; right: 0; bottom: 42px;
+            text-align: center;
+            font-size: 12px;
+            padding: 0 16px;
+            color: rgba(255, 255, 255, 0.88);
+            text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5);
+            pointer-events: none;
+        }
+        .login-credit strong { color: #fff; }
+        @media (max-width: 600px) { .login-credit { font-size: 10.5px; bottom: 38px; } }
         /* Branded header on the login wallpaper (live text, stays sharp on any screen) */
         .login-brand {
             position: absolute;
@@ -1585,6 +1598,7 @@
         <!-- END OF DISCLAIMER -->
 			
         </div>
+        <div class="login-credit">&copy; 2026 Webpage Created by <strong>Noel Rie N. Deliña</strong> | Property Management Division</div>
     </div>
 
     <!-- MAIN APPLICATION -->

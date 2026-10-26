@@ -3176,6 +3176,73 @@ window.addEventListener('DOMContentLoaded', () => {
     const fmtPeso = n => n === null || n === undefined ? '-'
         : '\u20b1 ' + Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+    // ---- 📎 POLICY COPY (stored in Google Drive, link kept in the "Policy Copy" column of the sheet) ----
+    const POLICY_MAX_MB = 8;
+    function policyHeader() {
+        return (Array.isArray(rawHeaders) ? rawHeaders : []).find(h => /policy\s*copy/i.test(String(h))) || null;
+    }
+    function getPolicyCopyUrl(row) {
+        const h = policyHeader();
+        const v = h ? String(row[h] || '').trim() : '';
+        return /[-\w]{25,}/.test(v) ? v : '';
+    }
+    const policyFileId = url => { const m = String(url || '').match(/[-\w]{25,}/); return m ? m[0] : ''; };
+    const fileToBase64 = file => new Promise((res, rej) => {
+        const fr = new FileReader();
+        fr.onload = () => res(String(fr.result).split(',')[1]);
+        fr.onerror = () => rej(new Error('Could not read the selected file.'));
+        fr.readAsDataURL(file);
+    });
+
+    async function uploadPolicyCopy(recordId, file, statusEl) {
+        const row = inventoryData.find(x => x._rowId === recordId);
+        if (!row || !file) return;
+        if (file.size > POLICY_MAX_MB * 1024 * 1024) { toastAlert('File is too large. Maximum is ' + POLICY_MAX_MB + ' MB.'); return; }
+        if (!(file.type === 'application/pdf' || /^image\//.test(file.type))) { toastAlert('Please choose a PDF or an image file.'); return; }
+        const article = String(row[headerMapping['article/item']] || '');
+        const article0 = article;
+        showLoading('Uploading policy copy to Google Drive...');
+        try {
+            const data = await fileToBase64(file);
+            const params = new URLSearchParams();
+            params.append('action', 'uploadPolicyCopy');
+            params.append('secret', API_SECRET);
+            params.append('article', article);
+            params.append('updatedby', loggedInUser || '');
+            params.append('timestamp', new Date().toLocaleString());
+            params.append('fileName', file.name);
+            params.append('mimeType', file.type || 'application/octet-stream');
+            params.append('fileData', data);
+            let confirmed = false;
+            try {
+                const resp = await fetch(GOOGLE_APPS_SCRIPT_URL, { method: 'POST', body: params.toString(), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+                const j = await resp.json();
+                if (j && j.ok === false) throw new Error(j.error || 'Upload was rejected.');
+                confirmed = !!(j && j.ok);
+            } catch (e) {
+                if (e && e.message && !/fetch|network|json|unexpected/i.test(e.message)) throw e;
+                // The browser couldn't read the reply, but the request was still sent.
+                // Do NOT resend (it would create a duplicate file) - verify by re-reading the sheet below.
+            }
+            hideLoading();
+            showToast('Policy copy uploaded — syncing the sheet.', 'success');
+            // Reload from the sheet (it can lag a few seconds) until the new link shows up
+            let found = false;
+            for (let i = 0; i < 6 && !found; i++) {
+                await new Promise(r => setTimeout(r, i === 0 && confirmed ? 800 : 2500));
+                await loadInventoryFromGoogleSheets(true);
+                const fresh = inventoryData.find(x => String(x[headerMapping['article/item']] || '') === article0);
+                found = !!(fresh && getPolicyCopyUrl(fresh));
+                if (found) { render(); openDetail(fresh._rowId); }
+            }
+            if (!found) toastAlert('Uploaded, but the sheet has not updated yet. Reopen this record in a moment.');
+        } catch (err) {
+            hideLoading();
+            console.error(err);
+            toastAlert('Policy copy upload failed: ' + (err && err.message ? err.message : err));
+        }
+    }
+
     function details(row) {
         const notes = String(row[headerMapping['notes']] || '');
         const status = getInsuranceStatus(notes);
@@ -3195,6 +3262,7 @@ window.addEventListener('DOMContentLoaded', () => {
             insurer: (function () { const p = parseInsurer(notes); return p !== '-' ? p : (status === 'NOT_INSURED' ? '-' : DEFAULT_INSURER); })(),
             policy: parsePolicy(notes),
             sumInsured: parseSumInsured(notes, row[headerMapping['unit value']]),
+            policyUrl: getPolicyCopyUrl(row),
             article: String(row[headerMapping['article/item']] || ''),
             description: String(row[headerMapping['description']] || '')
         };
@@ -3244,6 +3312,24 @@ window.addEventListener('DOMContentLoaded', () => {
         $('insBody').querySelectorAll('tr[data-id]').forEach(tr => tr.onclick = () => openDetail(Number(tr.dataset.id)));
     }
 
+    function policyBlockHTML(r) {
+        const fid = policyFileId(r.policyUrl);
+        const btn = 'display:inline-block;text-decoration:none;box-sizing:border-box;';
+        const view = fid ? `
+            <iframe src="https://drive.google.com/file/d/${fid}/preview" title="Policy Copy" loading="lazy"
+                style="width:100%;height:340px;border:1px solid var(--line);border-radius:10px;background:#f1f5f9;margin-top:8px;"></iframe>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+                <a class="modal-btn btn-edit" style="${btn}" href="https://drive.google.com/uc?export=download&id=${fid}" target="_blank" rel="noopener">Download Policy Copy</a>
+                <a class="modal-btn btn-close" style="${btn}" href="https://drive.google.com/file/d/${fid}/view" target="_blank" rel="noopener">Open in Drive</a>
+            </div>`
+            : '<div style="color:var(--ink-500);font-style:italic;font-size:13px;margin-top:6px;">No policy copy uploaded yet.</div>';
+        return `<div class="ins-notes" style="margin-top:12px;"><b>Policy Copy</b>${view}
+            <div style="margin-top:10px;">
+                <input type="file" id="insPolicyFile" accept="application/pdf,image/*" style="display:none;">
+                <button type="button" class="modal-btn btn-upload" id="insPolicyUploadBtn" style="display:inline-block;">${fid ? 'Replace Policy Copy' : 'Upload Policy Copy'}</button>
+            </div></div>`;
+    }
+
     // ---- Insurance details window (same for Insured, Expiring, Expired, Not Insured) ----
     function openDetail(id) {
         const r = records.find(x => x.id === id);
@@ -3258,11 +3344,17 @@ window.addEventListener('DOMContentLoaded', () => {
             <div class="ins-row" style="--i:4"><span>Coverage end</span><span>${r.end ? fmtDate(r.end) : '-'}</span></div>
             <div class="ins-row" style="--i:5"><span>Time left</span><span>${timeLeft(r)}</span></div>
             <div class="ins-notes"><b>Notes (from sheet)</b>${escapeHtml(r.notes)}</div>
+            ${policyBlockHTML(r)}
             <div class="modal-actions" style="margin-top:20px;padding-top:16px;">
                 <button class="modal-btn btn-edit" id="insOpenRecord">Open Property Record</button>
                 <button class="modal-btn btn-close" id="insDetailClose">Close</button>
             </div>`;
         $('insDetailClose').onclick = closeDetail;
+        const pcBtn = $('insPolicyUploadBtn'), pcInput = $('insPolicyFile');
+        if (pcBtn && pcInput) {
+            pcBtn.onclick = () => pcInput.click();
+            pcInput.onchange = () => { const f = pcInput.files && pcInput.files[0]; if (f) uploadPolicyCopy(r.id, f); pcInput.value = ''; };
+        }
         $('insOpenRecord').onclick = () => { closeDetail(); openPopUp(id); };
         $('insDetailOverlay').style.display = 'flex';
         document.body.style.overflow = 'hidden';
