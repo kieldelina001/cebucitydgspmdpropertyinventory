@@ -3338,50 +3338,66 @@ showToast(linked > 0
         tab.document.close();
     }
 
-    function policyBlockHTML(r) {
+    // Right-hand viewer panel: same dark panel + pill Download button as Property Details
+    function policyViewerHTML(r) {
         const fid = policyFileId(r.policyUrl);
-        const btn = 'display:inline-block;text-decoration:none;box-sizing:border-box;';
-        const view = fid ? `
-            <iframe src="https://drive.google.com/file/d/${fid}/preview" title="Policy Copy" loading="lazy"
-                style="width:100%;height:340px;border:1px solid var(--line);border-radius:10px;background:#f1f5f9;margin-top:8px;"></iframe>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-                <button type="button" class="modal-btn btn-edit" id="insPolicyDownloadBtn">Download Policy Copy</button>
-            </div>`
-            : '<div style="color:var(--ink-500);font-style:italic;font-size:13px;margin-top:6px;">No policy copy uploaded yet.</div>';
-        return `<div class="ins-notes" style="margin-top:12px;"><b>Policy Copy</b>${view}
-            <div style="margin-top:10px;">
-                <input type="file" id="insPolicyFile" accept="application/pdf,image/*" style="display:none;">
-                <button type="button" class="modal-btn btn-upload" id="insPolicyUploadBtn" style="display:inline-block;">${fid ? 'Replace Policy Copy' : 'Upload Policy Copy'}</button>
-            </div></div>`;
+        if (!fid) {
+            return '<div style="color:#94a3b8;font-style:italic;display:flex;height:100%;align-items:center;justify-content:center;text-align:center;">No policy copy uploaded yet for this record.</div>';
+        }
+        return `<div class="modal-photo-container">
+                <div class="photo-actions-container">
+                    <button type="button" class="photo-action-btn" id="insPolicyDownloadBtn">Download Policy Copy</button>
+                </div>
+                <iframe src="https://drive.google.com/file/d/${fid}/preview" title="Policy Copy" loading="lazy"
+                    style="width:100%;height:100%;min-height:470px;border:0;border-radius:8px;background:#0b1424;margin-top:34px;"></iframe>
+            </div>
+            <div class="photo-caption">Policy Copy</div>`;
     }
 
-    // ---- Insurance details window (same for Insured, Expiring, Expired, Not Insured) ----
+    // ---- Insurance details window — same format as the inventory tab's "Property Details" ----
     function openDetail(id) {
         const r = records.find(x => x.id === id);
         if (!r) return;
-        $('insDetail').innerHTML = `
-            <h3>${escapeHtml(r.article)}</h3>
-            <div class="ins-desc">${escapeHtml(r.description)}</div>
-            <div class="ins-row" style="--i:0"><span>Status</span><span><span class="ins-badge ins-b-${r.status}">${LABEL[r.status]}</span></span></div>
-            <div class="ins-row" style="--i:1"><span>Insurer</span><span>${escapeHtml(r.insurer)}</span></div>
-            <div class="ins-row" style="--i:2"><span>Policy ID</span><span>${escapeHtml(r.policy)}</span></div>
-            <div class="ins-row" style="--i:3"><span>Sum Insured</span><span>${fmtPeso(r.sumInsured)}</span></div>
-            <div class="ins-row" style="--i:4"><span>Coverage end</span><span>${r.end ? fmtDate(r.end) : '-'}</span></div>
-            <div class="ins-row" style="--i:5"><span>Time left</span><span>${timeLeft(r)}</span></div>
-            <div class="ins-notes"><b>Notes (from sheet)</b>${escapeHtml(r.notes)}</div>
-            ${policyBlockHTML(r)}
-            <div class="modal-actions" style="margin-top:20px;padding-top:16px;">
-                <button class="modal-btn btn-edit" id="insOpenRecord">Open Property Record</button>
-                <button class="modal-btn btn-close" id="insDetailClose">Close</button>
+        const fid = policyFileId(r.policyUrl);
+        const field = (label, value, kind, rows) => {
+            const v = escapeHtml(value == null ? '' : String(value));
+            const inp = kind === 'area'
+                ? `<textarea rows="${rows || 3}" disabled>${v}</textarea>`
+                : `<input type="text" value="${v}" disabled>`;
+            return `<div class="modal-field"><label>${escapeHtml(label)}</label>${inp}</div>`;
+        };
+        const box = $('insDetail');
+        box.classList.add('ins-detail-wide');
+        box.innerHTML = `
+            <button type="button" class="close-x-btn" id="insDetailX">&times;</button>
+            <div class="modal-header">Insurance Details</div>
+            <div class="modal-flex-layout">
+                <div class="modal-fields-side">
+                    ${field('Article no./ TCT no.', r.article)}
+                    ${field('Description', r.description, 'area', 7)}
+                    ${field('Status', LABEL[r.status])}
+                    ${field('Insurer', r.insurer)}
+                    ${field('Policy ID', r.policy)}
+                    ${field('Sum Insured', fmtPeso(r.sumInsured))}
+                    ${field('Coverage End', r.end ? fmtDate(r.end) : '-')}
+                    ${field('Time Left', timeLeft(r))}
+                    ${field('Notes', r.notes, 'area', 3)}
+                </div>
+                <div class="modal-photo-side" id="insPolicySide">${policyViewerHTML(r)}</div>
+            </div>
+            <div class="modal-actions">
+                <input type="file" id="insPolicyFile" accept="application/pdf,image/*" style="display:none;">
+                <button type="button" class="modal-btn btn-upload" id="insPolicyUploadBtn" style="display:inline-block;">${fid ? 'Replace Policy Copy' : 'Upload Policy Copy'}</button>
+                <button type="button" class="modal-btn btn-edit" id="insOpenRecord">Open Property Record</button>
+                <button type="button" class="modal-btn btn-close" id="insDetailClose">Close</button>
             </div>`;
         $('insDetailClose').onclick = closeDetail;
+        $('insDetailX').onclick = closeDetail;
         const pcDl = $('insPolicyDownloadBtn');
         if (pcDl) pcDl.onclick = () => openPolicyCopyTab(r.policyUrl);
         const pcBtn = $('insPolicyUploadBtn'), pcInput = $('insPolicyFile');
-        if (pcBtn && pcInput) {
-            pcBtn.onclick = () => pcInput.click();
-            pcInput.onchange = () => { const f = pcInput.files && pcInput.files[0]; if (f) uploadPolicyCopy(r.id, f); pcInput.value = ''; };
-        }
+        pcBtn.onclick = () => pcInput.click();
+        pcInput.onchange = () => { const f = pcInput.files && pcInput.files[0]; if (f) uploadPolicyCopy(r.id, f); pcInput.value = ''; };
         $('insOpenRecord').onclick = () => { closeDetail(); openPopUp(id); };
         $('insDetailOverlay').style.display = 'flex';
         document.body.style.overflow = 'hidden';

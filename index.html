@@ -1305,6 +1305,21 @@
         .ins-days.neg { color:var(--red); }
         .ins-days.warn { color:#b45309; }
         .ins-detail { background:#fff; border-radius:18px; border-top:5px solid var(--blue-500); max-width:520px; width:95%; padding:26px; box-shadow:var(--shadow-lg); max-height:90vh; overflow:auto; position:relative; box-sizing:border-box; }
+        /* Insurance details window — same format as Property Details (editModal) */
+        .ins-detail.ins-detail-wide {
+            width: 1200px; max-width: 95%;
+            padding: 28px;
+            border-radius: 18px;
+            border: 1px solid var(--line);
+            border-top: 5px solid var(--blue-500);
+            max-height: 92vh;
+        }
+        .ins-detail.ins-detail-wide .modal-fields-side { max-height: 70vh; }
+        @media (max-width: 900px) {
+            .ins-detail.ins-detail-wide { padding: 20px 16px; }
+            .ins-detail.ins-detail-wide .modal-flex-layout { flex-direction: column; }
+            .ins-detail.ins-detail-wide .modal-photo-side { min-height: 320px; }
+        }
         .ins-detail h3 { margin:0 0 4px; font-size:20px; font-weight:800; color:var(--navy-900); }
         .ins-detail .ins-desc { color:var(--ink-500); font-size:14px; margin-bottom:14px; }
         .ins-row { display:flex; justify-content:space-between; align-items:center; gap:14px; padding:11px 0; border-bottom:1px solid var(--line); font-size:14px; }
