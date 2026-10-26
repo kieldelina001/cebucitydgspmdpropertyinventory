@@ -3312,6 +3312,29 @@ window.addEventListener('DOMContentLoaded', () => {
         $('insBody').querySelectorAll('tr[data-id]').forEach(tr => tr.onclick = () => openDetail(Number(tr.dataset.id)));
     }
 
+    // Opens the policy copy in a new tab, scaled to fit the whole tab (same look as the
+    // inventory tab's "Download Photo"). If the file isn't an image (e.g. a PDF), the tab
+    // falls back to the Drive viewer.
+    function openPolicyCopyTab(url) {
+        const fid = policyFileId(url);
+        if (!fid) return;
+        const imgUrl = getDirectImageUrl(url, 'view') || ('https://lh3.googleusercontent.com/d/' + fid);
+        const viewUrl = 'https://drive.google.com/file/d/' + fid + '/preview';
+        const tab = window.open('', '_blank');
+        if (!tab) { window.open(viewUrl, '_blank'); return; }
+        tab.document.write(
+            '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
+            '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
+            '<title>Policy Copy</title>' +
+            '<style>html,body{margin:0;width:100%;height:100%;background:#0b1424;overflow:hidden;}' +
+            'body{display:flex;align-items:center;justify-content:center;}' +
+            'img{max-width:100vw;max-height:100vh;width:auto;height:auto;object-fit:contain;display:block;}</style></head><body>' +
+            '<img src="' + escapeHtml(imgUrl) + '" alt="Policy Copy" onerror="location.replace(\'' + viewUrl + '\')">' +
+            '</body></html>'
+        );
+        tab.document.close();
+    }
+
     function policyBlockHTML(r) {
         const fid = policyFileId(r.policyUrl);
         const btn = 'display:inline-block;text-decoration:none;box-sizing:border-box;';
@@ -3319,8 +3342,7 @@ window.addEventListener('DOMContentLoaded', () => {
             <iframe src="https://drive.google.com/file/d/${fid}/preview" title="Policy Copy" loading="lazy"
                 style="width:100%;height:340px;border:1px solid var(--line);border-radius:10px;background:#f1f5f9;margin-top:8px;"></iframe>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-                <a class="modal-btn btn-edit" style="${btn}" href="https://drive.google.com/uc?export=download&id=${fid}" target="_blank" rel="noopener">Download Policy Copy</a>
-                <a class="modal-btn btn-close" style="${btn}" href="https://drive.google.com/file/d/${fid}/view" target="_blank" rel="noopener">Open in Drive</a>
+                <button type="button" class="modal-btn btn-edit" id="insPolicyDownloadBtn">Download Policy Copy</button>
             </div>`
             : '<div style="color:var(--ink-500);font-style:italic;font-size:13px;margin-top:6px;">No policy copy uploaded yet.</div>';
         return `<div class="ins-notes" style="margin-top:12px;"><b>Policy Copy</b>${view}
@@ -3350,6 +3372,8 @@ window.addEventListener('DOMContentLoaded', () => {
                 <button class="modal-btn btn-close" id="insDetailClose">Close</button>
             </div>`;
         $('insDetailClose').onclick = closeDetail;
+        const pcDl = $('insPolicyDownloadBtn');
+        if (pcDl) pcDl.onclick = () => openPolicyCopyTab(r.policyUrl);
         const pcBtn = $('insPolicyUploadBtn'), pcInput = $('insPolicyFile');
         if (pcBtn && pcInput) {
             pcBtn.onclick = () => pcInput.click();
