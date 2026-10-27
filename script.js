@@ -38,7 +38,7 @@ const EXPORT_TABLE_CONFIG = [
 ];
 // =========================================================================
 
-const displayHeaders = ["Article no./ TCT no.", "Description", "Notes", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Coordinates", "Tax Declaration", "Transfer Certificate (TCT) P1", "Transfer Certificate (TCT) P2", "UPDATED BY", "LAST UPDATE"];
+const displayHeaders = ["Queue", "Article no./ TCT no.", "Description", "Notes", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Coordinates", "Tax Declaration", "Transfer Certificate (TCT) P1", "Transfer Certificate (TCT) P2", "UPDATED BY", "LAST UPDATE"];
 const targetHeadersLowercase = ["article/item", "description", "notes", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "transfer_cert1", "transfer_cert2", "updated by", "last update"];
 const popupOrderLowercase = ["article/item", "description", "notes", "unit value", "remarks", "type"]; 
 
@@ -1149,6 +1149,7 @@ function renderTable(data, page = 1) {
             }
             tr.appendChild(td);
         });
+        if (window.PrintQueue) PrintQueue.decorateRow(tr, row); // 🖨️ adds the "+ Queue" cell
         tr.addEventListener('click', () => openPopUp(row._rowId));
         tableBody.appendChild(tr);
     });
@@ -2359,7 +2360,8 @@ function isExportPhotoKey(tKey) {
 }
 
 // 🌐 Export Searched HTML with Photos Downloaded & Embedded as Base64
-async function downloadSearchedHTML(data) {
+// mode === 'print'  -> opens a print preview window instead of downloading a file
+async function downloadSearchedHTML(data, mode) {
     if (!data || data.length === 0) {
         toastAlert("Export Nullified: No dataset active for export.");
         return;
@@ -2386,6 +2388,16 @@ async function downloadSearchedHTML(data) {
             `or crash the browser tab.\n\nTip: use "Export Searched" on smaller groups.\n\nContinue anyway?`
         );
         if (!proceed) return;
+    }
+
+    // Print mode: open the preview window NOW, while the click is still "fresh".
+    // If we waited until the photos finish downloading, the pop-up blocker would stop it.
+    let printWin = null;
+    if (mode === 'print') {
+        printWin = window.open('', '_blank');
+        if (printWin) {
+            printWin.document.write('<!DOCTYPE html><title>Preparing…</title><body style="font:16px Arial,sans-serif;padding:32px;color:#334155">Preparing print preview…</body>');
+        }
     }
 
     // ---- Pass 2: download all photos in parallel ----
@@ -2533,16 +2545,28 @@ ${EXPORT_HEADER_CSS}
 </body>
 </html>`;
 
-    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Searched_Inventory_Report_${new Date().toISOString().slice(0,10)}.html`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    if (mode === 'print' && printWin) {
+        // Swap the placeholder for the finished report, then open the print dialog
+        printWin.document.open();
+        printWin.document.write(htmlContent);
+        printWin.document.close();
+        const wait = Math.min(6000, 600 + links.length * 40); // give embedded photos time to decode
+        setTimeout(() => { try { printWin.focus(); printWin.print(); } catch (e) {} }, wait);
+    } else {
+        if (mode === 'print') {
+            showToast('Your browser blocked the print window, so the report was downloaded instead. Allow pop-ups for this site to print directly.', 'warning');
+        }
+        const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `Searched_Inventory_Report_${new Date().toISOString().slice(0,10)}.html`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+    }
 
     hideLoading();
 
@@ -4162,10 +4186,10 @@ function animateOut(el, done, ms) {
         return r;
     };
     const baseHTMLExport = downloadSearchedHTML;
-    downloadSearchedHTML = async function (data) {
+    downloadSearchedHTML = async function (data, mode) {
         const ok = data && data.length;
         const r = await baseHTMLExport.apply(this, arguments);
-        if (ok) showToast('Report exported — check your downloads folder.', 'success');
+        if (ok && mode !== 'print') showToast('Report exported — check your downloads folder.', 'success');
         return r;
     };
 

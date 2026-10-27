@@ -812,8 +812,8 @@
         .property-table tbody td { transition: background-color .25s ease, box-shadow .25s ease, border-radius .25s ease; }
 
         /* UPDATED BY column (narrow) */
-        .property-table th:nth-child(13),
-        .property-table td:nth-child(13) {
+        .property-table th:nth-child(14),
+        .property-table td:nth-child(14) {
             width: 70px !important;
             min-width: 70px !important;
             max-width: 70px !important;
@@ -825,8 +825,8 @@
         }
 
         /* LAST UPDATE column (narrow) */
-        .property-table th:nth-child(14),
-        .property-table td:nth-child(14) {
+        .property-table th:nth-child(15),
+        .property-table td:nth-child(15) {
             width: 80px !important;
             min-width: 80px !important;
             max-width: 80px !important;
@@ -1890,6 +1890,7 @@
                 <div class="table-label-row">
                     <span class="table-label">Table Dataset: <span id="foundCountDisplay" style="font-weight: normal; color: #57a1e0; font-size: 16px; margin-left: 5px;"></span></span>
                     <div class="export-group">
+                        <button id="queueAllButton" class="export-btn btn-neu" title="Add every record in the table below to the print queue">＋ Queue All Results</button>
                         <button id="exportButton" class="export-btn btn-neu">Export All</button>
                         <button id="exportFilteredButton" class="export-btn btn-neu">Export Searched</button>
                     </div>
@@ -2079,6 +2080,7 @@
     </div>
 
     <script src="script.js"></script>
+    <script src="print-queue.js"></script>
 	
 <!-- Access Request Modal Window -->
 <div id="accessModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:9999; justify-content:center; align-items:center;">
