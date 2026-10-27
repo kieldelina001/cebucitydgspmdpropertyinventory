@@ -1,242 +1,128 @@
-# Real Estate Inventory Management System
+# 🏢 Real Estate Inventory – DGS Property Management Division
 
-A web-based **Real Estate Inventory Management System** for the **Property Management Division (PMD)**.
+A browser-based, live property inventory system for the **Department of General Services – Property Management Division (DGS PMD)**. It reads property records straight from Google Sheets, lets authorized staff search, review, update, and export them, and tracks insurance coverage across the whole property portfolio.
 
-The system connects to **Google Sheets** and **Google Drive** to provide a simple way to view, search, manage, update, and document real estate properties.
+No build step and no backend server: it is plain HTML, CSS, and JavaScript, with Google Sheets and Google Apps Script as the data layer.
 
-## Features
+---
 
-* 🔐 **Google Account Login**
+## ✨ Features
 
-  * Users sign in using their Google account.
-  * Unauthorized users can submit an access request.
+### 📦 Inventory
+- **Live Google Sheets data** – the inventory loads on sign-in, with a status banner showing the connection state.
+- **Summary dashboard** – counts for Total Properties, Existing, Not Found, For Verification, With Pictures, and With Tax Declaration.
+- **Property type overview** – clickable cards for Buildings, Unidentified Buildings, Asset Modifications, School Buildings, Hospitals, Markets, Parks, Land, Unidentified Land, Flood Control, Water Systems, Roads, Slaughterhouses, and other infrastructure, structures, or land. Clicking a card filters the table.
+- **Search and filters** – keyword search plus a Remarks filter and one-click **Reset Filters**.
+- **Paginated table** – columns include Article no./TCT no., Description, Notes, Unit Value, Remarks, Type, photos, map coordinates, tax declaration, and transfer certificates.
+- **Property Details window** – view and edit a record, with a photo viewer (previous/next navigation and photo download). Saves record who made the update.
+- **Photo and document upload** – upload Structure Photo 1 and 2, Map Coordinates, and the Tax Declaration. Images are resized in the browser before upload, with progress and status indicators.
 
-* 📊 **Dashboard**
+### 🛡️ Insurance
+- **Insurance Register** – a dedicated tab, populated from the Inventory data, with its own search (article no., description, insurer, policy ID).
+- **Status tracking** – properties are classed as insured, not insured, or expiring or expired. Policy dates are read from text, and anything within **30 days** of expiry is flagged.
+- **Dashboard counters and tab badge** – a quick view of coverage without opening the table.
+- **Policy copy upload** – attach a copy of the insurance policy to a record.
 
-  * Displays total properties.
-  * Shows property status counts.
-  * Shows property type statistics.
-  * Includes insurance-related information.
+### 🖨️ Print Queue
+- A "shopping basket" for reports: search, add records with **+ Queue**, search something else, add more, then print or download once.
+- The queue is independent of table filters, so searching, resetting, or paging never loses it.
+- Items are tracked by **Article no./TCT no.**, so the report always uses fresh data even if the sheet reloads.
+- A floating counter opens a drawer where you can review, re-order, remove, or clear items, with **Undo**.
+- Stored in `sessionStorage`: it survives a page refresh and disappears when the tab is closed, which is safer on shared office computers.
 
-* 🔎 **Search and Filters**
+### 📤 Export
+- **Full inventory → CSV**.
+- **Filtered or queued records → standalone HTML report**, with photos downloaded and embedded, plus agency logos in the header. The report can be opened or printed offline.
 
-  * Search properties by information.
-  * Filter by remarks.
-  * Filter by property type.
-  * Filter by photos and documents.
-  * Click dashboard cards to quickly filter the inventory.
+### 🔐 Access and Security
+- **Google Sign-In** (Google Identity Services).
+- **Authorized accounts list** – only emails on an approved Google Sheet can enter. Others see an *Access Denied* window where they can send an access request.
+- **Admin approve/deny** flow for access requests.
+- **Auto-logout** after 30 minutes of inactivity, with a Session Expired dialog.
 
-* 🏠 **Property Inventory**
+---
 
-  * Article / TCT Number
-  * Description
-  * Notes
-  * Unit Value
-  * Remarks
-  * Property Type
-  * Photos
-  * Map Coordinates
-  * Tax Declaration
-  * Transfer Certificate of Title documents
+## 🧰 Tech Stack
 
-* ✏️ **Edit Property Information**
+| Layer | Technology |
+|---|---|
+| Front end | HTML5, CSS3, vanilla JavaScript |
+| Data source | Google Sheets (published as CSV) |
+| Write-back, uploads, access requests | Google Apps Script web app |
+| Authentication | Google Identity Services (OAuth) |
+| CSV parsing | [PapaParse](https://www.papaparse.com/) |
+| Font | Inter (Google Fonts) |
 
-  * Authorized users can edit property details.
-  * Changes are recorded with the user's email and update time.
+---
 
-* 📷 **Photo Upload**
+## 📁 Project Structure
 
-  * Upload property photos.
-  * Upload map coordinate photos.
-  * Upload tax declaration photos.
-  * Uploaded files are stored through Google Drive.
-  * The corresponding Google Sheet record is updated with the file links.
-
-* 📑 **Export**
-
-  * Export searched inventory information.
-  * Photos and documents can be embedded into the generated report.
-
-* 📄 **Pagination**
-
-  * Inventory records are displayed in pages for easier browsing.
-
-* 🖼️ **Image Preview**
-
-  * Hover over property images to view a larger preview.
-
-* 🔄 **Live Google Sheets Data**
-
-  * Inventory information is loaded directly from Google Sheets.
-
-* 🚪 **Logout and Idle Timeout**
-
-  * Users can manually log out.
-  * The system automatically logs users out after inactivity.
-
-## Technologies Used
-
-* HTML5
-* CSS3
-* JavaScript
-* Google Apps Script
-* Google Sheets
-* Google Drive
-* Google Identity Services
-* PapaParse
-
-## Project Files
-
-```text
-/
-├── index.html
-├── script.js
-├── code.gs
-└── UploadForm.html
+```
+├── index.html        # Layout, styles, tabs, dashboard, modals
+├── script.js         # Core logic: auth, data loading, search, editing, uploads, insurance, export
+├── print-queue.js    # Print queue (floating button, drawer, report generation)
+├── dgs_logo.png      # Header / favicon / report logo
+├── Ph_seal_cebucity.png
+└── *.png             # Property type icons (building, land, school, hospital, ...)
 ```
 
-### `index.html`
+`print-queue.js` depends on globals from `script.js`, so load it **after** `script.js` (as `index.html` already does).
 
-Contains the main web application interface, including:
+---
 
-* Login screen
-* Dashboard
-* Search and filter controls
-* Inventory table
-* Property details modal
-* Access request window
-* Export controls
+## 🚀 Getting Started
 
-### `script.js`
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/<your-username>/<your-repo>.git
+   cd <your-repo>
+   ```
+2. **Configure the data sources** at the top of `script.js`:
+   - `GOOGLE_APPS_SCRIPT_URL` – your deployed Apps Script web app
+   - `SPREADSHEET_ID` and `SPREADSHEET_GID` – the inventory sheet
+   - `AUTHORIZED_ACCOUNTS_SHEET_ID` and `AUTHORIZED_ACCOUNTS_GID` – the approved-users sheet
+3. **Set up Google Sign-In** by adding your OAuth client ID and authorized JavaScript origins in the Google Cloud Console.
+4. **Run it.** Serve the folder over HTTP rather than opening the file directly:
+   ```bash
+   python -m http.server 8000
+   # then open http://localhost:8000
+   ```
+   Or deploy to **GitHub Pages** (Settings → Pages) and add that URL to your OAuth authorized origins.
 
-Contains the main application logic, including:
+> ⚠️ **Do not commit secrets.** Keep API keys and shared secrets out of a public repository. See the security note below.
 
-* Google authentication
-* Google Sheets data loading
-* Search and filtering
-* Dashboard functions
-* Property editing
-* Photo handling
-* Export functions
-* Logout and idle timeout
-* Access request handling
+---
 
-### `code.gs`
+## ⚙️ Configuration Reference
 
-Google Apps Script backend used to connect the web application with Google services.
+| Setting (in `script.js`) | Purpose |
+|---|---|
+| `EXPORT_TABLE_CONFIG` | Columns included in the HTML report |
+| `INSURANCE_EXPIRING_DAYS` | Days before expiry to flag a policy (default `30`) |
+| `IDLE_TIME_LIMIT` | Inactivity auto-logout (default 30 minutes) |
+| `EXPORT_IMAGE_MAX_PX` | Longest side of embedded report photos (default `800`) |
+| `EXPORT_JPEG_QUALITY` | Report photo quality (default `0.75`) |
+| `EXPORT_CONCURRENCY` | Parallel photo downloads during export (default `6`) |
 
-It handles server-side operations such as Google Sheets and Google Drive processing.
+---
 
-### `UploadForm.html`
+## 🔒 Security Note
 
-Separate upload interface used for uploading property-related photos and documents.
+This is a client-side app, so anything in the JavaScript is visible to anyone who can open the page. For a public repository:
 
-Supported uploads include:
+- Don't hardcode shared secrets in `script.js`. Validate access **server-side** in Apps Script (for example by verifying the signed-in Google user's email against the authorized list) rather than relying on a key in the browser.
+- Keep the inventory and authorized-accounts sheets **not publicly shared**, and share them only with the accounts that need them.
+- Rotate any secret that has previously been committed, since Git history keeps old versions.
 
-* Structure Photo 1
-* Structure Photo 2
-* Map Coordinates Photo
-* Tax Declaration Photo
+---
 
-The upload form requires at least one photo before submitting.
-
-## Google Services
-
-This project uses:
-
-**Google Sheets**
-
-Stores the property inventory data and related information.
-
-**Google Drive**
-
-Stores uploaded property photos and documents.
-
-**Google Identity Services**
-
-Provides Google account authentication for users.
-
-## Access Control
-
-Users first authenticate using their Google account.
-
-If the authenticated account does not have permission to access the inventory, the application displays an **Access Denied** window.
-
-The user can provide an optional reason and submit an access request.
-
-## Data Updates
-
-Authorized users can edit property information through the **Property Details** window.
-
-Changes can be recorded with:
-
-* Updated By
-* Last Update
-
-The system then sends the changes to the Google Apps Script backend.
-
-## Photo Management
-
-Property photos are handled through Google Drive.
-
-The application can securely retrieve authorized Drive images and display them in the inventory interface.
-
-The upload form can upload up to four types of property images and send them to the Apps Script backend for processing.
-
-## How the System Works
-
-```text
-User
-  │
-  ▼
-Google Login
-  │
-  ├── Authorized ──► Inventory Dashboard
-  │                      │
-  │                      ├── Search / Filter
-  │                      ├── View Property
-  │                      ├── Edit Property
-  │                      ├── Upload Photos
-  │                      └── Export Report
-  │
-  └── Unauthorized
-          │
-          ▼
-     Request Access
-          │
-          ▼
-     Administrator
-```
-
-## Setup
-
-1. Create a Google Spreadsheet containing the property inventory.
-2. Create a Google Apps Script project.
-3. Add the backend code from `code.gs`.
-4. Add the upload interface from `UploadForm.html`.
-5. Configure the Google Spreadsheet and Google Drive permissions.
-6. Configure Google Identity Services.
-7. Update the required Google Apps Script URL and Spreadsheet ID in `script.js`.
-8. Deploy the Google Apps Script as a Web App.
-9. Host or deploy the frontend files.
-10. Test Google login, spreadsheet access, editing, uploads, and exports.
-
-## Important
-
-This application depends on Google services. Make sure the following are correctly configured before deployment:
-
-* Google Spreadsheet permissions
-* Google Drive permissions
-* Google Apps Script Web App deployment
-* Google OAuth / Identity Services configuration
-* Authorized users
-* Correct Spreadsheet ID
-* Correct Apps Script Web App URL
-
-## Author
+## 👤 Author
 
 **Noel Rie N. Deliña**
+Department of General Services – Property Management Division
 
-Property Management Division
+---
 
-© 2026
+## 📄 License
+
+Add a license of your choice (for example MIT), or mark the project as internal use only.
