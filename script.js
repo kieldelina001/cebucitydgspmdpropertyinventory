@@ -38,7 +38,10 @@ const EXPORT_TABLE_CONFIG = [
 ];
 // =========================================================================
 
-const displayHeaders = ["Queue", "Article no./ TCT no.", "Description", "Notes", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Coordinates", "Tax Declaration", "Transfer Certificate (TCT) P1", "Transfer Certificate (TCT) P2", "UPDATED BY", "LAST UPDATE"];
+const displayHeaders = ["Queue", "Article no./ TCT no.", "Description", "Notes", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Coordinates", "Tax Declaration", "Transfer Certificate (TCT) P1", "Updated By / Last Update"];
+// Columns drawn in the main table. Transfer Certificate P2 is only shown in the Property Details window,
+// and "updated by" + "last update" share one column ("updated_combined").
+const tableColumnKeys = ["article/item", "description", "notes", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "transfer_cert1", "updated_combined"];
 const targetHeadersLowercase = ["article/item", "description", "notes", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "transfer_cert1", "transfer_cert2", "updated by", "last update"];
 const popupOrderLowercase = ["article/item", "description", "notes", "unit value", "remarks", "type"]; 
 
@@ -1041,6 +1044,7 @@ function renderHeaders(headers) {
         th.textContent = h;
         tableHeaderRow.appendChild(th);
     });
+    if (window.PrintQueue) PrintQueue.decorateHeader(tableHeaderRow); // 🖨️ adds "Add all" under "Queue"
 }
 
 function getDirectImageUrl(driveLink, requestType = 'view') {
@@ -1115,11 +1119,17 @@ function renderTable(data, page = 1) {
         const tr = document.createElement('tr');
         tr.setAttribute('data-id', row._rowId);
         
-        targetHeadersLowercase.forEach(tKey => {
+        tableColumnKeys.forEach(tKey => {
             const td = document.createElement('td');
             const resolvedKey = headerMapping[tKey];
             
-            if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration') || tKey.includes('transfer_cert')) {
+            if (tKey === 'updated_combined') {
+                const by = headerMapping['updated by'] ? String(row[headerMapping['updated by']] || '').trim() : '';
+                const when = headerMapping['last update'] ? String(row[headerMapping['last update']] || '').trim() : '';
+                td.className = 'upd-cell';
+                if (by) { const b = document.createElement('div'); b.className = 'upd-by'; b.textContent = by; td.appendChild(b); }
+                if (when) { const w = document.createElement('div'); w.className = 'upd-when'; w.textContent = when; td.appendChild(w); }
+            } else if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration') || tKey.includes('transfer_cert')) {
                 const url = resolvedKey ? (row[resolvedKey] || '') : '';
                 if (url.trim() !== '') {
                     const imgEl = document.createElement('img');

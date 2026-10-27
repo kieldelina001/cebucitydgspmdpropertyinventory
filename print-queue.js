@@ -101,6 +101,18 @@
         td.appendChild(btn);
         tr.insertBefore(td, tr.firstChild);
     }
+    // Called by renderHeaders(): puts an "Add all" button under the "Queue" heading
+    function decorateHeader(headerRow) {
+        const th = headerRow && headerRow.firstElementChild;
+        if (!th) return;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'pq-all';
+        btn.textContent = '＋ Add all results';
+        btn.title = 'Add every record in the table below to the print queue';
+        btn.addEventListener('click', queueAllResults);
+        th.appendChild(btn);
+    }
     function paint(btn, on) {
         const txt = on ? '✓ Queued' : '＋ Queue';
         if (btn.textContent !== txt) btn.textContent = txt;
@@ -270,7 +282,10 @@
 
     // ------------------------------------------------------------------ UI build
     const STYLES = `
-    #inventoryTable thead th:first-child, #inventoryTable td.pq-cell { width: 96px; min-width: 96px; max-width: 96px; text-align: center; padding: 8px 6px; }
+    #inventoryTable thead th:first-child, #inventoryTable td.pq-cell { width: 108px; min-width: 108px; max-width: 108px; text-align: center; padding: 8px 6px; }
+    #inventoryTable thead th:first-child { vertical-align: middle; }
+    .pq-all { display: block; margin: 6px auto 0; padding: 4px 8px; border: 1px solid rgba(255,255,255,.5); border-radius: 999px; background: rgba(255,255,255,.14); color: #fff; font: 600 10.5px Inter, 'Segoe UI', sans-serif; letter-spacing: .2px; text-transform: none; white-space: nowrap; cursor: pointer; transition: background .15s, color .15s; }
+    .pq-all:hover { background: #fff; color: var(--navy-800); }
     .pq-btn { font: 600 12px Inter, 'Segoe UI', sans-serif; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--blue-400); background: #fff; color: var(--blue-600); cursor: pointer; white-space: nowrap; transition: background .15s, color .15s, border-color .15s, transform .12s; }
     .pq-btn:hover { background: var(--blue-100); }
     .pq-btn:active { transform: scale(.95); }
@@ -377,13 +392,11 @@
     function init() {
         load();
         build();
-        const qa = $('queueAllButton');
-        if (qa) qa.addEventListener('click', queueAllResults);
         renderBadge(false);
     }
 
     window.PrintQueue = {
-        decorateRow: decorateRow,
+        decorateRow: decorateRow, decorateHeader: decorateHeader,
         add: add, toggle: toggle, remove: removeKey,
         open: openDrawer, close: closeDrawer,
         items: () => queue.slice(),
