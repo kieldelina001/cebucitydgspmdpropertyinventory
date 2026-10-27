@@ -147,6 +147,7 @@
         if (!fab) return;
         $('pqBadge').textContent = queue.length;
         fab.classList.toggle('has-items', queue.length > 0);
+        fab.classList.toggle('pq-hidden', queue.length === 0); // only show the button when something is queued
         fab.setAttribute('aria-label', 'Open print queue, ' + queue.length + (queue.length === 1 ? ' item' : ' items'));
         if (bump) { fab.classList.remove('bump'); void fab.offsetWidth; fab.classList.add('bump'); }
     }
@@ -295,6 +296,7 @@
     @media (max-width: 768px) { .export-group { flex-wrap: wrap; } .export-group .export-btn { flex: 1 1 45%; width: auto; } }
 
     #pqFab { position: fixed; left: 28px; bottom: 28px; z-index: 9999; display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 14px 0 18px; border: none; border-radius: 999px; background: linear-gradient(180deg, var(--navy-700), var(--navy-900)); color: #fff; font: 600 13px Inter, 'Segoe UI', sans-serif; letter-spacing: .3px; cursor: pointer; box-shadow: var(--shadow-md); transition: transform .2s ease, box-shadow .2s ease; }
+    #pqFab.pq-hidden { display: none; }
     #pqFab:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
     #pqFab .pq-badge { min-width: 26px; height: 26px; padding: 0 8px; box-sizing: border-box; border-radius: 999px; background: rgba(255,255,255,.18); font-size: 12px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
     #pqFab.has-items .pq-badge { background: var(--amber); color: #3b2a04; }
