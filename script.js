@@ -3573,6 +3573,7 @@ showToast(linked > 0
             (!q || [r.article, r.description, r.insurer, r.policy, r.notes].join(' ').toLowerCase().includes(q)));
         const val = r => sortKey === 'days' ? (r.days === null ? 1e9 : r.days)
                        : sortKey === 'end' ? (r.end ? r.end.getTime() : 1e15)
+                       : sortKey === 'sumInsured' ? (r.sumInsured === null ? -1 : r.sumInsured)
                        : String(r[sortKey] || '').toLowerCase();
         rows.sort((a, b) => { const x = val(a), y = val(b); return (x > y ? 1 : x < y ? -1 : 0) * sortDir; });
 
@@ -3582,9 +3583,9 @@ showToast(linked > 0
             const cls = r.days === null ? '' : r.days < 0 ? 'neg' : r.days <= INSURANCE_EXPIRING_DAYS ? 'warn' : '';
             const dtxt = r.days === null ? '-' : r.days < 0 ? Math.abs(r.days) + ' days overdue' : r.days + ' days';
             return `<tr data-id="${r.id}" style="--r:${Math.min(ri, 14)}"><td>${escapeHtml(r.article)}</td><td>${escapeHtml(r.description)}</td>
-                <td><span class="ins-badge ins-b-${r.status}">${LABEL[r.status]}</span></td><td>${escapeHtml(r.insurer)}</td>
+                <td><span class="ins-badge ins-b-${r.status}">${LABEL[r.status]}</span></td><td>${escapeHtml(r.insurer)}</td><td style="white-space:nowrap;">${fmtPeso(r.sumInsured)}</td>
                 <td>${r.end ? fmtDate(r.end) : '-'}</td><td class="ins-days ${cls}">${dtxt}</td><td>${escapeHtml(r.notes)}</td></tr>`;
-        }).join('') : '<tr><td colspan="8" class="no-data">No insurance records match the current filters.</td></tr>';
+        }).join('') : '<tr><td colspan="9" class="no-data">No insurance records match the current filters.</td></tr>';
         $('insBody').querySelectorAll('tr[data-id]').forEach(tr => tr.onclick = () => openDetail(Number(tr.dataset.id)));
         // 🖨️ Print queue: the Queue cell is built from the matching row in the Inventory data
         if (window.PrintQueue) {
@@ -3734,7 +3735,7 @@ showToast(linked > 0
             return;
         }
         const BADGE = { INSURED: ['#dcfce7', '#166534'], EXPIRING: ['#fef3c7', '#92400e'], EXPIRED: ['#fee2e2', '#991b1b'], NOT_INSURED: ['#e2e8f0', '#334155'] };
-        const cols = ['No.', 'Article no./ TCT no.', 'Description', 'Status', 'Insurer', 'Coverage End', 'Days Left', 'Notes'];
+        const cols = ['No.', 'Article no./ TCT no.', 'Description', 'Status', 'Insurer', 'Sum Insured', 'Coverage End', 'Days Left', 'Notes'];
         const rowsHTML = data.map((r, idx) => {
             const dtxt = r.days === null ? '-' : r.days < 0 ? Math.abs(r.days) + ' days overdue' : r.days + ' days';
             const dcolor = r.days === null ? '#0f172a' : r.days < 0 ? '#dc2626' : r.days <= INSURANCE_EXPIRING_DAYS ? '#b45309' : '#0f172a';
@@ -3743,8 +3744,9 @@ showToast(linked > 0
                 '<td class="col-no">' + (idx + 1) + '</td>' +
                 '<td>' + escapeHtml(r.article) + '</td>' +
                 '<td>' + escapeHtml(r.description) + '</td>' +
-                '<td><span style="background:' + b[0] + ';color:' + b[1] + ';padding:3px 10px;border-radius:999px;font-weight:bold;font-size:12px;white-space:nowrap;">' + escapeHtml(LABEL[r.status]) + '</span></td>' +
+                '<td><span style="background:' + b[0] + ';color:' + b[1] + ';padding:3px 10px;border-radius:999px;font-weight:bold;font-size:16px;white-space:nowrap;">' + escapeHtml(LABEL[r.status]) + '</span></td>' +
                 '<td>' + escapeHtml(r.insurer) + '</td>' +
+                '<td style="white-space:nowrap;">' + escapeHtml(fmtPeso(r.sumInsured)) + '</td>' +
                 '<td style="white-space:nowrap;">' + (r.end ? escapeHtml(fmtDate(r.end)) : '-') + '</td>' +
                 '<td style="white-space:nowrap;font-weight:bold;color:' + dcolor + ';">' + escapeHtml(dtxt) + '</td>' +
                 '<td>' + escapeHtml(r.notes) + '</td></tr>';
@@ -3768,15 +3770,16 @@ showToast(linked > 0
     <meta charset="UTF-8">
     <title>Searched Insurance Report</title>
     <style>
+        @page { size: landscape; margin: 10mm; }
         body { font-family: Arial, sans-serif; margin: 20px; color: #0f172a; background: #ffffff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        h1 { text-align: center; color: #0f172a; text-transform: uppercase; font-size: 24px; margin-bottom: 5px; }
-        .report-meta { text-align: center; font-size: 14px; color: #334155; margin-bottom: 25px; font-weight: bold; }
+        h1 { text-align: center; color: #0f172a; text-transform: uppercase; font-size: 30px; margin-bottom: 5px; }
+        .report-meta { text-align: center; font-size: 18px; color: #334155; margin-bottom: 25px; font-weight: bold; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
-        th, td { border: 1px solid #64748b; padding: 10px 12px; text-align: left; font-size: 14px; line-height: 1.4; word-break: break-word; color: #0f172a; vertical-align: middle; }
-        th { background-color: #cbd5e1 !important; font-weight: bold; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
+        th, td { border: 1px solid #64748b; padding: 12px 14px; text-align: left; font-size: 19px; line-height: 1.4; word-break: break-word; color: #0f172a; vertical-align: middle; }
+        th { background-color: #cbd5e1 !important; font-weight: bold; text-transform: uppercase; font-size: 16px; letter-spacing: 0.5px; }
         tr:nth-child(even) { background-color: #f8fafc; }
 ${EXPORT_HEADER_CSS}
-        @media print { body { margin: 10px; } tr { page-break-inside: avoid; } th { background-color: #cbd5e1 !important; } }
+        @media print { body { margin: 10px; } thead { display: table-header-group; } tr { page-break-inside: avoid; } th { background-color: #cbd5e1 !important; } }
     </style>
 </head>
 <body>
@@ -4023,7 +4026,7 @@ function animateOut(el, done, ms) {
         $('uxSyncPill').classList.add('on');
         if (initial) {
             skeletonize($('tableBody'), displayHeaders.length, 7);
-            skeletonize($('insBody'), 8, 5);
+            skeletonize($('insBody'), 9, 5);
         }
     }
     function endSoftSync() {
