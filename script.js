@@ -3446,6 +3446,8 @@ window.addEventListener('DOMContentLoaded', () => {
         if (m) return parseFloat(m[1].replace(/,/g, ''));
         return parseAmount(unitValue);
     }
+    // Not-insured records have no sum insured: show it blank (table, details window, export)
+    const sumInsuredText = r => r.status === 'NOT_INSURED' ? '' : fmtPeso(r.sumInsured);
     const fmtPeso = n => n === null || n === undefined ? '-'
         : '\u20b1 ' + Number(n).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -3573,7 +3575,7 @@ showToast(linked > 0
             (!q || [r.article, r.description, r.insurer, r.policy, r.notes].join(' ').toLowerCase().includes(q)));
         const val = r => sortKey === 'days' ? (r.days === null ? 1e9 : r.days)
                        : sortKey === 'end' ? (r.end ? r.end.getTime() : 1e15)
-                       : sortKey === 'sumInsured' ? (r.sumInsured === null ? -1 : r.sumInsured)
+                       : sortKey === 'sumInsured' ? (r.status === 'NOT_INSURED' || r.sumInsured === null ? -1 : r.sumInsured)
                        : String(r[sortKey] || '').toLowerCase();
         rows.sort((a, b) => { const x = val(a), y = val(b); return (x > y ? 1 : x < y ? -1 : 0) * sortDir; });
 
@@ -3583,7 +3585,7 @@ showToast(linked > 0
             const cls = r.days === null ? '' : r.days < 0 ? 'neg' : r.days <= INSURANCE_EXPIRING_DAYS ? 'warn' : '';
             const dtxt = r.days === null ? '-' : r.days < 0 ? Math.abs(r.days) + ' days overdue' : r.days + ' days';
             return `<tr data-id="${r.id}" style="--r:${Math.min(ri, 14)}"><td>${escapeHtml(r.article)}</td><td>${escapeHtml(r.description)}</td>
-                <td><span class="ins-badge ins-b-${r.status}">${LABEL[r.status]}</span></td><td>${escapeHtml(r.insurer)}</td><td style="white-space:nowrap;">${fmtPeso(r.sumInsured)}</td>
+                <td><span class="ins-badge ins-b-${r.status}">${LABEL[r.status]}</span></td><td>${escapeHtml(r.insurer)}</td><td style="white-space:nowrap;">${sumInsuredText(r)}</td>
                 <td>${r.end ? fmtDate(r.end) : '-'}</td><td class="ins-days ${cls}">${dtxt}</td><td>${escapeHtml(r.notes)}</td></tr>`;
         }).join('') : '<tr><td colspan="9" class="no-data">No insurance records match the current filters.</td></tr>';
         $('insBody').querySelectorAll('tr[data-id]').forEach(tr => tr.onclick = () => openDetail(Number(tr.dataset.id)));
@@ -3661,7 +3663,7 @@ showToast(linked > 0
                     ${field('Status', LABEL[r.status])}
                     ${field('Insurer', r.insurer)}
                     ${field('Policy ID', r.policy)}
-                    ${field('Sum Insured', fmtPeso(r.sumInsured))}
+                    ${field('Sum Insured', sumInsuredText(r))}
                     ${field('Coverage End', r.end ? fmtDate(r.end) : '-')}
                     ${field('Time Left', timeLeft(r))}
                     ${field('Notes', r.notes, 'area', 3)}
@@ -3746,7 +3748,7 @@ showToast(linked > 0
                 '<td>' + escapeHtml(r.description) + '</td>' +
                 '<td><span style="background:' + b[0] + ';color:' + b[1] + ';padding:3px 10px;border-radius:999px;font-weight:bold;font-size:16px;white-space:nowrap;">' + escapeHtml(LABEL[r.status]) + '</span></td>' +
                 '<td>' + escapeHtml(r.insurer) + '</td>' +
-                '<td style="white-space:nowrap;">' + escapeHtml(fmtPeso(r.sumInsured)) + '</td>' +
+                '<td style="white-space:nowrap;">' + escapeHtml(sumInsuredText(r)) + '</td>' +
                 '<td style="white-space:nowrap;">' + (r.end ? escapeHtml(fmtDate(r.end)) : '-') + '</td>' +
                 '<td style="white-space:nowrap;font-weight:bold;color:' + dcolor + ';">' + escapeHtml(dtxt) + '</td>' +
                 '<td>' + escapeHtml(r.notes) + '</td></tr>';
