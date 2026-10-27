@@ -3584,8 +3584,18 @@ showToast(linked > 0
             return `<tr data-id="${r.id}" style="--r:${Math.min(ri, 14)}"><td>${escapeHtml(r.article)}</td><td>${escapeHtml(r.description)}</td>
                 <td><span class="ins-badge ins-b-${r.status}">${LABEL[r.status]}</span></td><td>${escapeHtml(r.insurer)}</td>
                 <td>${r.end ? fmtDate(r.end) : '-'}</td><td class="ins-days ${cls}">${dtxt}</td><td>${escapeHtml(r.notes)}</td></tr>`;
-        }).join('') : '<tr><td colspan="7" class="no-data">No insurance records match the current filters.</td></tr>';
+        }).join('') : '<tr><td colspan="8" class="no-data">No insurance records match the current filters.</td></tr>';
         $('insBody').querySelectorAll('tr[data-id]').forEach(tr => tr.onclick = () => openDetail(Number(tr.dataset.id)));
+        // 🖨️ Print queue: the Queue cell is built from the matching row in the Inventory data
+        if (window.PrintQueue) {
+            const invById = new Map(inventoryData.map(x => [x._rowId, x]));
+            $('insBody').querySelectorAll('tr[data-id]').forEach(tr => {
+                const inv = invById.get(Number(tr.dataset.id));
+                if (inv) PrintQueue.decorateRow(tr, inv);
+            });
+        } else {
+            $('insBody').querySelectorAll('tr[data-id]').forEach(tr => tr.insertBefore(document.createElement('td'), tr.firstChild));
+        }
     }
 
     // Opens the policy copy in a new tab, scaled to fit the whole tab (same look as the
@@ -3850,6 +3860,12 @@ ${EXPORT_HEADER_CSS}
         invIndexCards();
         $('tabInventory').onclick = () => switchTab('inventory');
         $('tabInsurance').onclick = () => switchTab('insurance');
+        if (window.PrintQueue && $('insHeaderRow')) {
+            PrintQueue.decorateHeader($('insHeaderRow'), () => {
+                const byId = new Map(inventoryData.map(x => [x._rowId, x]));
+                return insFilteredRows.map(r => byId.get(r.id)).filter(Boolean);
+            });
+        }
         $('insSearch').oninput = render;
         $('insStatus').onchange = () => { statusFilter = $('insStatus').value; render(); };
         $('insReset').onclick = () => { statusFilter = 'ALL'; $('insSearch').value = ''; $('insStatus').value = 'ALL'; render(); };
@@ -4007,7 +4023,7 @@ function animateOut(el, done, ms) {
         $('uxSyncPill').classList.add('on');
         if (initial) {
             skeletonize($('tableBody'), displayHeaders.length, 7);
-            skeletonize($('insBody'), 7, 5);
+            skeletonize($('insBody'), 8, 5);
         }
     }
     function endSoftSync() {

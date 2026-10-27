@@ -102,7 +102,7 @@
         tr.insertBefore(td, tr.firstChild);
     }
     // Called by renderHeaders(): puts an "Add all" button under the "Queue" heading
-    function decorateHeader(headerRow) {
+    function decorateHeader(headerRow, getRows) {
         const th = headerRow && headerRow.firstElementChild;
         if (!th) return;
         const btn = document.createElement('button');
@@ -110,7 +110,7 @@
         btn.className = 'pq-all';
         btn.textContent = '＋ Add all results';
         btn.title = 'Add every record in the table below to the print queue';
-        btn.addEventListener('click', queueAllResults);
+        btn.addEventListener('click', () => queueAllResults(getRows));
         th.appendChild(btn);
     }
     function paint(btn, on) {
@@ -121,11 +121,11 @@
         btn.title = on ? 'In the print queue — click to remove' : 'Add to the print queue';
     }
     function syncButtons() {
-        document.querySelectorAll('#tableBody .pq-btn').forEach(b => paint(b, has(b.dataset.key)));
+        document.querySelectorAll('#tableBody .pq-btn, #insBody .pq-btn').forEach(b => paint(b, has(b.dataset.key)));
     }
 
-    function queueAllResults() {
-        const rows = (typeof currentFilteredData !== 'undefined' && currentFilteredData) || [];
+    function queueAllResults(getRows) {
+        const rows = (typeof getRows === 'function' ? getRows() : (typeof currentFilteredData !== 'undefined' && currentFilteredData)) || [];
         if (!rows.length) { showToast('Nothing to add yet — run a search first.', 'warning'); return; }
         if (rows.length > 150 && !confirm('Add all ' + rows.length + ' results to the print queue?')) return;
         let added = 0;
@@ -165,7 +165,7 @@
     function renderDrawer() {
         const n = queue.length;
         $('pqSub').textContent = n ? n + (n === 1 ? ' item' : ' items') + ' · prints in this order' : 'Nothing queued yet';
-        ['pqPrint', 'pqDownload', 'pqClear'].forEach(id => { $(id).disabled = !n || busy; });
+        ['pqDownload', 'pqClear'].forEach(id => { $(id).disabled = !n || busy; });
 
         const list = $('pqList');
         const st = list.scrollTop;
@@ -282,8 +282,9 @@
 
     // ------------------------------------------------------------------ UI build
     const STYLES = `
-    #inventoryTable thead th:first-child, #inventoryTable td.pq-cell { width: 108px; min-width: 108px; max-width: 108px; text-align: center; padding: 8px 6px; }
-    #inventoryTable thead th:first-child { vertical-align: middle; }
+    #inventoryTable thead th:first-child, #inventoryTable td.pq-cell, #insTable thead th:first-child, #insTable td.pq-cell { width: 108px; min-width: 108px; max-width: 108px; text-align: center; padding: 8px 6px; }
+    #inventoryTable thead th:first-child, #insTable thead th:first-child { vertical-align: middle; }
+    #insTable thead th:first-child { cursor: default; }
     .pq-all { display: block; margin: 6px auto 0; padding: 4px 8px; border: 1px solid rgba(255,255,255,.5); border-radius: 999px; background: rgba(255,255,255,.14); color: #fff; font: 600 10.5px Inter, 'Segoe UI', sans-serif; letter-spacing: .2px; text-transform: none; white-space: nowrap; cursor: pointer; transition: background .15s, color .15s; }
     .pq-all:hover { background: #fff; color: var(--navy-800); }
     .pq-btn { font: 600 12px Inter, 'Segoe UI', sans-serif; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--blue-400); background: #fff; color: var(--blue-600); cursor: pointer; white-space: nowrap; transition: background .15s, color .15s, border-color .15s, transform .12s; }
@@ -375,7 +376,6 @@
             '<div class="pq-foot">' +
             '<button type="button" class="pq-act danger" id="pqClear">Clear all</button>' +
             '<button type="button" class="pq-act ghost" id="pqDownload">Download HTML</button>' +
-            '<button type="button" class="pq-act primary" id="pqPrint">🖨️ Print</button>' +
             '</div>';
         host.appendChild(drawer);
 
@@ -384,7 +384,6 @@
         $('pqClose').addEventListener('click', closeDrawer);
         $('pqList').addEventListener('click', onListClick);
         $('pqClear').addEventListener('click', clearAll);
-        $('pqPrint').addEventListener('click', () => run('print'));
         $('pqDownload').addEventListener('click', () => run('download'));
         document.addEventListener('keydown', e => { if (e.key === 'Escape' && drawerOpen) closeDrawer(); });
     }
