@@ -785,6 +785,54 @@ async function fetchAuthorizedImage(driveUrl) {
     return publicUrl;
 }
 
+// ⬇️ Direct file download (no new tab). Fetches the Drive file as a blob and saves it
+// straight to the device. Falls back to Drive's direct-download link if the fetch is blocked.
+async function downloadDriveFile(driveUrl, baseName) {
+    const m = (typeof driveUrl === 'string') ? driveUrl.match(/[-\w]{25,}/) : null;
+    if (!m) return false;
+    const fileId = m[0];
+    const safeName = String(baseName || 'download').replace(/[\\/:*?"<>|]+/g, '_').trim() || 'download';
+    const extFromType = t => ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp', 'application/pdf': 'pdf' }[t] || 'jpg');
+
+    const saveBlob = (blob) => {
+        const objUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objUrl;
+        a.download = safeName + '.' + extFromType(blob.type);
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(objUrl), 10000);
+    };
+
+    const candidates = [
+        'https://lh3.googleusercontent.com/d/' + fileId,
+        'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w2000',
+        'https://drive.google.com/uc?export=download&id=' + fileId
+    ];
+    for (const url of candidates) {
+        try {
+            const res = await fetch(url);
+            if (!res.ok) continue;
+            const blob = await res.blob();
+            if (!blob.type.startsWith('image/') && blob.type !== 'application/pdf') continue; // skip HTML error pages
+            saveBlob(blob);
+            return true;
+        } catch (e) { /* try next source */ }
+    }
+
+    // Last resort: Drive's own download link (still downloads, no preview tab)
+    const a = document.createElement('a');
+    a.href = 'https://drive.google.com/uc?export=download&id=' + fileId;
+    a.download = safeName;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    return true;
+}
+
 async function loadInventoryFromGoogleSheets(retainPage = false) {
     if (statusBanner) {
         statusBanner.style.backgroundColor = "#fff3cd";
@@ -1634,35 +1682,17 @@ function renderModalPhotoViewer() {
     downloadBtn.className = 'photo-action-btn';
     downloadBtn.innerHTML = `Download Photo`;
     downloadBtn.onclick = async () => {
-        // Open the new tab right away (inside the click) so the browser doesn't block it
-        const photoTab = window.open('', '_blank');
-        const objectUrl = await fetchAuthorizedImage(currentImg.url);
-        const finalUrl = objectUrl || currentImg.url;
-
-        if (photoTab) {
-            // Show the photo scaled to fit the whole tab (no scrolling, no cropping)
-            photoTab.document.write(
-                '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
-                '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
-                '<title>' + escapeHtml(currentImg.label) + '</title>' +
-                '<style>' +
-                'html, body { margin: 0; width: 100%; height: 100%; background: #0b1424; overflow: hidden; }' +
-                'body { display: flex; align-items: center; justify-content: center; }' +
-                'img { max-width: 100vw; max-height: 100vh; width: auto; height: auto; object-fit: contain; display: block; }' +
-                '</style></head><body>' +
-                '<img src="' + escapeHtml(finalUrl) + '" alt="' + escapeHtml(currentImg.label) + '">' +
-                '</body></html>'
-            );
-            photoTab.document.close();
-        } else {
-            // Fallback if the browser blocked the tab: original behavior
-            const a = document.createElement('a');
-            a.href = finalUrl;
-            a.download = `property_photo_${currentPhotoIndex + 1}.jpg`;
-            a.target = '_blank';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+        const row = inventoryData.find(r => r._rowId === activeEditIndex);
+        const aKey = headerMapping['article/item'];
+        const article = (row && aKey && row[aKey]) ? String(row[aKey]).trim() : 'property';
+        const original = downloadBtn.innerHTML;
+        downloadBtn.disabled = true;
+        downloadBtn.innerHTML = 'Downloading...';
+        try {
+            await downloadDriveFile(currentImg.url, article + '_' + currentImg.label);
+        } finally {
+            downloadBtn.disabled = false;
+            downloadBtn.innerHTML = original;
         }
     };
     actionsContainer.appendChild(downloadBtn);
@@ -3604,24 +3634,9 @@ showToast(linked > 0
     // Opens the policy copy in a new tab, scaled to fit the whole tab (same look as the
     // inventory tab's "Download Photo"). If the file isn't an image (e.g. a PDF), the tab
     // falls back to the Drive viewer.
-    function openPolicyCopyTab(url) {
-        const fid = policyFileId(url);
-        if (!fid) return;
-        const imgUrl = getDirectImageUrl(url, 'view') || ('https://lh3.googleusercontent.com/d/' + fid);
-        const viewUrl = 'https://drive.google.com/file/d/' + fid + '/preview';
-        const tab = window.open('', '_blank');
-        if (!tab) { window.open(viewUrl, '_blank'); return; }
-        tab.document.write(
-            '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
-            '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
-            '<title>Policy Copy</title>' +
-            '<style>html,body{margin:0;width:100%;height:100%;background:#0b1424;overflow:hidden;}' +
-            'body{display:flex;align-items:center;justify-content:center;}' +
-            'img{max-width:100vw;max-height:100vh;width:auto;height:auto;object-fit:contain;display:block;}</style></head><body>' +
-            '<img src="' + escapeHtml(imgUrl) + '" alt="Policy Copy" onerror="location.replace(\'' + viewUrl + '\')">' +
-            '</body></html>'
-        );
-        tab.document.close();
+    function openPolicyCopyTab(url, name) {
+        if (!policyFileId(url)) return;
+        downloadDriveFile(url, name || 'Policy_Copy');
     }
 
     // Right-hand viewer panel: same dark panel + pill Download button as Property Details
@@ -3679,7 +3694,7 @@ showToast(linked > 0
         $('insDetailClose').onclick = closeDetail;
         $('insDetailX').onclick = closeDetail;
         const pcDl = $('insPolicyDownloadBtn');
-        if (pcDl) pcDl.onclick = () => openPolicyCopyTab(r.policyUrl);
+        if (pcDl) pcDl.onclick = () => openPolicyCopyTab(r.policyUrl, (r.article ? r.article + '_' : '') + 'Policy_Copy');
         // Photos show as an image (same method as the inventory tab). If the file can't be
         // shown as an image (e.g. a PDF), fall back to the Drive viewer.
         const pcImg = $('insPolicyImg');
