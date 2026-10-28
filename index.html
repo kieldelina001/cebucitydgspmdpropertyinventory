@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Real Estate Inventory DGS PMD (Google Sheets Live Stream)</title>
     <meta name="author" content="Noel Rie N. Deliña">
     <link rel="icon" type="image/png" href="dgs_logo.png">
@@ -1711,6 +1711,87 @@
         #uploadPhotosOverlay .up-done-t { font-size: 17px; font-weight: 800; color: var(--navy-900); }
         #uploadPhotosOverlay .up-done-s { font-size: 13px; color: var(--ink-500); }
         @media (prefers-reduced-motion: reduce) { #uploadPhotosOverlay *, #uploadPhotosOverlay { animation-duration: .01ms !important; transition-duration: .01ms !important; } #uploadPhotosOverlay .up-card { opacity: 1; transform: none; } }
+    </style>
+
+    <style id="mobileRedesign">
+    /* =====================================================================
+       📱 MOBILE LAYOUT (phones / small tablets)
+       Desktop is untouched - every rule below only applies at <= 768px.
+       ===================================================================== */
+    @media (max-width: 768px) {
+        html { -webkit-text-size-adjust: 100%; }
+        body { overflow-x: hidden; }
+
+        /* Log Out / Admin: no longer float over everything (they were covering close buttons) */
+        #floatingLogoutBtn, #adminOpenBtn { position: absolute !important; top: 8px !important; z-index: 50 !important; padding: 8px 14px !important; font-size: 12px !important; min-height: 36px; }
+        #floatingLogoutBtn { right: 10px !important; }
+        #adminOpenBtn { right: 92px !important; }
+        #mainApp { margin: 0 !important; padding: 50px 10px calc(96px + env(safe-area-inset-bottom)); }
+        .main-container { padding: 16px 12px 12px; border-radius: 16px; }
+
+        /* Touch-friendly controls (16px stops iOS from zooming into inputs) */
+        .input-box, .filter-select, .search-btn, .reset-filter-btn, .export-btn, .modal-btn { min-height: 46px; font-size: 16px; }
+        .search-field-container { flex-direction: column; gap: 8px; align-items: stretch; }
+        .search-field-container .search-btn { width: 100%; }
+        .reset-filter-btn { width: 100%; }
+        .export-group { width: 100%; }
+        .app-tab { min-height: 46px; }
+
+        /* Dashboards: swipe sideways instead of wrapping into a tall block */
+        .dashboard-row { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; padding-bottom: 6px; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; }
+        .dashboard-row .dash-card { flex: 0 0 62%; min-width: 0; scroll-snap-align: start; }
+        .types-dashboard { display: flex !important; flex-wrap: nowrap; overflow-x: auto; gap: 10px; padding-bottom: 6px; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; }
+        .types-dashboard .type-card { flex: 0 0 38%; scroll-snap-align: start; }
+
+        /* ---- Tables become cards (one card per record) ---- */
+        .property-table-container { overflow: visible !important; border: 0 !important; background: transparent !important; box-shadow: none !important; padding: 0 !important; }
+        .property-table { display: block; width: 100% !important; min-width: 0 !important; margin: 0 !important; }
+        .property-table thead { display: none; }
+        .property-table tbody { display: block; }
+        .property-table tbody tr { display: flex; flex-wrap: wrap; position: relative; margin: 0 0 12px; padding: 12px 14px; background: #fff !important; border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-sm); -webkit-tap-highlight-color: transparent; }
+        .property-table tbody tr:active { background: var(--blue-50) !important; }
+        .property-table tbody td { display: block; box-sizing: border-box; width: 100% !important; min-width: 0 !important; max-width: none !important; padding: 5px 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; text-align: left !important; font-size: 13.5px; line-height: 1.45; overflow-wrap: anywhere; }
+        .property-table tbody td[data-label]::before { content: attr(data-label); display: block; margin-bottom: 1px; font-size: 10.5px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--ink-400); }
+        .property-table tbody td.m-empty { display: none !important; }
+        /* the "+ Queue" button rides in the card's top-right corner */
+        .property-table tbody td.pq-cell { position: absolute; top: 10px; right: 10px; width: auto !important; padding: 0 !important; z-index: 2; }
+        .property-table tbody td.pq-cell .pq-btn { min-height: 38px; padding: 8px 14px; font-size: 13px; }
+        /* the first text cell is the card title */
+        .property-table tbody td.pq-cell + td { padding-right: 104px !important; font-size: 15.5px; font-weight: 800; color: var(--navy-900); }
+        .property-table tbody td.pq-cell + td::before { display: none; }
+        /* long text is trimmed - tap the card for the full record */
+        .property-table tbody td[data-label="Description"], .property-table tbody td[data-label="Notes"] { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
+        /* photo thumbnails sit two per row */
+        .property-table tbody td:has(img.hover-preview-img) { width: 50% !important; padding-right: 8px !important; }
+        .property-table td img.hover-preview-img { width: 100% !important; max-width: 100% !important; height: 96px !important; }
+        /* Documents-on-file checklist reads as a row of ticks */
+        .property-table tbody td.docs-cell { min-width: 0; }
+        .docs-checklist { flex-direction: row; flex-wrap: wrap; gap: 6px 16px; }
+        .docs-checklist li { font-size: 13px; padding: 6px 0; }
+        .docs-checklist .dc-box { width: 20px; height: 20px; font-size: 13px; }
+        .property-table tbody td .upd-by, .property-table tbody td .upd-when { display: inline; margin-right: 8px; }
+        .property-table tbody td.no-data { width: 100% !important; text-align: center !important; }
+
+        /* ---- Property Details becomes a bottom sheet ---- */
+        .modal-overlay { align-items: flex-end !important; }
+        .modal-box { width: 100% !important; max-width: 100% !important; max-height: 94vh !important; max-height: 94dvh !important; padding: 16px 14px calc(14px + env(safe-area-inset-bottom)) !important; border-radius: 18px 18px 0 0 !important; }
+        #editModal .modal-box { display: flex; flex-direction: column; overflow: hidden !important; }
+        #editModal .modal-header { flex: none; margin-bottom: 12px; padding-bottom: 10px; font-size: 17px; }
+        #modalFormContainer { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+        #editModal .modal-actions { flex: none; flex-wrap: wrap; gap: 8px; padding-top: 10px; background: #fff; border-top: 1px solid var(--line); }
+        #editModal .modal-actions .modal-btn { flex: 1 1 45%; }
+        .modal-fields-side { max-height: none !important; padding-right: 0 !important; }
+        .modal-flex-layout { gap: 14px; }
+        .close-x-btn { width: 44px !important; height: 44px !important; font-size: 28px !important; }
+
+        /* floating page selector / back-to-top: compact, bottom-centre, clear of the Print Queue button */
+        .floating-controls { left: 70px; right: 10px; bottom: calc(14px + env(safe-area-inset-bottom)); justify-content: flex-end; gap: 8px; }
+        #paginationContainer { padding: 5px 10px; gap: 8px; font-size: 12px; }
+        .page-btn { width: 36px; height: 36px; }
+        #backToTopBtn { padding: 10px 14px; }
+        #pqFab { bottom: calc(14px + env(safe-area-inset-bottom)) !important; width: 48px; justify-content: center; padding: 0 !important; }
+        #pqFab .pq-badge { position: absolute; top: -6px; right: -6px; }
+    }
     </style>
 </head>
 <body>

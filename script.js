@@ -4372,3 +4372,39 @@ function animateOut(el, done, ms) {
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
+
+
+// ============================================================================
+// 📱 Card-mode labels: copies each column heading onto its cells (data-label) so the
+// phone layout can show "DESCRIPTION", "NOTES", ... above each value. Also marks empty cells
+// so the card hides them. Desktop never reads these attributes.
+// ============================================================================
+(function setupMobileCardLabels() {
+    function labelRows(tbody) {
+        const table = tbody.closest('table');
+        const ths = table ? Array.from(table.querySelectorAll('thead th')) : [];
+        const labels = ths.map(th => {
+            const first = th.firstChild;
+            return ((first && first.nodeType === 3 ? first.textContent : th.textContent) || '').trim();
+        });
+        tbody.querySelectorAll('tr').forEach(tr => {
+            if (tr.dataset.labeled === String(labels.length)) return;
+            Array.from(tr.children).forEach((td, i) => {
+                if (td.classList.contains('no-data') || td.colSpan > 1) return;
+                const lab = labels[i];
+                if (lab && lab !== 'Queue') td.setAttribute('data-label', lab);
+                const txt = td.textContent.trim();
+                const plain = td.children.length === 0;
+                td.classList.toggle('m-empty', plain && (txt === '' || txt === 'No Photo'));
+            });
+            tr.dataset.labeled = String(labels.length);
+        });
+    }
+    function start() {
+        document.querySelectorAll('.property-table tbody').forEach(tb => {
+            labelRows(tb);
+            new MutationObserver(() => labelRows(tb)).observe(tb, { childList: true });
+        });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();

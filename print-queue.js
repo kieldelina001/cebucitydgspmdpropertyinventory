@@ -204,6 +204,7 @@
         lastFocus = document.activeElement;
         renderDrawer();
         $('pqDrawer').classList.add('open');
+        document.body.classList.add('pq-open');      // hides Log Out / Admin / page buttons so nothing covers the X
         $('pqScrim').classList.add('open');
         $('pqDrawer').setAttribute('aria-hidden', 'false');
         $('pqFab').setAttribute('aria-expanded', 'true');
@@ -213,6 +214,7 @@
         if (!drawerOpen) return;
         drawerOpen = false;
         $('pqDrawer').classList.remove('open');
+        document.body.classList.remove('pq-open');
         $('pqScrim').classList.remove('open');
         $('pqDrawer').setAttribute('aria-hidden', 'true');
         $('pqFab').setAttribute('aria-expanded', 'false');
@@ -353,6 +355,19 @@
     #pqDrawer .pq-act.danger { background: #fff; color: var(--red); border-color: #fca5a5; }
     .pq-undo { margin-left: 10px; padding: 2px 10px; border: 1px solid var(--blue-400); border-radius: 999px; background: #fff; color: var(--blue-600); font: 700 12px Inter, sans-serif; cursor: pointer; }
     .pq-undo:hover { background: var(--blue-100); }
+    /* While the queue is open nothing may float above its X button (Log Out / Admin used to cover it on phones) */
+    body.pq-open #floatingLogoutBtn, body.pq-open #adminOpenBtn, body.pq-open .floating-controls { display: none !important; }
+    @media (max-width: 768px) {
+        #pqDrawer { width: 100vw; height: 100vh; height: 100dvh; }
+        #pqDrawer .pq-head { padding: max(14px, env(safe-area-inset-top)) 16px 14px; align-items: center; }
+        #pqDrawer .pq-x { flex: none; width: 44px; height: 44px; font-size: 26px; }
+        #pqDrawer .pq-item { flex-wrap: wrap; }
+        #pqDrawer .pq-ctl { margin-left: auto; }
+        #pqDrawer .pq-ctl button { width: 38px; height: 38px; font-size: 13px; }
+        #pqDrawer .pq-meta .pq-view { padding: 7px 14px; font-size: 12.5px; }
+        #pqDrawer .pq-foot { padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
+        #pqDrawer .pq-act { height: 46px; }
+    }
     @media (prefers-reduced-motion: reduce) { #pqDrawer, #pqScrim, #pqFab, .pq-btn { transition: none !important; } #pqFab.bump .pq-badge { animation: none; } }
     `;
 
