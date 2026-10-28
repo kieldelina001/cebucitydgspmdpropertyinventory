@@ -187,7 +187,8 @@
                 '<span class="pq-thumb">' + (th ? '<img loading="lazy" decoding="async" alt="" src="' + escapeHtml(th) + '" onerror="this.remove()">' : '') + '</span>' +
                 '<div class="pq-meta"><b>' + escapeHtml(q.article) + '</b>' +
                 '<span>' + escapeHtml(desc || '—') + '</span>' +
-                (row ? '' : '<em>Not in the current data — will be skipped</em>') + '</div>' +
+                (row ? '<button type="button" class="pq-view" data-act="view" title="Open Property Details for this item">🔍 View details</button>'
+                     : '<em>Not in the current data — will be skipped</em>') + '</div>' +
                 '<div class="pq-ctl">' +
                 '<button type="button" data-act="up" aria-label="Move up"' + (i === 0 ? ' disabled' : '') + '>▲</button>' +
                 '<button type="button" data-act="down" aria-label="Move down"' + (i === n - 1 ? ' disabled' : '') + '>▼</button>' +
@@ -226,6 +227,12 @@
         const i = queue.findIndex(q => q.key === key);
         if (i < 0) return;
         const act = b.dataset.act;
+        if (act === 'view') {
+            const row = liveMap().get(key);
+            if (row && typeof openPopUp === 'function') openPopUp(row._rowId);   // drawer stays open underneath
+            else showToast('This item is no longer in the current data.', 'warning');
+            return;
+        }
         if (act === 'rm') queue.splice(i, 1);
         else if (act === 'up' && i > 0) { const t = queue[i - 1]; queue[i - 1] = queue[i]; queue[i] = t; }
         else if (act === 'down' && i < queue.length - 1) { const t = queue[i + 1]; queue[i + 1] = queue[i]; queue[i] = t; }
@@ -330,6 +337,10 @@
     #pqDrawer .pq-ctl button:disabled { opacity: .35; cursor: default; }
     #pqDrawer .pq-ctl .rm { font-size: 18px; line-height: 1; color: var(--red); border-color: #fca5a5; }
     #pqDrawer .pq-ctl .rm:hover { background: #fee2e2 !important; }
+    #pqDrawer .pq-meta .pq-view { align-self: flex-start; margin-top: 4px; padding: 3px 10px; border: 1px solid var(--blue-400); border-radius: 999px; background: #fff; color: var(--blue-600); font: 600 11.5px Inter, 'Segoe UI', sans-serif; cursor: pointer; transition: background .15s; }
+    #pqDrawer .pq-meta .pq-view:hover { background: var(--blue-100); }
+    /* Property Details must open ABOVE the queue drawer (drawer is 100050; the upload window is 100100) */
+    .modal-overlay { z-index: 100060 !important; }
     #pqDrawer .pq-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 54px 22px; text-align: center; color: var(--ink-500); font-size: 13px; line-height: 1.55; }
     #pqDrawer .pq-empty b { color: var(--navy-900); font-size: 15px; }
     #pqDrawer .pq-empty-ic { font-size: 38px; margin-bottom: 4px; }
