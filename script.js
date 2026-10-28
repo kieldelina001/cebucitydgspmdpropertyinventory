@@ -1516,6 +1516,10 @@ function executeSearch(resetPage = true) {
             if (phoF === 'WITH_PHOTO') matchPhoto = hasPhoto1Or2;
             if (phoF === 'NO_PHOTO') matchPhoto = !hasPhoto1Or2;
             if (phoF === 'WITH_TAX_DEC') matchPhoto = hasTaxDec;
+            if (phoF === 'WITH_LETTER') {
+                const lKey = headerMapping['letter'];
+                matchPhoto = !!(lKey && row[lKey] && String(row[lKey]).trim() !== '');
+            }
         }
        // --- INSURANCE CLICK FILTER LOGIC ---
         if (activeInsuranceFilter !== 'ALL') {
