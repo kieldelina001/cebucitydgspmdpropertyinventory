@@ -42,7 +42,7 @@ const displayHeaders = ["Queue", "Article no./ TCT no.", "Description", "Notes",
 // Columns drawn in the main table. Transfer Certificate P2 is only shown in the Property Details window,
 // and "updated by" + "last update" share one column ("updated_combined").
 const tableColumnKeys = ["article/item", "description", "notes", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "transfer_cert1", "updated_combined"];
-const targetHeadersLowercase = ["article/item", "description", "notes", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "transfer_cert1", "transfer_cert2", "updated by", "last update"];
+const targetHeadersLowercase = ["article/item", "description", "notes", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "transfer_cert1", "transfer_cert2", "letter", "updated by", "last update"];
 const popupOrderLowercase = ["article/item", "description", "notes", "unit value", "remarks", "type"]; 
 
 let inventoryData = []; 
@@ -1622,7 +1622,8 @@ function openPopUp(rowId, clickedPhotoKey = null) {
         { key: 'map coordinates', label: 'Map Coordinates' },
         { key: 'tax declaration', label: 'Tax Declaration' },
         { key: 'transfer_cert1', label: 'Transfer Certificate (TCT) P1' },
-        { key: 'transfer_cert2', label: 'Transfer Certificate (TCT) P2' }
+        { key: 'transfer_cert2', label: 'Transfer Certificate (TCT) P2' },
+        { key: 'letter', label: 'Letter' }
     ];
 
     photoKeysDef.forEach(p => {
@@ -1826,10 +1827,12 @@ const UP_SLOTS = {
     1: { key: 'photo 1',         label: 'Structure Photo 1' },
     2: { key: 'photo 2',         label: 'Structure Photo 2' },
     3: { key: 'map coordinates', label: 'Map Coordinates' },
-    4: { key: 'tax declaration', label: 'Tax Declaration' }
+    4: { key: 'tax declaration', label: 'Tax Declaration' },
+    5: { key: 'letter',          label: 'Letter / Supporting Document' }  // Property Details only - never a table column
 };
-let upFiles = { 1: null, 2: null, 3: null, 4: null };
-let upExistingUrls = { 1: '', 2: '', 3: '', 4: '' };
+const UP_SLOT_IDS = Object.keys(UP_SLOTS).map(Number);
+let upFiles = { 1: null, 2: null, 3: null, 4: null, 5: null };
+let upExistingUrls = { 1: '', 2: '', 3: '', 4: '', 5: '' };
 let upItemCode = '';
 let upBusy = false;
 let upWired = false;
@@ -1934,7 +1937,7 @@ function upPrepareImage(file) {
 function upWireOnce() {
     if (upWired) return;
     upWired = true;
-    [1, 2, 3, 4].forEach(i => {
+    UP_SLOT_IDS.forEach(i => {
         const input = upEl('upFile' + i), pick = upEl('upPick' + i);
         input.addEventListener('change', () => {
             if (input.files && input.files[0]) upSetFile(i, input.files[0]);
@@ -1975,7 +1978,7 @@ function openUploadWindow() {
     upEl('upItemCode').textContent = upItemCode;
     upEl('upUploader').value = loggedInUser || '';
     upEl('upUploaderLabel').textContent = loggedInUser || 'Unknown user';
-    [1, 2, 3, 4].forEach(i => {
+    UP_SLOT_IDS.forEach(i => {
         const k = headerMapping[UP_SLOTS[i].key];
         upExistingUrls[i] = k ? String(itemData[k] || '').trim() : '';
         upResetSlot(i);
@@ -2003,14 +2006,14 @@ function closeUploadWindow(instant) {
     setTimeout(() => {
         if (!ov.classList.contains('up-open')) {
             ov.style.display = 'none';
-            [1, 2, 3, 4].forEach(upResetSlot);
+            UP_SLOT_IDS.forEach(upResetSlot);
         }
     }, instant === true ? 0 : 260);
 }
 
 async function upStartUpload() {
     const uploader = upEl('upUploader').value.trim();
-    const chosen = [1, 2, 3, 4].filter(i => upFiles[i]);
+    const chosen = UP_SLOT_IDS.filter(i => upFiles[i]);
     if (!uploader || chosen.length === 0) {
         toastAlert('Please select at least one photo before submitting.');
         return;

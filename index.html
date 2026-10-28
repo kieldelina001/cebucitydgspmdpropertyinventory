@@ -1988,7 +1988,7 @@
                 <input type="hidden" id="upUploader">
             </div>
             <div class="up-body">
-                <p class="up-hint">Add <strong>at least one</strong> photo. Choosing a new file for a slot that already has a photo will replace it.</p>
+                <p class="up-hint">Add <strong>at least one</strong> photo. Choosing a new file for a slot that already has a photo will replace it. A letter, if any, is attached to this property and shown only in Property Details.</p>
                 <div class="up-grid">
                     <div class="up-card" style="--i:0" id="upCard1">
                         <div class="up-card-top"><h4 class="up-label">Structure Photo 1</h4><span class="up-state none" id="upState1">Empty</span></div>
@@ -2033,6 +2033,17 @@
                             <button type="button" class="up-remove" id="upRemove4" title="Remove selection">&times;</button>
                         </label>
                         <a class="up-view" id="upExisting4" hidden>View current photo</a>
+                    </div>
+                    <div class="up-card" style="--i:4; grid-column: 1 / -1;" id="upCard5">
+                        <div class="up-card-top"><h4 class="up-label">Letter / Supporting Document <span style="font-weight:500;color:var(--ink-400)">(optional)</span></h4><span class="up-state none" id="upState5">Empty</span></div>
+                        <label class="up-pick" id="upPick5">
+                            <input type="file" id="upFile5" accept="image/*">
+                            <img alt="">
+                            <span class="up-ico">✉️</span><span class="up-ptext">Choose Letter Photo</span><span class="up-psub">or drag &amp; drop here</span>
+                            <span class="up-fname"></span>
+                            <button type="button" class="up-remove" id="upRemove5" title="Remove selection">&times;</button>
+                        </label>
+                        <a class="up-view" id="upExisting5" hidden>View current letter</a>
                     </div>
                 </div>
                 <div class="up-progress" id="upProgress"><div class="up-bar" id="upBar"></div></div>
