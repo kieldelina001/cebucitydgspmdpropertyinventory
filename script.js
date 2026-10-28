@@ -38,10 +38,11 @@ const EXPORT_TABLE_CONFIG = [
 ];
 // =========================================================================
 
-const displayHeaders = ["Queue", "Article no./ TCT no.", "Description", "Notes", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Coordinates", "Tax Declaration", "Transfer Certificate (TCT) P1", "Updated By / Last Update"];
-// Columns drawn in the main table. Transfer Certificate P2 is only shown in the Property Details window,
+const displayHeaders = ["Queue", "Article no./ TCT no.", "Description", "Notes", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Coordinates", "Tax Declaration", "Documents on File", "Updated By / Last Update"];
+// Columns drawn in the main table. TCT P1 / TCT P2 / Letter are NOT shown as photos here - the "docs_checklist" column
+// only ticks which of them exist; the pictures themselves are viewed in the Property Details window,
 // and "updated by" + "last update" share one column ("updated_combined").
-const tableColumnKeys = ["article/item", "description", "notes", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "transfer_cert1", "updated_combined"];
+const tableColumnKeys = ["article/item", "description", "notes", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "docs_checklist", "updated_combined"];
 const targetHeadersLowercase = ["article/item", "description", "notes", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "transfer_cert1", "transfer_cert2", "letter", "updated by", "last update"];
 const popupOrderLowercase = ["article/item", "description", "notes", "unit value", "remarks", "type"]; 
 
@@ -1085,6 +1086,27 @@ function populateDropdown(type, selectEl, placeholderText) {
     }
 }
 
+// ✅ "Documents on File" checklist (table column) - which extra documents exist for the item
+const DOC_CHECKLIST = [
+    { key: 'transfer_cert1', label: 'TCT P1',  title: 'Transfer Certificate (TCT) P1' },
+    { key: 'transfer_cert2', label: 'TCT P2',  title: 'Transfer Certificate (TCT) P2' },
+    { key: 'letter',         label: 'Letter',  title: 'Letter' }
+];
+(function injectDocChecklistStyles() {
+    const st = document.createElement('style');
+    st.textContent = `
+    .docs-cell { min-width: 112px; }
+    .docs-checklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+    .docs-checklist li { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; line-height: 1.2; }
+    .docs-checklist .dc-box { width: 16px; height: 16px; flex: none; box-sizing: border-box; border-radius: 4px; border: 1.5px solid #cbd5e1; background: #fff; color: #fff; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+    .docs-checklist li.has .dc-box { background: #16a34a; border-color: #16a34a; }
+    .docs-checklist li.has { color: #14532d; cursor: pointer; }
+    .docs-checklist li.has:hover .dc-lbl { text-decoration: underline; }
+    .docs-checklist li.none { color: #94a3b8; font-weight: 500; }
+    `;
+    document.head.appendChild(st);
+})();
+
 function renderHeaders(headers) {
     if(!tableHeaderRow) return; tableHeaderRow.innerHTML = '';
     headers.forEach(h => {
@@ -1177,6 +1199,22 @@ function renderTable(data, page = 1) {
                 td.className = 'upd-cell';
                 if (by) { const b = document.createElement('div'); b.className = 'upd-by'; b.textContent = by; td.appendChild(b); }
                 if (when) { const w = document.createElement('div'); w.className = 'upd-when'; w.textContent = when; td.appendChild(w); }
+            } else if (tKey === 'docs_checklist') {
+                td.className = 'docs-cell';
+                const list = document.createElement('ul');
+                list.className = 'docs-checklist';
+                DOC_CHECKLIST.forEach(d => {
+                    const mk = headerMapping[d.key];
+                    const present = !!(mk && String(row[mk] || '').trim() !== '');
+                    const li = document.createElement('li');
+                    li.className = present ? 'has' : 'none';
+                    li.innerHTML = '<span class="dc-box" aria-hidden="true">' + (present ? '✔' : '') + '</span><span class="dc-lbl">' + d.label + '</span>';
+                    li.title = d.title + (present ? ': on file (click to view)' : ': not on file');
+                    li.setAttribute('aria-label', d.title + (present ? ' - on file' : ' - not on file'));
+                    if (present) li.addEventListener('click', ev => { ev.stopPropagation(); openPopUp(row._rowId, d.key); }); // opens Property Details on that document
+                    list.appendChild(li);
+                });
+                td.appendChild(list);
             } else if (tKey.includes('photo') || tKey.includes('map coordinates') || tKey.includes('tax declaration') || tKey.includes('transfer_cert')) {
                 const url = resolvedKey ? (row[resolvedKey] || '') : '';
                 if (url.trim() !== '') {
