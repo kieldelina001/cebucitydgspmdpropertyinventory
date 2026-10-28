@@ -1594,6 +1594,26 @@ function openPopUp(rowId, clickedPhotoKey = null) {
             opt.selected = true;
             inp.appendChild(opt);
         }
+    } else if(tKey === 'type') {
+        // Dropdown of the Type values already used in the sheet (same source as the Type filter)
+        inp = document.createElement('select');
+        inp.id = 'modal_' + tKey;
+        inp.disabled = true;
+        const typeSet = new Set();
+        inventoryData.forEach(r => { const t = String(r[mappedKey] || '').trim(); if (t) typeSet.add(t); });
+        if (val) typeSet.add(String(val).trim());
+        Array.from(typeSet).sort().forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t; opt.textContent = t;
+            if (t === String(val).trim()) opt.selected = true;
+            inp.appendChild(opt);
+        });
+        if (!val) {
+            const blank = document.createElement('option');
+            blank.value = ''; blank.textContent = '-- Select Type --';
+            blank.selected = true;
+            inp.insertBefore(blank, inp.firstChild);
+        }
     } else if(tKey === 'description') {
         inp = document.createElement('textarea');
         inp.id = 'modal_' + tKey;
