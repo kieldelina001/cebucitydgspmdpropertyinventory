@@ -1012,7 +1012,7 @@ function initializeSystemUI(retainPage = false) {
     if (remarksFilter) remarksFilter.disabled = false;
     if (typeFilter) typeFilter.disabled = false;
     if (photoFilter) photoFilter.disabled = false;
-    if (searchInput) searchInput.placeholder = "Type keywords...";
+    if (searchInput) searchInput.placeholder = "Type keywords... (e.g. school building 2019)";
 
     populateDropdown('remarks', remarksFilter, '-- All Remarks --');
     populateDropdown('type', typeFilter, '-- All Types --');
@@ -1464,8 +1464,63 @@ if(countInsured) countInsured.textContent = insuredCount;
     if (cardExpiringEl) cardExpiringEl.classList.toggle('has-alerts', expiringCount > 0);
 }
 
+// ============================================================================
+// 🔎 SMART SEARCH
+//  • Every word you type must be found - in ANY column, in ANY order
+//    ("school building" finds "Building ... School"; "road 2019 concrete" works too).
+//  • "Quoted words" are matched as an exact phrase.
+//  • Ignores capitals, accents, extra spaces and punctuation ("TCT-1234" = "tct 1234").
+//  • Number formats match either way ("1,500,000" = "1500000").
+//  • Photo / document links are never searched, so words like "drive" or "view"
+//    no longer match every row that has a picture.
+// ============================================================================
+const searchIndexCache = new WeakMap();   // row -> prepared search text (cleared when a row is edited)
+
+function searchNorm(str) {
+    return String(str || '').toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')   // drop accents (ñ -> n)
+        .replace(/[^a-z0-9]+/g, ' ').trim();               // punctuation / extra spaces -> single space
+}
+
+function parseSearchTerms(raw) {
+    const out = [];
+    const re = /"([^"]+)"|(\S+)/g;
+    let m;
+    while ((m = re.exec(String(raw || '')))) {
+        const phrase = m[1] !== undefined;
+        const norm = searchNorm(phrase ? m[1] : m[2]);
+        if (!norm) continue;
+        out.push({ norm: norm, squash: norm.replace(/ /g, ''), hasDigit: /\d/.test(norm) });
+    }
+    return out;
+}
+
+function getRowSearchIndex(row) {
+    let idx = searchIndexCache.get(row);
+    if (idx) return idx;
+    idx = [];
+    targetHeadersLowercase.forEach(k => {
+        const mk = headerMapping[k];
+        const v = mk ? String(row[mk] || '').trim() : '';
+        if (!v || /^https?:\/\//i.test(v)) return;          // skip empty cells and photo/document links
+        const n = searchNorm(v);
+        if (n) idx.push({ n: ' ' + n + ' ', sq: n.replace(/ /g, '') });
+    });
+    searchIndexCache.set(row, idx);
+    return idx;
+}
+
+function rowMatchesTokens(row, tokens) {
+    const idx = getRowSearchIndex(row);
+    return tokens.every(t => idx.some(f =>
+        f.n.includes(t.norm) ||
+        (t.hasDigit && f.sq.includes(t.squash))        // 1,500 vs 1500, TCT-123 vs TCT123
+    ));
+}
+
 function executeSearch(resetPage = true) {
-    const term = searchInput ? searchInput.value.toLowerCase().trim() : '';
+    const searchTokens = parseSearchTerms(searchInput ? searchInput.value : '');
+    const term = searchTokens.length ? 'active' : '';
     const remF = remarksFilter ? remarksFilter.value : 'ALL';
     const typF = typeFilter ? typeFilter.value : 'ALL';
     const phoF = photoFilter ? photoFilter.value : 'ALL';
@@ -1484,10 +1539,7 @@ function executeSearch(resetPage = true) {
         let matchText = true, matchRem = true, matchType = true, matchPhoto = true, matchInsurance = true;
         
         if (term) {
-            matchText = targetHeadersLowercase.some(k => {
-                const mk = headerMapping[k];
-                return mk && String(row[mk] || '').toLowerCase().includes(term);
-            });
+            matchText = rowMatchesTokens(row, searchTokens);
         }
         
         if (remF !== 'ALL') {
@@ -1808,6 +1860,7 @@ function finalizeSaveData(operatorName) {
             if (newVal !== (itemData[mappedKey] || '').trim()) {
                 params.append(tKey, newVal);
                 itemData[mappedKey] = newVal; 
+                searchIndexCache.delete(itemData);   // refresh smart-search text for this row
                 hasChanges = true;
             }
         }
