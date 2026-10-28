@@ -1734,7 +1734,8 @@
         .search-field-container { flex-direction: column; gap: 8px; align-items: stretch; }
         .search-field-container .search-btn { width: 100%; }
         .reset-filter-btn { width: 100%; }
-        .export-group { width: 100%; }
+        /* phones: no Export buttons */
+        .export-group, #exportButton, #exportFilteredButton { display: none !important; }
         .app-tab { min-height: 46px; }
 
         /* Dashboards: swipe sideways instead of wrapping into a tall block */
@@ -1753,11 +1754,10 @@
         .property-table tbody td { display: block; box-sizing: border-box; width: 100% !important; min-width: 0 !important; max-width: none !important; padding: 5px 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; text-align: left !important; font-size: 13.5px; line-height: 1.45; overflow-wrap: anywhere; }
         .property-table tbody td[data-label]::before { content: attr(data-label); display: block; margin-bottom: 1px; font-size: 10.5px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--ink-400); }
         .property-table tbody td.m-empty { display: none !important; }
-        /* the "+ Queue" button rides in the card's top-right corner */
-        .property-table tbody td.pq-cell { position: absolute; top: 10px; right: 10px; width: auto !important; padding: 0 !important; z-index: 2; }
-        .property-table tbody td.pq-cell .pq-btn { min-height: 38px; padding: 8px 14px; font-size: 13px; }
+        /* phones: no "+ Queue" buttons on the cards */
+        .property-table tbody td.pq-cell { display: none !important; }
         /* the first text cell is the card title */
-        .property-table tbody td.pq-cell + td { padding-right: 104px !important; font-size: 15.5px; font-weight: 800; color: var(--navy-900); }
+        .property-table tbody td.pq-cell + td { font-size: 15.5px; font-weight: 800; color: var(--navy-900); }
         .property-table tbody td.pq-cell + td::before { display: none; }
         /* long text is trimmed - tap the card for the full record */
         .property-table tbody td[data-label="Description"], .property-table tbody td[data-label="Notes"] { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
@@ -1785,12 +1785,12 @@
         .close-x-btn { width: 44px !important; height: 44px !important; font-size: 28px !important; }
 
         /* floating page selector / back-to-top: compact, bottom-centre, clear of the Print Queue button */
-        .floating-controls { left: 70px; right: 10px; bottom: calc(14px + env(safe-area-inset-bottom)); justify-content: flex-end; gap: 8px; }
+        .floating-controls { left: 10px; right: 10px; bottom: calc(14px + env(safe-area-inset-bottom)); justify-content: flex-end; gap: 8px; }
         #paginationContainer { padding: 5px 10px; gap: 8px; font-size: 12px; }
         .page-btn { width: 36px; height: 36px; }
         #backToTopBtn { padding: 10px 14px; }
-        #pqFab { bottom: calc(14px + env(safe-area-inset-bottom)) !important; width: 48px; justify-content: center; padding: 0 !important; }
-        #pqFab .pq-badge { position: absolute; top: -6px; right: -6px; }
+        /* phones: no Print Queue button or panel */
+        #pqFab, #pqDrawer, #pqScrim { display: none !important; }
     }
     </style>
 </head>
