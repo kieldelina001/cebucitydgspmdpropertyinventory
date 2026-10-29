@@ -168,6 +168,7 @@
             overflow: hidden;
             /* Wallpaper: city skyline + City Hall, graded navy for readability */
             background:
+                linear-gradient(180deg, rgba(6, 20, 48, 0.62) 0%, rgba(6, 20, 48, 0.28) 150px, rgba(6, 20, 48, 0) 240px),
                 linear-gradient(90deg, rgba(8, 24, 56, 0.35) 0%, rgba(8, 24, 56, 0) 55%),
                 url("login_bg.jpg") right center / cover no-repeat,
                 linear-gradient(135deg, var(--navy-900), var(--navy-700));
@@ -198,107 +199,151 @@
             pointer-events: none;
         }
         .login-credit strong { color: #fff; }
-        @media (max-width: 600px) { .login-credit { font-size: 10.5px; bottom: 3px; } }
-        /* Branded header on the login wallpaper (live text, stays sharp on any screen) */
+        @media (max-width: 600px) { .login-credit { font-size: 10.5px; bottom: 6px; line-height: 1.35; } #loginScreen::after { bottom: 46px; } }
+        /* Branded header: upper centre  [Cebu seal] | Cebu City Government / Department of General Services | [DGS logo] */
         .login-brand {
             position: absolute;
-            top: 34px;
-            left: 8vw;
+            top: 26px;
+            left: 0; right: 0;
             z-index: 1;
             display: flex;
             align-items: center;
-            gap: 18px;
+            justify-content: center;
+            gap: 28px;
+            padding: 0 24px;
+            box-sizing: border-box;
             color: #fff;
             pointer-events: none;
         }
         .login-brand img {
-            width: 62px;
-            height: 62px;
             object-fit: contain;
-            filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.35));
+            flex: none;
+            filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.4));
         }
+        .login-brand .brand-seal { width: 128px; height: 128px; }
+        .login-brand .brand-dgs  { width: 100px; height: 100px; }
         .login-brand-divider {
-            width: 2px;
-            height: 52px;
-            background: rgba(255, 255, 255, 0.45);
+            flex: none;
+            width: 1px;
+            height: 84px;
+            background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.6), transparent);
         }
+        .login-brand-text { text-align: center; }
         .login-brand-title {
-            font-size: 24px;
+            font-size: 30px;
             font-weight: 800;
-            letter-spacing: 0.02em;
-            line-height: 1.15;
+            letter-spacing: 0.06em;
+            line-height: 1.1;
             text-transform: uppercase;
-            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+            text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
         }
-        .login-brand-tag {
-            margin-top: 6px;
-            font-size: 11px;
-            font-weight: 500;
-            letter-spacing: 0.2em;
+        .login-brand-rule {
+            width: 56px;
+            height: 3px;
+            margin: 12px auto 11px;
+            border-radius: 3px;
+            background: linear-gradient(90deg, #22c55e, var(--blue-400));
+        }
+        .login-brand-dept {
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.26em;
             text-transform: uppercase;
-            color: rgba(205, 222, 248, 0.95);
+            color: rgba(226, 237, 252, 0.98);
+            text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5);
         }
         @media (max-width: 900px) {
-            .login-brand { left: 0; right: 0; top: 22px; justify-content: center; }
-            .login-brand img { width: 44px; height: 44px; }
-            .login-brand-divider { height: 38px; }
-            .login-brand-title { font-size: 16px; }
-            .login-brand-tag { display: none; }
+            .login-brand { top: 18px; gap: 14px; padding: 0 14px; }
+            .login-brand .brand-seal { width: 76px; height: 76px; }
+            .login-brand .brand-dgs  { width: 60px; height: 60px; }
+            .login-brand-divider { height: 54px; }
+            .login-brand-title { font-size: 17px; letter-spacing: 0.04em; }
+            .login-brand-rule { margin: 8px auto 7px; width: 40px; }
+            .login-brand-dept { font-size: 10px; letter-spacing: 0.16em; }
         }
-        @media (max-height: 640px) { .login-brand { display: none; } }
+        @media (max-width: 480px) {
+            .login-brand .brand-seal { width: 60px; height: 60px; }
+            .login-brand .brand-dgs  { width: 48px; height: 48px; }
+            .login-brand-divider { display: none; }
+            .login-brand { gap: 10px; }
+            .login-brand-title { font-size: 14px; }
+            .login-brand-dept { font-size: 8.5px; letter-spacing: 0.1em; }
+        }
+        @media (max-height: 700px) and (min-width: 901px) {
+            .login-brand { top: 16px; }
+            .login-brand .brand-seal { width: 88px; height: 88px; }
+            .login-brand .brand-dgs  { width: 70px; height: 70px; }
+            .login-brand-divider { height: 60px; }
+            .login-brand-title { font-size: 23px; }
+        }
 
         .login-box {
             position: relative;
             z-index: 1;
-            background-color: rgba(255, 255, 255, 0.93);
-            -webkit-backdrop-filter: blur(14px) saturate(140%);
-            backdrop-filter: blur(14px) saturate(140%);
-            border: 1px solid rgba(255, 255, 255, 0.55);
-            padding: 44px 40px 32px;
-            border-radius: 20px;
-            box-shadow: 0 30px 70px rgba(4, 14, 36, 0.45), 0 2px 8px rgba(4, 14, 36, 0.2);
+            background-color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            padding: 38px 38px 26px;
+            border-radius: 14px;
+            box-shadow: 0 28px 64px rgba(4, 14, 36, 0.5), 0 2px 8px rgba(4, 14, 36, 0.25);
             text-align: center;
             width: 100%;
-            max-width: 420px;
-            border-top: 5px solid var(--blue-500);
+            max-width: 410px;
             box-sizing: border-box;
+            overflow: hidden;
         }
-        .logo-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 18px;
-            margin-bottom: 22px;
+        .login-box::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, var(--navy-800), var(--blue-500) 60%, #22c55e);
         }
-        .login-logo {
-            width: 92px;
-            height: 92px;
-            object-fit: contain;
-            filter: drop-shadow(0 4px 8px rgba(15, 23, 42, 0.18));
+        .login-eyebrow {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: var(--blue-600);
+            margin-bottom: 10px;
         }
         .login-box h2 {
-            margin: 0 0 26px 0;
+            margin: 0;
             color: var(--navy-900);
-            font-size: 20px;
+            font-size: 21px;
             font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 1.6px;
-            line-height: 1.35;
+            letter-spacing: 0.05em;
+            line-height: 1.2;
+            white-space: nowrap;
         }
-        .login-box h2 span {
-            font-weight: 500 !important;
-            letter-spacing: 0.4px;
-            text-transform: none;
-            font-size: 15px !important;
-            color: var(--ink-500) !important;
+        .login-sub {
+            margin: 10px 0 0;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--ink-500);
         }
+        .login-divider {
+            height: 1px;
+            margin: 24px 0 26px;
+            background: linear-gradient(90deg, transparent, var(--line-strong), transparent);
+        }
+        .login-notice {
+            margin-top: 22px;
+            padding-top: 16px;
+            border-top: 1px solid var(--line);
+            font-size: 11.5px;
+            line-height: 1.6;
+            color: var(--ink-500);
+            text-align: center;
+        }
+        .login-notice strong { color: var(--ink-700); }
         .login-btn {
             width: 100%;
             padding: 13px 14px;
             background-color: #ffffff;
             color: #3c4043;
             border: 1px solid var(--line-strong);
-            border-radius: 10px;
+            border-radius: 8px;
             font-size: 15px;
             font-weight: 600;
             cursor: pointer;
@@ -323,12 +368,7 @@
             font-weight: 600;
             min-height: 20px;
         }
-        .login-box > div[style*="border-top"] {
-            color: var(--ink-500) !important;
-            border-top: 1px solid var(--line) !important;
-            font-size: 11.5px !important;
-            line-height: 1.6 !important;
-        }
+        
 
         @media (max-width: 900px) {
             #loginScreen {
@@ -353,8 +393,8 @@
             animation: loginSpin .7s linear infinite;
         }
         @keyframes loginSpin { to { transform: rotate(360deg); } }
-        .login-box.is-waiting { border-top-color: var(--blue-400); }
-        .login-box.is-waiting .login-logo,
+        .login-box.is-waiting::before { opacity: .6; }
+        .login-box.is-waiting .login-eyebrow,
         .login-box.is-waiting h2 { opacity: .55; transition: opacity .25s ease; }
         .error-msg.info { color: var(--blue-600); font-weight: 500; }
         @media (prefers-reduced-motion: reduce) { .login-spinner { animation-duration: 1.6s; } }
@@ -1810,21 +1850,24 @@
     <!-- 🔑 MODIFIED LOGIN SCREEN FOR OAUTH TOKEN (GIS) -->
     <div id="loginScreen">
         <div class="login-brand">
-            <img src="Ph_seal_cebucity.png" alt="" onerror="this.style.display='none'">
+            <img class="brand-seal" src="Ph_seal_cebucity.png" alt="Cebu City Seal" onerror="this.style.display='none'">
             <div class="login-brand-divider"></div>
-            <div>
+            <div class="login-brand-text">
                 <div class="login-brand-title">Cebu City Government</div>
-                <div class="login-brand-tag">Public Service &middot; Good Governance &middot; A Better Cebu</div>
+                <div class="login-brand-rule"></div>
+                <div class="login-brand-dept">Department of General Services</div>
             </div>
+            <div class="login-brand-divider"></div>
+            <img class="brand-dgs" src="dgs_logo.png" alt="Department of General Services Logo" onerror="this.style.display='none'">
         </div>
         <div class="login-box">
-            <div class="logo-container">
-                <img src="Ph_seal_cebucity.png" alt="Cebu City Seal" class="login-logo" onerror="this.style.display='none'">
-                <img src="dgs_logo.png" alt="DGS Logo" class="login-logo" onerror="this.style.display='none'">
-            </div>
-            <h2>REAL ESTATE INVENTORY<br><span style="font-size: 16px; color: #64748b; margin-top: 8px; display: block;">System Login</span></h2>
-            
-            <div style="display: flex; justify-content: center; margin-top: 20px; margin-bottom: 15px;">
+            <div class="login-eyebrow">Property Management Division</div>
+            <h2>Real Estate Inventory</h2>
+            <p class="login-sub">System Login</p>
+
+            <div class="login-divider"></div>
+
+            <div style="display: flex; justify-content: center;">
                 <button id="customLoginBtn" class="login-btn">
                     <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" style="width: 20px; height: 20px;">
                         <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
@@ -1837,13 +1880,10 @@
             </div>
 
             <div id="loginError" class="error-msg"></div>
-			
-			<!-- NEW DISCLAIMER ADDED HERE -->
-        <div style="margin-top: 25px; padding-top: 15px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b; line-height: 1.5; text-align: center;">
-            <strong>Security Notice:</strong> This application is a private internal tool and has not been formally verified by Google. By signing in, you acknowledge that you are accessing an authorized system of the Cebu City Government.
-        </div>
-        <!-- END OF DISCLAIMER -->
-			
+
+            <div class="login-notice">
+                <strong>Security Notice:</strong> This application is a private internal tool and has not been formally verified by Google. By signing in, you acknowledge that you are accessing an authorized system of the Cebu City Government.
+            </div>
         </div>
         <div class="login-credit">&copy; 2026 Webpage Created by <strong>Noel Rie N. Deliña</strong> | Property Management Division</div>
     </div>
