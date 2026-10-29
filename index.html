@@ -166,44 +166,12 @@
             padding: 20px 8vw;
             box-sizing: border-box;
             overflow: hidden;
-            /* Wallpaper is built from layers (see .login-bg-* below) so the photo fills a widescreen */
-            background: #061a3d;
-        }
-        /* Layer 1: blurred, darkened copy of the photo stretched to fill the whole widescreen */
-        .login-bg-blur {
-            position: absolute;
-            inset: -70px;
-            z-index: 0;
-            background: url("login_bg_1.jpg") center 45% / cover no-repeat;
-            filter: blur(34px) brightness(0.62) saturate(1.2);
-            pointer-events: none;
-        }
-        /* Layer 2: the sharp, full-height photo - its left edge melts into the blurred layer */
-        .login-bg-photo {
-            --bg-shift: 14vh;           /* nudges the photo right so the flag clears the header logos */
-            position: absolute;
-            top: 0; bottom: 0;
-            right: calc(-1 * var(--bg-shift));
-            width: 122.3vh;             /* 1387x1134 at full height */
-            z-index: 0;
-            background: url("login_bg_1.jpg") center / 100% 100% no-repeat;
-            -webkit-mask-image: linear-gradient(90deg, transparent 0, rgba(0,0,0,.55) 12%, #000 34%);
-            mask-image: linear-gradient(90deg, transparent 0, rgba(0,0,0,.55) 12%, #000 34%);
-            pointer-events: none;
-        }
-        /* Layer 3: shading for the header / footer / card side + corner accent stripes */
-        #loginScreen::before {
-            content: "";
-            position: absolute;
-            inset: 0;
-            z-index: 1;
-            pointer-events: none;
+            /* Wallpaper: city skyline + City Hall, graded navy for readability */
             background:
-                linear-gradient(135deg, rgba(34, 197, 94, 0.75) 0 1.6%, transparent 1.6% 2.6%, rgba(43, 131, 207, 0.55) 2.6% 5.2%, transparent 5.2%) top left / 24vw 24vw no-repeat,
-                linear-gradient(45deg, rgba(34, 197, 94, 0.75) 0 1.6%, transparent 1.6% 2.6%, rgba(43, 131, 207, 0.55) 2.6% 5.2%, transparent 5.2%) bottom left / 24vw 24vw no-repeat,
-                linear-gradient(180deg, rgba(6, 20, 48, 0.6) 0%, rgba(6, 20, 48, 0.25) 150px, rgba(6, 20, 48, 0) 250px),
-                linear-gradient(0deg, rgba(6, 20, 48, 0.7) 0%, rgba(6, 20, 48, 0) 110px),
-                linear-gradient(90deg, rgba(6, 20, 48, 0.5) 0%, rgba(6, 20, 48, 0) 42%);
+                linear-gradient(180deg, rgba(6, 20, 48, 0.62) 0%, rgba(6, 20, 48, 0.28) 150px, rgba(6, 20, 48, 0) 240px),
+                linear-gradient(90deg, rgba(8, 24, 56, 0.35) 0%, rgba(8, 24, 56, 0) 55%),
+                url("login_bg.jpg") right center / cover no-repeat,
+                linear-gradient(135deg, var(--navy-900), var(--navy-700));
         }
         /* Footer line on the login wallpaper */
         #loginScreen::after {
@@ -218,11 +186,9 @@
             color: rgba(255, 255, 255, 0.78);
             text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
             pointer-events: none;
-            z-index: 2;
         }
         /* Credit line on the login wallpaper (sits just above the footer line) */
         .login-credit {
-            z-index: 2;
             position: absolute;
             left: 0; right: 0; bottom: 3px;
             text-align: center;
@@ -408,11 +374,11 @@
             #loginScreen {
                 justify-content: center;
                 padding: 20px;
-                background: #061a3d;
+                background:
+                    linear-gradient(180deg, rgba(8, 24, 56, 0.45), rgba(8, 24, 56, 0.25)),
+                    url("login_bg.jpg") 72% center / cover no-repeat,
+                    linear-gradient(135deg, var(--navy-900), var(--navy-700));
             }
-            #loginScreen::before { background: linear-gradient(180deg, rgba(6, 20, 48, 0.6) 0%, rgba(6, 20, 48, 0.2) 160px, rgba(6, 20, 48, 0.15) 60%, rgba(6, 20, 48, 0.6) 100%); }
-            .login-bg-blur { display: none; }
-            .login-bg-photo { right: 0; left: 0; width: auto; background-size: cover; background-position: 38% center; -webkit-mask-image: none; mask-image: none; }
             #loginScreen::after { font-size: 9.5px; letter-spacing: 0.1em; padding: 0 16px; }
         }
 
@@ -1883,8 +1849,6 @@
 
     <!-- 🔑 MODIFIED LOGIN SCREEN FOR OAUTH TOKEN (GIS) -->
     <div id="loginScreen">
-        <div class="login-bg-blur" aria-hidden="true"></div>
-        <div class="login-bg-photo" aria-hidden="true"></div>
         <div class="login-brand">
             <img class="brand-seal" src="Ph_seal_cebucity.png" alt="Cebu City Seal" onerror="this.style.display='none'">
             <div class="login-brand-divider"></div>
