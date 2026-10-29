@@ -172,7 +172,7 @@
         }
         .login-wallpaper {
             position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
-            background: url("login_bg_base.jpg") left center / var(--bgw) auto no-repeat;
+            background: url("login_bg_noflag.jpg") left center / var(--bgw) auto no-repeat;
         }
         .login-shade {
             position: absolute; inset: 0;
@@ -206,35 +206,8 @@
             0%, 100% { filter: brightness(0.90); }
             50%      { filter: brightness(1.08); }
         }
-        /* Bus leaving the garage: drives toward the viewer (grows, moves down-left, brightens in the sun), then repeats */
-        .login-bus {
-            position: absolute;
-            left: calc(var(--bgw) * 0.810293);
-            top: calc((100vh - var(--bgw) * 0.563135) / 2 + var(--bgw) * 0.415320);
-            width: calc(var(--bgw) * 0.051466);
-            height: calc(var(--bgw) * 0.046081);
-            background: url("login_bus.png") center / 100% 100% no-repeat;
-            transform-origin: 50% 95%;
-            opacity: 0;
-            animation: busExit 16s linear infinite;
-            will-change: transform, opacity, filter;
-        }
-        .login-bus::before {           /* soft ground shadow that travels with the bus */
-            content: ""; position: absolute; z-index: -1;
-            left: -8%; right: -8%; bottom: -4%; height: 14%;
-            background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0) 70%);
-        }
-        @keyframes busExit {
-            0%   { opacity: 0; transform: translate(0, 0) scale(1); filter: brightness(0.8); }
-            7%   { opacity: 1; transform: translate(0, 0) scale(1); filter: brightness(0.95); }
-            20%  { opacity: 1; transform: translate(0, 0) scale(1); filter: brightness(0.95); animation-timing-function: cubic-bezier(0.45, 0, 0.75, 0.55); }
-            80%  { opacity: 1; transform: translate(calc(var(--bgw) * -0.0329), calc(var(--bgw) * 0.0509)) scale(2.6); filter: brightness(1.25) saturate(1.1); }
-            88%  { opacity: 0; transform: translate(calc(var(--bgw) * -0.0329), calc(var(--bgw) * 0.0509)) scale(2.6); filter: brightness(1.25) saturate(1.1); }
-            100% { opacity: 0; transform: translate(calc(var(--bgw) * -0.0329), calc(var(--bgw) * 0.0509)) scale(2.6); }
-        }
         @media (prefers-reduced-motion: reduce) {
             .login-flag i { animation: none; }
-            .login-bus { animation: none; opacity: 1; filter: brightness(0.95); }
         }
         /* Footer line on the login wallpaper */
         #loginScreen::after {
@@ -462,7 +435,7 @@
             }
             .login-wallpaper { background: url("login_bg.jpg") 72% center / cover no-repeat; }
             .login-shade { background: linear-gradient(180deg, rgba(8, 24, 56, 0.45), rgba(8, 24, 56, 0.25)); }
-            .login-flag, .login-bus { display: none; }
+            .login-flag { display: none; }
             #loginScreen::after { font-size: 9.5px; letter-spacing: 0.1em; padding: 0 16px; }
         }
 
@@ -1935,7 +1908,6 @@
     <div id="loginScreen">
         <div class="login-wallpaper" aria-hidden="true">
             <div class="login-flag"><i style="--i:0"></i><i style="--i:1"></i><i style="--i:2"></i><i style="--i:3"></i><i style="--i:4"></i><i style="--i:5"></i><i style="--i:6"></i><i style="--i:7"></i><i style="--i:8"></i><i style="--i:9"></i><i style="--i:10"></i><i style="--i:11"></i><i style="--i:12"></i><i style="--i:13"></i><i style="--i:14"></i><i style="--i:15"></i><i style="--i:16"></i><i style="--i:17"></i><i style="--i:18"></i><i style="--i:19"></i><i style="--i:20"></i><i style="--i:21"></i><i style="--i:22"></i><i style="--i:23"></i></div>
-            <div class="login-bus"></div>
             <div class="login-shade"></div>
         </div>
         <div class="login-brand">
