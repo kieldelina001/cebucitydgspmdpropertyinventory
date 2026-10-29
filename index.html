@@ -370,6 +370,28 @@
         }
         
 
+        /* --- Desktop: keep the login box in the open sky, between the header and the buses --- */
+        @media (min-width: 901px) {
+            #loginScreen { align-items: flex-start; padding-top: 176px; }
+        }
+        @media (min-width: 901px) and (max-height: 820px) {
+            #loginScreen { padding-top: 124px; }
+            .login-brand { top: 16px; }
+            .login-brand .brand-seal, .login-brand .brand-dgs { width: 96px; height: 96px; }
+            .login-brand-divider { height: 60px; }
+            .login-box { padding: 28px 32px 18px; max-width: 390px; }
+            .login-eyebrow { margin-bottom: 8px; }
+            .login-box h2 { font-size: 19px; }
+            .login-sub { margin-top: 6px; }
+            .login-divider { margin: 16px 0 18px; }
+            .login-btn { padding: 11px 14px; }
+            .login-notice { margin-top: 14px; padding-top: 12px; font-size: 11px; line-height: 1.5; }
+        }
+        @media (min-width: 901px) and (max-height: 700px) {
+            #loginScreen { padding-top: 112px; }
+            .login-brand .brand-seal, .login-brand .brand-dgs { width: 88px; height: 88px; }
+        }
+
         @media (max-width: 900px) {
             #loginScreen {
                 justify-content: center;
