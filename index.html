@@ -166,12 +166,48 @@
             padding: 20px 8vw;
             box-sizing: border-box;
             overflow: hidden;
-            /* Wallpaper: city skyline + City Hall, graded navy for readability */
+            /* Wallpaper lives in .login-wallpaper (photo + animated flag + shade) */
+            --bgw: max(108vw, 178vh);   /* rendered width of the wallpaper image */
+            background: linear-gradient(135deg, var(--navy-900), var(--navy-700));
+        }
+        .login-wallpaper {
+            position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
+            background: url("login_bg_noflag.jpg") left center / var(--bgw) auto no-repeat;
+        }
+        .login-shade {
+            position: absolute; inset: 0;
             background:
                 linear-gradient(180deg, rgba(6, 20, 48, 0.62) 0%, rgba(6, 20, 48, 0.28) 150px, rgba(6, 20, 48, 0) 240px),
-                radial-gradient(ellipse at center, rgba(8, 24, 56, 0.35) 0%, rgba(8, 24, 56, 0) 60%),
-                url("login_bg.jpg") left center / max(108vw, 178vh) auto no-repeat,
-                linear-gradient(135deg, var(--navy-900), var(--navy-700));
+                radial-gradient(ellipse at center, rgba(8, 24, 56, 0.35) 0%, rgba(8, 24, 56, 0) 60%);
+        }
+        /* Waving flag: the flag cut from the photo, sliced into strips that ripple (pinned at the pole) */
+        .login-flag {
+            position: absolute;
+            left: calc(var(--bgw) * 0.69060);
+            top: calc((100vh - var(--bgw) * 0.563135) / 2 + var(--bgw) * 0.057451);
+            width: calc(var(--bgw) * 0.107121);
+            height: calc(var(--bgw) * 0.099342);
+            display: flex;
+        }
+        .login-flag i {
+            flex: 0 0 calc(100% / 24 + 0.5px);
+            margin-right: -0.5px;
+            --a: calc(var(--bgw) * 0.0030 * var(--i) / 23);   /* wave height grows away from the pole */
+            background: url("login_flag.png") calc(var(--i) / 23 * 100%) 0 / 2400% 100% no-repeat;
+            animation: flagWave 3.4s ease-in-out infinite, flagShade 3.4s ease-in-out infinite;
+            animation-delay: calc(var(--i) * -0.13s), calc(var(--i) * -0.13s);
+            will-change: transform, filter;
+        }
+        @keyframes flagWave {
+            0%, 100% { transform: translateY(calc(var(--a) * -1)); }
+            50%      { transform: translateY(var(--a)); }
+        }
+        @keyframes flagShade {
+            0%, 100% { filter: brightness(0.90); }
+            50%      { filter: brightness(1.08); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .login-flag i { animation: none; }
         }
         /* Footer line on the login wallpaper */
         #loginScreen::after {
@@ -396,11 +432,10 @@
             #loginScreen {
                 justify-content: center;
                 padding: 20px;
-                background:
-                    linear-gradient(180deg, rgba(8, 24, 56, 0.45), rgba(8, 24, 56, 0.25)),
-                    url("login_bg.jpg") 72% center / cover no-repeat,
-                    linear-gradient(135deg, var(--navy-900), var(--navy-700));
             }
+            .login-wallpaper { background: url("login_bg.jpg") 72% center / cover no-repeat; }
+            .login-shade { background: linear-gradient(180deg, rgba(8, 24, 56, 0.45), rgba(8, 24, 56, 0.25)); }
+            .login-flag { display: none; }
             #loginScreen::after { font-size: 9.5px; letter-spacing: 0.1em; padding: 0 16px; }
         }
 
@@ -1871,6 +1906,10 @@
 
     <!-- 🔑 MODIFIED LOGIN SCREEN FOR OAUTH TOKEN (GIS) -->
     <div id="loginScreen">
+        <div class="login-wallpaper" aria-hidden="true">
+            <div class="login-flag"><i style="--i:0"></i><i style="--i:1"></i><i style="--i:2"></i><i style="--i:3"></i><i style="--i:4"></i><i style="--i:5"></i><i style="--i:6"></i><i style="--i:7"></i><i style="--i:8"></i><i style="--i:9"></i><i style="--i:10"></i><i style="--i:11"></i><i style="--i:12"></i><i style="--i:13"></i><i style="--i:14"></i><i style="--i:15"></i><i style="--i:16"></i><i style="--i:17"></i><i style="--i:18"></i><i style="--i:19"></i><i style="--i:20"></i><i style="--i:21"></i><i style="--i:22"></i><i style="--i:23"></i></div>
+            <div class="login-shade"></div>
+        </div>
         <div class="login-brand">
             <img class="brand-seal" src="Ph_seal_cebucity.png" alt="Cebu City Seal" onerror="this.style.display='none'">
             <div class="login-brand-divider"></div>
