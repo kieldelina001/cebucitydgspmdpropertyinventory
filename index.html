@@ -169,7 +169,7 @@
             /* Wallpaper: city skyline + City Hall, graded navy for readability */
             background:
                 linear-gradient(180deg, rgba(6, 20, 48, 0.62) 0%, rgba(6, 20, 48, 0.28) 150px, rgba(6, 20, 48, 0) 240px),
-                linear-gradient(90deg, rgba(8, 24, 56, 0.35) 0%, rgba(8, 24, 56, 0) 55%),
+                linear-gradient(90deg, rgba(8, 24, 56, 0.45) 0%, rgba(8, 24, 56, 0.12) 45%, rgba(8, 24, 56, 0) 60%),
                 url("login_bg.jpg") right center / cover no-repeat,
                 linear-gradient(135deg, var(--navy-900), var(--navy-700));
         }
@@ -200,17 +200,23 @@
         }
         .login-credit strong { color: #fff; }
         @media (max-width: 600px) { .login-credit { font-size: 10.5px; bottom: 6px; line-height: 1.35; } #loginScreen::after { bottom: 46px; } }
-        /* Branded header: upper centre  [Cebu seal] | Cebu City Government / Department of General Services | [DGS logo] */
+        /* Branded header: upper-left, aligned with the login card.
+           Kept in the left column so it never overlaps the flag on the wallpaper.
+           --flag-x = where the flagpole sits for the current viewport (image is cover / right-anchored). */
+        #loginScreen {
+            --login-pad: 8vw;
+            --flag-x: calc(100vw - 0.315 * max(100vw, 177.5vh));
+        }
         .login-brand {
             position: absolute;
-            top: 26px;
-            left: 0; right: 0;
+            top: clamp(18px, 3.2vh, 34px);
+            left: var(--login-pad);
+            max-width: calc(var(--flag-x) - var(--login-pad) - 48px);
             z-index: 1;
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 28px;
-            padding: 0 24px;
+            justify-content: flex-start;
+            gap: clamp(12px, 1.4vw, 24px);
             box-sizing: border-box;
             color: #fff;
             pointer-events: none;
@@ -220,61 +226,57 @@
             flex: none;
             filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.4));
         }
-        .login-brand .brand-seal { width: 128px; height: 128px; }
-        .login-brand .brand-dgs  { width: 128px; height: 128px; }
+        .login-brand .brand-seal,
+        .login-brand .brand-dgs { width: clamp(56px, 5.6vw, 108px); height: clamp(56px, 5.6vw, 108px); }
         .login-brand-divider {
             flex: none;
             width: 1px;
-            height: 84px;
+            height: clamp(44px, 4.2vw, 76px);
             background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.6), transparent);
         }
-        .login-brand-text { text-align: center; }
+        .login-brand-text { text-align: left; min-width: 0; }
         .login-brand-title {
-            font-size: 30px;
+            font-size: clamp(15px, 1.7vw, 28px);
             font-weight: 800;
-            letter-spacing: 0.06em;
+            letter-spacing: 0.05em;
             line-height: 1.1;
             text-transform: uppercase;
             text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
         }
         .login-brand-rule {
-            width: 56px;
+            width: 48px;
             height: 3px;
-            margin: 12px auto 11px;
+            margin: 9px 0 8px;
             border-radius: 3px;
             background: linear-gradient(90deg, #22c55e, var(--blue-400));
         }
         .login-brand-dept {
-            font-size: 14px;
+            font-size: clamp(9px, 0.8vw, 13px);
             font-weight: 600;
-            letter-spacing: 0.26em;
+            letter-spacing: 0.22em;
             text-transform: uppercase;
             color: rgba(226, 237, 252, 0.98);
             text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5);
         }
+        /* Tablet / phone: wallpaper is re-framed onto the bus fleet (flag off-frame), so the header can centre */
         @media (max-width: 900px) {
-            .login-brand { top: 18px; gap: 14px; padding: 0 14px; }
-            .login-brand .brand-seal { width: 76px; height: 76px; }
-            .login-brand .brand-dgs  { width: 76px; height: 76px; }
-            .login-brand-divider { height: 54px; }
-            .login-brand-title { font-size: 17px; letter-spacing: 0.04em; }
-            .login-brand-rule { margin: 8px auto 7px; width: 40px; }
-            .login-brand-dept { font-size: 10px; letter-spacing: 0.16em; }
+            #loginScreen { --login-pad: 20px; }
+            .login-brand { left: 0; right: 0; max-width: none; justify-content: center; padding: 0 14px; top: 18px; gap: 12px; }
+            .login-brand .brand-seal,
+            .login-brand .brand-dgs { width: 64px; height: 64px; }
+            .login-brand-divider { height: 48px; }
+            .login-brand-text { text-align: center; }
+            .login-brand-title { font-size: 16px; letter-spacing: 0.04em; }
+            .login-brand-rule { margin: 7px auto 6px; width: 40px; }
+            .login-brand-dept { font-size: 9.5px; letter-spacing: 0.14em; }
         }
         @media (max-width: 480px) {
-            .login-brand .brand-seal { width: 60px; height: 60px; }
-            .login-brand .brand-dgs  { width: 60px; height: 60px; }
+            .login-brand .brand-seal,
+            .login-brand .brand-dgs { width: 52px; height: 52px; }
             .login-brand-divider { display: none; }
             .login-brand { gap: 10px; }
-            .login-brand-title { font-size: 14px; }
-            .login-brand-dept { font-size: 8.5px; letter-spacing: 0.1em; }
-        }
-        @media (max-height: 700px) and (min-width: 901px) {
-            .login-brand { top: 16px; }
-            .login-brand .brand-seal { width: 88px; height: 88px; }
-            .login-brand .brand-dgs  { width: 88px; height: 88px; }
-            .login-brand-divider { height: 60px; }
-            .login-brand-title { font-size: 23px; }
+            .login-brand-title { font-size: 13px; }
+            .login-brand-dept { font-size: 8px; letter-spacing: 0.1em; }
         }
 
         .login-box {
@@ -376,7 +378,7 @@
                 padding: 20px;
                 background:
                     linear-gradient(180deg, rgba(8, 24, 56, 0.45), rgba(8, 24, 56, 0.25)),
-                    url("login_bg.jpg") 72% center / cover no-repeat,
+                    url("login_bg.jpg") 18% center / cover no-repeat,
                     linear-gradient(135deg, var(--navy-900), var(--navy-700));
             }
             #loginScreen::after { font-size: 9.5px; letter-spacing: 0.1em; padding: 0 16px; }
