@@ -1511,6 +1511,36 @@
             #editModal .modal-fields-side .modal-field, #editModal .modal-photo-side,
             #editModal .modal-actions { animation:none !important; }
         }
+
+        /* 🔄 Update Insurance button (shown only for Expiring / Expired records) */
+        @keyframes insUpdPulse { 0%,100% { box-shadow:0 0 0 0 rgba(245,158,11,.65), 0 4px 12px rgba(217,119,6,.35); } 50% { box-shadow:0 0 0 11px rgba(245,158,11,0), 0 4px 12px rgba(217,119,6,.35); } }
+        @keyframes insUpdPulseRed { 0%,100% { box-shadow:0 0 0 0 rgba(220,38,38,.65), 0 4px 12px rgba(185,28,28,.35); } 50% { box-shadow:0 0 0 11px rgba(220,38,38,0), 0 4px 12px rgba(185,28,28,.35); } }
+        @keyframes insUpdSweep { from { background-position:220% 0; } to { background-position:-120% 0; } }
+        @keyframes insUpdSpin { 0%,55% { transform:rotate(0); } 100% { transform:rotate(360deg); } }
+        @keyframes insUpdBob { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-3px); } }
+        .btn-ins-update {
+            position:relative; overflow:hidden; color:#fff; border:none;
+            background-image:linear-gradient(110deg, transparent 35%, rgba(255,255,255,.45) 50%, transparent 65%), linear-gradient(180deg, #fbbf24, #d97706);
+            background-size:220% 100%, 100% 100%; background-repeat:no-repeat;
+            animation:insUpdPulse 1.6s ease-in-out infinite, insUpdSweep 2.6s linear infinite, insUpdBob 2.2s ease-in-out infinite;
+            text-shadow:0 1px 1px rgba(0,0,0,.25);
+        }
+        .btn-ins-update.is-expired {
+            background-image:linear-gradient(110deg, transparent 35%, rgba(255,255,255,.45) 50%, transparent 65%), linear-gradient(180deg, #f87171, #dc2626);
+            animation:insUpdPulseRed 1.3s ease-in-out infinite, insUpdSweep 2.6s linear infinite, insUpdBob 2.2s ease-in-out infinite;
+        }
+        .btn-ins-update .ins-upd-ico { display:inline-block; animation:insUpdSpin 2.4s ease-in-out infinite; }
+        .btn-ins-update:hover { filter:brightness(1.08); }
+        .btn-ins-update:active { transform:scale(.96); }
+        /* Edit mode */
+        @keyframes insEdFlash { 0% { background:#fef3c7; } 100% { background:#fff; } }
+        .ins-editing .ins-ed-field input { border-color:var(--blue-500) !important; background:#fff; animation:insEdFlash .9s ease both; }
+        .ins-ed-tag { margin-left:6px; font-size:9px; font-weight:800; letter-spacing:.6px; text-transform:uppercase; color:#92400e; background:#fef3c7; padding:2px 7px; border-radius:999px; }
+        .ins-ed-hint { margin-top:6px; font-size:12px; color:var(--ink-500); }
+        .ins-ed-hint b { color:var(--navy-900); }
+        @media (prefers-reduced-motion:reduce) {
+            .btn-ins-update, .btn-ins-update.is-expired, .btn-ins-update .ins-upd-ico, .ins-editing .ins-ed-field input { animation:none !important; }
+        }
         /* ✨ Insurance Details window motion (same sequence as Property Details) */
         #insDetailOverlay { animation:pdOverlayIn .25s ease; }
         #insDetailOverlay .modal-header { animation:insFadeUp .4s ease both; animation-delay:.08s; }
@@ -1524,6 +1554,8 @@
         #insDetailOverlay .modal-fields-side .modal-field:nth-child(7) { --fi:6; }
         #insDetailOverlay .modal-fields-side .modal-field:nth-child(8) { --fi:7; }
         #insDetailOverlay .modal-fields-side .modal-field:nth-child(9) { --fi:8; }
+        #insDetailOverlay .modal-fields-side .modal-field:nth-child(10) { --fi:9; }
+        #insDetailOverlay .modal-fields-side .modal-field:nth-child(11) { --fi:10; }
         #insDetailOverlay .modal-photo-side { animation:insFadeUp .5s ease both; animation-delay:.25s; }
         #insDetailOverlay .modal-actions { animation:insFadeUp .45s ease both; animation-delay:.5s; }
         @media (prefers-reduced-motion:reduce) {

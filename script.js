@@ -3594,6 +3594,31 @@ window.addEventListener('DOMContentLoaded', () => {
         if (m) return parseFloat(m[1].replace(/,/g, ''));
         return parseAmount(unitValue);
     }
+    // Premium: read from Notes ("Premium: 45,000")
+    function parsePremium(notes) {
+        const m = notes.match(/premium(?:\s*amount)?\s*[:\-]?\s*(?:php|p|\u20b1)?\s*(\d[\d,]*(?:\.\d+)?)/i);
+        return m ? parseFloat(m[1].replace(/,/g, '')) : null;
+    }
+    // Patterns used to find / replace each editable field inside the Notes text
+    const NF_RE = {
+        coverage: /coverage(?:\s*period)?\s*[:\-]?\s*.*?(?=\s*[,;|.]?\s*(?:policy\s*(?:id|no|number|#)|sum\s*insured|premium|insurer|underwriter)\b|$)/is,
+        policy:   /policy\s*(?:id|no\.?|number|#)\s*[:.\-]?\s*[A-Za-z0-9][A-Za-z0-9\-\/]*/i,
+        sum:      /sum\s*insured\s*[:\-]?\s*(?:php|p|\u20b1)?\s*\d[\d,]*(?:\.\d+)?/i,
+        premium:  /premium(?:\s*amount)?\s*[:\-]?\s*(?:php|p|\u20b1)?\s*\d[\d,]*(?:\.\d+)?/i
+    };
+    function parseCoverageText(notes) {
+        const m = notes.match(NF_RE.coverage);
+        return m ? m[0].replace(/^coverage(?:\s*period)?\s*[:\-]?\s*/i, '').replace(/[\s.,;|]+$/, '').trim() : '';
+    }
+    // Replace the field if it already exists in the Notes, otherwise append it
+    function setNoteField(notes, re, text) {
+        if (re.test(notes)) return notes.replace(re, () => text);
+        const sep = !notes ? '' : /[.;]\s*$/.test(notes) ? ' ' : '. ';
+        return notes.replace(/\s+$/, '') + sep + text;
+    }
+    const fmtNum = n => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const AMOUNT_RE = /^\s*(?:php|p|\u20b1)?\s*(\d[\d,]*(?:\.\d+)?)\s*$/i;
+
     // Not-insured records have no sum insured: show it blank (table, details window, export)
     const sumInsuredText = r => r.status === 'NOT_INSURED' ? '' : fmtPeso(r.sumInsured);
     const fmtPeso = n => n === null || n === undefined ? '-'
@@ -3688,6 +3713,7 @@ showToast(linked > 0
             insurer: (function () { const p = parseInsurer(notes); return p !== '-' ? p : (status === 'NOT_INSURED' ? '-' : DEFAULT_INSURER); })(),
             policy: parsePolicy(notes),
             sumInsured: parseSumInsured(notes, row[headerMapping['unit value']]),
+            premium: parsePremium(notes),
             policyUrl: getPolicyCopyUrl(row),
             article: String(row[headerMapping['article/item']] || ''),
             description: String(row[headerMapping['description']] || '')
@@ -3773,43 +3799,55 @@ showToast(linked > 0
     }
 
     // ---- Insurance details window — same format as the inventory tab's "Property Details" ----
-    function openDetail(id) {
+    function openDetail(id, editing) {
         const r = records.find(x => x.id === id);
         if (!r) return;
+        editing = !!editing;
         const fid = policyFileId(r.policyUrl);
-        const field = (label, value, kind, rows) => {
+        const canUpdate = r.status === 'EXPIRING' || r.status === 'EXPIRED';
+        const field = (label, value, kind, rows, edId, extra) => {
             const v = escapeHtml(value == null ? '' : String(value));
-            const inp = kind === 'area'
-                ? `<textarea rows="${rows || 3}" disabled>${v}</textarea>`
-                : `<input type="text" value="${v}" disabled>`;
-            return `<div class="modal-field"><label>${escapeHtml(label)}</label>${inp}</div>`;
+            let inp;
+            if (kind === 'area') inp = `<textarea rows="${rows || 3}" ${edId ? 'id="' + edId + '" ' : ''}disabled>${v}</textarea>`;
+            else if (edId && editing) inp = `<input type="text" id="${edId}" value="${v}" autocomplete="off" ${kind === 'num' ? 'inputmode="decimal"' : ''} ${extra && extra.ph ? 'placeholder="' + escapeHtml(extra.ph) + '"' : ''}>`;
+            else inp = `<input type="text" value="${v}" disabled>`;
+            const hint = edId && editing && extra && extra.hint ? `<div class="ins-ed-hint" id="${edId}Hint">${extra.hint}</div>` : '';
+            return `<div class="modal-field${edId && editing ? ' ins-ed-field' : ''}"><label>${escapeHtml(label)}${edId && editing ? ' <span class="ins-ed-tag">editable</span>' : ''}</label>${inp}${hint}</div>`;
         };
+        const covNow = parseCoverageText(r.notes);
         const box = $('insDetail');
         box.classList.add('ins-detail-wide');
+        box.classList.toggle('ins-editing', editing);
         box.innerHTML = `
             <button type="button" class="close-x-btn" id="insDetailX">&times;</button>
-            <div class="modal-header">Insurance Details</div>
+            <div class="modal-header">${editing ? 'Update Insurance' : 'Insurance Details'}</div>
             <div class="modal-flex-layout">
                 <div class="modal-fields-side">
                     ${field('Article no./ TCT no.', r.article)}
                     ${field('Description', r.description, 'area', 7)}
                     ${field('Status', LABEL[r.status])}
                     ${field('Insurer', r.insurer)}
-                    ${field('Policy ID', r.policy)}
-                    ${field('Sum Insured', sumInsuredText(r))}
+                    ${field('Policy ID', editing ? (r.policy === '-' ? '' : r.policy) : r.policy, '', 0, 'insEdPolicy', { ph: 'e.g. 6300563296' })}
+                    ${field('Coverage', editing ? covNow : (covNow || '-'), '', 0, 'insEdCoverage', { ph: 'e.g. March 5, 2026 - March 5, 2027', hint: '' })}
+                    ${field('Sum Insured', editing ? (r.sumInsured == null ? '' : fmtNum(r.sumInsured)) : sumInsuredText(r), 'num', 0, 'insEdSum', { ph: 'e.g. 10,000,000' })}
+                    ${field('Premium', editing ? (r.premium == null ? '' : fmtNum(r.premium)) : (r.premium == null ? '-' : fmtPeso(r.premium)), 'num', 0, 'insEdPremium', { ph: 'e.g. 45,000' })}
                     ${field('Coverage End', r.end ? fmtDate(r.end) : '-')}
                     ${field('Time Left', timeLeft(r))}
-                    ${field('Notes', r.notes, 'area', 3)}
+                    ${field('Notes', r.notes, 'area', 3, 'insEdNotes')}
                 </div>
                 <div class="modal-photo-side" id="insPolicySide">${policyViewerHTML(r)}</div>
             </div>
             <div class="modal-actions">
+                ${editing ? `
+                <button type="button" class="modal-btn btn-save" id="insUpdSave" style="display:inline-block;">Save Update</button>
+                <button type="button" class="modal-btn btn-close" id="insUpdCancel">Cancel</button>
+                ` : `
                 <input type="file" id="insPolicyFile" accept="application/pdf,image/*" style="display:none;">
+                ${canUpdate ? `<button type="button" class="modal-btn btn-ins-update ${r.status === 'EXPIRED' ? 'is-expired' : ''}" id="insUpdateBtn"><span class="ins-upd-ico">&#128260;</span> Update Insurance</button>` : ''}
                 <button type="button" class="modal-btn btn-upload" id="insPolicyUploadBtn" style="display:inline-block;">${fid ? 'Replace Policy Copy' : 'Upload Policy Copy'}</button>
                 <button type="button" class="modal-btn btn-edit" id="insOpenRecord">Open Property Record</button>
-                <button type="button" class="modal-btn btn-close" id="insDetailClose">Close</button>
+                <button type="button" class="modal-btn btn-close" id="insDetailClose">Close</button>`}
             </div>`;
-        $('insDetailClose').onclick = closeDetail;
         $('insDetailX').onclick = closeDetail;
         const pcDl = $('insPolicyDownloadBtn');
         if (pcDl) pcDl.onclick = () => openPolicyCopyTab(r.policyUrl, (r.article ? r.article + '_' : '') + 'Policy_Copy');
@@ -3823,10 +3861,38 @@ showToast(linked > 0
             fr.style.cssText = 'width:100%;height:100%;min-height:470px;border:0;border-radius:8px;background:#0b1424;margin-top:34px;';
             pcImg.replaceWith(fr);
         };
-        const pcBtn = $('insPolicyUploadBtn'), pcInput = $('insPolicyFile');
-        pcBtn.onclick = () => pcInput.click();
-        pcInput.onchange = () => { const f = pcInput.files && pcInput.files[0]; if (f) uploadPolicyCopy(r.id, f); pcInput.value = ''; };
-        $('insOpenRecord').onclick = () => { closeDetail(); openPopUp(id); };
+        if (editing) {
+            $('insUpdCancel').onclick = () => openDetail(id, false);
+            $('insUpdSave').onclick = () => saveInsuranceUpdate(r);
+            const live = () => {
+                const res = buildUpdatedNotes(r);
+                $('insEdNotes').value = res.notes;
+                // live preview of the new coverage end date
+                const hint = $('insEdCoverageHint');
+                const ds = extractDatesFromText($('insEdCoverage').value);
+                if (hint) {
+                    if (!ds.length) hint.innerHTML = 'Include the start and end date. The latest date is used as the coverage end.';
+                    else {
+                        const e = new Date(Math.max(...ds.map(d => d.getTime()))); e.setHours(0, 0, 0, 0);
+                        const t = new Date(); t.setHours(0, 0, 0, 0);
+                        const dl = Math.round((e - t) / 86400000);
+                        hint.innerHTML = 'New coverage end: <b>' + fmtDate(e) + '</b> &middot; ' + (dl < 0 ? Math.abs(dl) + ' days overdue' : dl + ' days remaining');
+                    }
+                }
+                fitInsTextareas();
+            };
+            ['insEdPolicy', 'insEdCoverage', 'insEdSum', 'insEdPremium'].forEach(k => $(k).addEventListener('input', live));
+            live();
+            setTimeout(() => { const f = $('insEdPolicy'); if (f) f.focus(); }, 350);
+        } else {
+            $('insDetailClose').onclick = closeDetail;
+            const pcBtn = $('insPolicyUploadBtn'), pcInput = $('insPolicyFile');
+            pcBtn.onclick = () => pcInput.click();
+            pcInput.onchange = () => { const f = pcInput.files && pcInput.files[0]; if (f) uploadPolicyCopy(r.id, f); pcInput.value = ''; };
+            $('insOpenRecord').onclick = () => { closeDetail(); openPopUp(id); };
+            const ub = $('insUpdateBtn');
+            if (ub) ub.onclick = () => openDetail(id, true);
+        }
         $('insDetailOverlay').style.display = 'flex';
         document.body.style.overflow = 'hidden';
         // Size the Description / Notes boxes to fit all their text (no inner scrollbar).
@@ -3834,6 +3900,90 @@ showToast(linked > 0
         fitInsTextareas();
         requestAnimationFrame(fitInsTextareas);
         setTimeout(fitInsTextareas, 150);
+    }
+
+    // Builds the new Notes text from the edit fields. Returns { notes, error, changed }.
+    function buildUpdatedNotes(r) {
+        let notes = r.notes, changed = false, error = '';
+        const val = id => ($(id).value || '').replace(/[\r\n]+/g, ' ').trim();
+
+        const cov = val('insEdCoverage');
+        if (cov !== parseCoverageText(r.notes)) {
+            if (!cov) error = error || 'Coverage cannot be empty.';
+            else if (!extractDatesFromText(cov).length) error = error || 'Coverage needs a readable date, e.g. March 5, 2026 - March 5, 2027.';
+            else { notes = setNoteField(notes, NF_RE.coverage, 'Coverage: ' + cov); changed = true; }
+        }
+        const pol = val('insEdPolicy');
+        if (pol !== (r.policy === '-' ? '' : r.policy)) {
+            if (!pol) error = error || 'Policy ID cannot be empty.';
+            else if (!/^[A-Za-z0-9][A-Za-z0-9\-\/]*$/.test(pol)) error = error || 'Policy ID may only contain letters, numbers, dashes and slashes (no spaces).';
+            else { notes = setNoteField(notes, NF_RE.policy, 'Policy ID: ' + pol); changed = true; }
+        }
+        const amt = (id, current, label, re, name) => {
+            const raw = val(id);
+            if (raw === '' && current == null) return;
+            const m = raw.match(AMOUNT_RE);
+            if (!m) { if (raw !== '') error = error || name + ' must be a number.'; else error = error || name + ' cannot be empty.'; return; }
+            const n = parseFloat(m[1].replace(/,/g, ''));
+            if (current != null && Math.abs(n - current) < 0.005) return;
+            notes = setNoteField(notes, re, label + ': ' + fmtNum(n)); changed = true;
+        };
+        amt('insEdSum', r.sumInsured, 'Sum Insured', NF_RE.sum, 'Sum Insured');
+        amt('insEdPremium', r.premium, 'Premium', NF_RE.premium, 'Premium');
+        return { notes, changed, error };
+    }
+
+    async function saveInsuranceUpdate(r) {
+        const res = buildUpdatedNotes(r);
+        if (res.error) { toastAlert(res.error); return; }
+        if (!res.changed) { showToast('No changes to save.', 'info'); return; }
+        const row = inventoryData.find(x => x._rowId === r.id);
+        if (!row) return;
+        const notesKey = headerMapping['notes'];
+        const article = String(row[headerMapping['article/item']] || '');
+        const stamp = new Date().toLocaleString();
+        const params = new URLSearchParams();
+        params.append('secret', API_SECRET);
+        params.append('article', article);
+        params.append('updatedby', loggedInUser || '');
+        params.append('timestamp', stamp);
+        params.append('notes', res.notes);
+
+        showLoading('Saving insurance update to Google Sheets...');
+        try {
+            // Same request style as "Save Changes" in Property Details
+            await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                method: 'POST', body: params.toString(), mode: 'no-cors',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+            });
+        } catch (e) { /* the request was still sent; verified below by re-reading the sheet */ }
+        hideLoading();
+
+        // Show the change immediately
+        row[notesKey] = res.notes;
+        if (headerMapping['updated by']) row[headerMapping['updated by']] = loggedInUser || '';
+        if (headerMapping['last update']) row[headerMapping['last update']] = stamp;
+        if (typeof searchIndexCache !== 'undefined') searchIndexCache.delete(row);
+        render();
+        const fresh = records.find(x => x.id === r.id);
+        if (fresh) openDetail(r.id, false);
+        showToast('Insurance updated — syncing the sheet.', 'success');
+
+        // Re-read the sheet (it can lag a few seconds) so the app matches what was saved
+        let ok = false;
+        for (let i = 0; i < 5 && !ok; i++) {
+            await new Promise(res2 => setTimeout(res2, i === 0 ? 1500 : 2500));
+            await loadInventoryFromGoogleSheets(true);
+            const f = inventoryData.find(x => x._rowId === r.id) || inventoryData.find(x => String(x[headerMapping['article/item']] || '') === article);
+            ok = !!f && String(f[notesKey] || '').trim() === res.notes.trim();
+        }
+        if (!ok) {
+            toastAlert('The sheet has not confirmed the update yet. Please check the record again in a moment.');
+        } else {
+            const open = $('insDetailOverlay').style.display === 'flex';
+            const f = inventoryData.find(x => String(x[headerMapping['article/item']] || '') === article);
+            if (open && f) openDetail(f._rowId, false);
+        }
     }
     function fitInsTextareas() {
         const root = $('insDetail');
