@@ -1768,8 +1768,14 @@
         /* body */
         #uploadPhotosOverlay .up-body { padding: 20px 28px 8px; overflow-y: auto; background: #f8fafc; flex: 1 1 auto; }
         #uploadPhotosOverlay .up-hint { font-size: 13px; color: var(--ink-500); margin: 0 0 14px; text-align: left; }
-        #uploadPhotosOverlay .up-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-        @media (max-width: 560px) { #uploadPhotosOverlay .up-grid { grid-template-columns: 1fr; } }
+        #uploadPhotosOverlay .up-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; }
+        #uploadPhotosOverlay .up-grid > .up-card { grid-column: span 3; min-width: 0; }
+        /* bottom row: Letter, JEV and Certificate of Completion share one row (three equal cards) */
+        #uploadPhotosOverlay .up-grid > .up-card.up-third { grid-column: span 2; }
+        #uploadPhotosOverlay .up-third .up-card-top { align-items: flex-start; }
+        #uploadPhotosOverlay .up-third .up-label { font-size: 12.5px; line-height: 1.3; }
+        #uploadPhotosOverlay .up-third .up-opt { display: block; font-weight: 500; color: var(--ink-400); font-size: 11.5px; }
+        @media (max-width: 560px) { #uploadPhotosOverlay .up-grid { grid-template-columns: 1fr; } #uploadPhotosOverlay .up-grid > .up-card, #uploadPhotosOverlay .up-grid > .up-card.up-third { grid-column: auto; } }
         #uploadPhotosOverlay .up-card {
             background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 12px 12px 12px; text-align: left;
             box-shadow: var(--shadow-sm); opacity: 0; transform: translateY(12px);
@@ -2228,7 +2234,7 @@
                 <input type="hidden" id="upUploader">
             </div>
             <div class="up-body">
-                <p class="up-hint">Add <strong>at least one</strong> photo. Choosing a new file for a slot that already has a photo will replace it. A letter or JEV, if any, is attached to this property and shown only in Property Details.</p>
+                <p class="up-hint">Add <strong>at least one</strong> photo. Choosing a new file for a slot that already has a photo will replace it. A letter, JEV or certificate of completion, if any, is attached to this property and shown only in Property Details.</p>
                 <div class="up-grid">
                     <div class="up-card" style="--i:0" id="upCard1">
                         <div class="up-card-top"><h4 class="up-label">Structure Photo 1</h4><span class="up-state none" id="upState1">Empty</span></div>
@@ -2274,8 +2280,8 @@
                         </label>
                         <a class="up-view" id="upExisting4" hidden>View current photo</a>
                     </div>
-                    <div class="up-card" style="--i:4;" id="upCard5">
-                        <div class="up-card-top"><h4 class="up-label">Letter / Supporting Document <span style="font-weight:500;color:var(--ink-400)">(optional)</span></h4><span class="up-state none" id="upState5">Empty</span></div>
+                    <div class="up-card up-third" style="--i:4;" id="upCard5">
+                        <div class="up-card-top"><h4 class="up-label">Letter / Supporting Document <span class="up-opt">(optional)</span></h4><span class="up-state none" id="upState5">Empty</span></div>
                         <label class="up-pick" id="upPick5">
                             <input type="file" id="upFile5" accept="image/*">
                             <img alt="">
@@ -2285,8 +2291,8 @@
                         </label>
                         <a class="up-view" id="upExisting5" hidden>View current letter</a>
                     </div>
-                    <div class="up-card" style="--i:5;" id="upCard6">
-                        <div class="up-card-top"><h4 class="up-label">Journal Entry Voucher (JEV) <span style="font-weight:500;color:var(--ink-400)">(optional)</span></h4><span class="up-state none" id="upState6">Empty</span></div>
+                    <div class="up-card up-third" style="--i:5;" id="upCard6">
+                        <div class="up-card-top"><h4 class="up-label">Journal Entry Voucher (JEV) <span class="up-opt">(optional)</span></h4><span class="up-state none" id="upState6">Empty</span></div>
                         <label class="up-pick" id="upPick6">
                             <input type="file" id="upFile6" accept="image/*">
                             <img alt="">
@@ -2295,6 +2301,17 @@
                             <button type="button" class="up-remove" id="upRemove6" title="Remove selection">&times;</button>
                         </label>
                         <a class="up-view" id="upExisting6" hidden>View current JEV</a>
+                    </div>
+                    <div class="up-card up-third" style="--i:6;" id="upCard7">
+                        <div class="up-card-top"><h4 class="up-label">Certificate of Completion <span class="up-opt">(optional)</span></h4><span class="up-state none" id="upState7">Empty</span></div>
+                        <label class="up-pick" id="upPick7">
+                            <input type="file" id="upFile7" accept="image/*">
+                            <img alt="">
+                            <span class="up-ico">🏅</span><span class="up-ptext">Choose Certificate Photo</span><span class="up-psub">or drag &amp; drop here</span>
+                            <span class="up-fname"></span>
+                            <button type="button" class="up-remove" id="upRemove7" title="Remove selection">&times;</button>
+                        </label>
+                        <a class="up-view" id="upExisting7" hidden>View current certificate</a>
                     </div>
                 </div>
                 <div class="up-progress" id="upProgress"><div class="up-bar" id="upBar"></div></div>

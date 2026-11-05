@@ -40,10 +40,10 @@ const EXPORT_TABLE_CONFIG = [
 
 const displayHeaders = ["Queue", "Article no./ TCT no.", "Description", "Notes", "Unit Value", "Remarks", "Type", "Photo 1", "Photo 2", "Map Coordinates", "Tax Declaration", "Documents on File", "Updated By / Last Update"];
 // Columns drawn in the main table. TCT P1 / TCT P2 / Letter are NOT shown as photos here - the "docs_checklist" column
-// only ticks which of them exist; the pictures themselves are viewed in the Property Details window,
+// only ticks which of them exist (TCT P1/P2, Letter, JEV, COC); the pictures themselves are viewed in the Property Details window,
 // and "updated by" + "last update" share one column ("updated_combined").
 const tableColumnKeys = ["article/item", "description", "notes", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "docs_checklist", "updated_combined"];
-const targetHeadersLowercase = ["article/item", "description", "notes", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "transfer_cert1", "transfer_cert2", "letter", "jev", "updated by", "last update"];
+const targetHeadersLowercase = ["article/item", "description", "notes", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "transfer_cert1", "transfer_cert2", "letter", "jev", "certificate of completion", "updated by", "last update"];
 const popupOrderLowercase = ["article/item", "description", "notes", "unit value", "remarks", "type"]; 
 
 let inventoryData = []; 
@@ -1091,7 +1091,8 @@ const DOC_CHECKLIST = [
     { key: 'transfer_cert1', label: 'TCT P1',  title: 'Transfer Certificate (TCT) P1' },
     { key: 'transfer_cert2', label: 'TCT P2',  title: 'Transfer Certificate (TCT) P2' },
     { key: 'letter',         label: 'Letter',  title: 'Letter' },
-    { key: 'jev',            label: 'JEV',     title: 'Journal Entry Voucher (JEV)' }
+    { key: 'jev',            label: 'JEV',     title: 'Journal Entry Voucher (JEV)' },
+    { key: 'certificate of completion', label: 'COC', title: 'Certificate of Completion' }
 ];
 (function injectDocChecklistStyles() {
     const st = document.createElement('style');
@@ -1810,7 +1811,8 @@ function openPopUp(rowId, clickedPhotoKey = null) {
         { key: 'transfer_cert1', label: 'Transfer Certificate (TCT) P1' },
         { key: 'transfer_cert2', label: 'Transfer Certificate (TCT) P2' },
         { key: 'letter', label: 'Letter' },
-        { key: 'jev', label: 'Journal Entry Voucher (JEV)' }
+        { key: 'jev', label: 'Journal Entry Voucher (JEV)' },
+        { key: 'certificate of completion', label: 'Certificate of Completion' }
     ];
 
     photoKeysDef.forEach(p => {
@@ -2017,11 +2019,12 @@ const UP_SLOTS = {
     3: { key: 'map coordinates', label: 'Map Coordinates' },
     4: { key: 'tax declaration', label: 'Tax Declaration' },
     5: { key: 'letter',          label: 'Letter / Supporting Document' },  // Property Details only - never a table column
-    6: { key: 'jev',             label: 'Journal Entry Voucher (JEV)' }    // Property Details only - never a table column
+    6: { key: 'jev',             label: 'Journal Entry Voucher (JEV)' },   // Property Details only - never a table column
+    7: { key: 'certificate of completion', label: 'Certificate of Completion' }  // Property Details only - never a table column
 };
 const UP_SLOT_IDS = Object.keys(UP_SLOTS).map(Number);
-let upFiles = { 1: null, 2: null, 3: null, 4: null, 5: null, 6: null };
-let upExistingUrls = { 1: '', 2: '', 3: '', 4: '', 5: '', 6: '' };
+let upFiles = { 1: null, 2: null, 3: null, 4: null, 5: null, 6: null, 7: null };
+let upExistingUrls = { 1: '', 2: '', 3: '', 4: '', 5: '', 6: '', 7: '' };
 let upItemCode = '';
 let upBusy = false;
 let upWired = false;
