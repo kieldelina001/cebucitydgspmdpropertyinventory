@@ -1075,6 +1075,11 @@ function populateDropdown(type, selectEl, placeholderText) {
         };
         addUnid('BUILDING', '__UNID_BUILDING__', 'UNIDENTIFIED BUILDINGS');
         addUnid('LAND', '__UNID_LAND__', 'UNIDENTIFIED LANDS');
+
+        // "DONATED" - shows only rows whose NOTES column mentions DONATED
+        const donOpt = document.createElement('option');
+        donOpt.value = '__DONATED__'; donOpt.textContent = 'DONATED';
+        selectEl.appendChild(donOpt);
     }
 
     // NEW: Add an "Insured" option to the Remarks dropdown (based on Notes-derived insurance status)
@@ -1672,6 +1677,8 @@ function executeSearch(resetPage = true) {
             matchType = (getUnidKind(row) === 'BUILDING');
         } else if (typF === '__UNID_LAND__') {
             matchType = (getUnidKind(row) === 'LAND');
+        } else if (typF === '__DONATED__') {
+            matchType = !!(nKey && String(row[nKey] || '').toUpperCase().includes('DONATED'));
         } else if (typF !== 'ALL') {
             // Plain Building / Land selections exclude the unidentified ones (they have their own options)
             matchType = (String(row[tKey] || '') === typF) && getUnidKind(row) === null;
