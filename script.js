@@ -43,7 +43,7 @@ const displayHeaders = ["Queue", "Article no./ TCT no.", "Description", "Notes",
 // only ticks which of them exist; the pictures themselves are viewed in the Property Details window,
 // and "updated by" + "last update" share one column ("updated_combined").
 const tableColumnKeys = ["article/item", "description", "notes", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "docs_checklist", "updated_combined"];
-const targetHeadersLowercase = ["article/item", "description", "notes", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "transfer_cert1", "transfer_cert2", "letter", "updated by", "last update"];
+const targetHeadersLowercase = ["article/item", "description", "notes", "unit value", "remarks", "type", "photo 1", "photo 2", "map coordinates", "tax declaration", "transfer_cert1", "transfer_cert2", "letter", "jev", "updated by", "last update"];
 const popupOrderLowercase = ["article/item", "description", "notes", "unit value", "remarks", "type"]; 
 
 let inventoryData = []; 
@@ -1090,7 +1090,8 @@ function populateDropdown(type, selectEl, placeholderText) {
 const DOC_CHECKLIST = [
     { key: 'transfer_cert1', label: 'TCT P1',  title: 'Transfer Certificate (TCT) P1' },
     { key: 'transfer_cert2', label: 'TCT P2',  title: 'Transfer Certificate (TCT) P2' },
-    { key: 'letter',         label: 'Letter',  title: 'Letter' }
+    { key: 'letter',         label: 'Letter',  title: 'Letter' },
+    { key: 'jev',            label: 'JEV',     title: 'Journal Entry Voucher (JEV)' }
 ];
 (function injectDocChecklistStyles() {
     const st = document.createElement('style');
@@ -1808,7 +1809,8 @@ function openPopUp(rowId, clickedPhotoKey = null) {
         { key: 'tax declaration', label: 'Tax Declaration' },
         { key: 'transfer_cert1', label: 'Transfer Certificate (TCT) P1' },
         { key: 'transfer_cert2', label: 'Transfer Certificate (TCT) P2' },
-        { key: 'letter', label: 'Letter' }
+        { key: 'letter', label: 'Letter' },
+        { key: 'jev', label: 'Journal Entry Voucher (JEV)' }
     ];
 
     photoKeysDef.forEach(p => {
@@ -2014,11 +2016,12 @@ const UP_SLOTS = {
     2: { key: 'photo 2',         label: 'Structure Photo 2' },
     3: { key: 'map coordinates', label: 'Map Coordinates' },
     4: { key: 'tax declaration', label: 'Tax Declaration' },
-    5: { key: 'letter',          label: 'Letter / Supporting Document' }  // Property Details only - never a table column
+    5: { key: 'letter',          label: 'Letter / Supporting Document' },  // Property Details only - never a table column
+    6: { key: 'jev',             label: 'Journal Entry Voucher (JEV)' }    // Property Details only - never a table column
 };
 const UP_SLOT_IDS = Object.keys(UP_SLOTS).map(Number);
-let upFiles = { 1: null, 2: null, 3: null, 4: null, 5: null };
-let upExistingUrls = { 1: '', 2: '', 3: '', 4: '', 5: '' };
+let upFiles = { 1: null, 2: null, 3: null, 4: null, 5: null, 6: null };
+let upExistingUrls = { 1: '', 2: '', 3: '', 4: '', 5: '', 6: '' };
 let upItemCode = '';
 let upBusy = false;
 let upWired = false;
