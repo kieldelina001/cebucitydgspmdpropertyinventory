@@ -1687,6 +1687,13 @@ function executeSearch(resetPage = true) {
                 const lKey = headerMapping['letter'];
                 matchPhoto = !!(lKey && row[lKey] && String(row[lKey]).trim() !== '');
             }
+            if (phoF === 'WITH_JEV_COC') {
+                const jKey = headerMapping['jev'];
+                const cKey = headerMapping['certificate of completion'];
+                const hasJev = !!(jKey && row[jKey] && String(row[jKey]).trim() !== '');
+                const hasCoc = !!(cKey && row[cKey] && String(row[cKey]).trim() !== '');
+                matchPhoto = hasJev || hasCoc;
+            }
         }
        // --- INSURANCE CLICK FILTER LOGIC ---
         if (activeInsuranceFilter !== 'ALL') {
