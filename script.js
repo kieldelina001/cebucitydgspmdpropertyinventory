@@ -867,6 +867,10 @@ async function loadInventoryFromGoogleSheets(retainPage = false) {
                         const actualKey = rawHeaders.find(h => {
                             const normH = h.toLowerCase().trim();
                             const normT = target.toLowerCase().trim();
+                            if (!normH) return false; // a blank header must never match a column
+                            // JEV / Certificate of Completion: match by their own names only
+                            if (normT === 'jev') return normH === 'jev' || normH.includes('journal entry voucher');
+                            if (normT === 'certificate of completion') return normH === 'coc' || normH.includes('certificate of completion');
                             
                             if (normT === 'transfer_cert1' && (normH.includes('transfer') && normH.includes('1'))) return true;
                             if (normT === 'transfer_cert2' && (normH.includes('transfer') && normH.includes('2'))) return true;
@@ -2268,20 +2272,27 @@ async function upStartUpload() {
         closeUploadWindow();
 
         // Reload from the sheet (it can lag a few seconds), then refresh the open details window
-        const slotKeys = chosen.map(i => headerMapping[UP_SLOTS[i].key]).filter(Boolean);
         const old = inventoryData.find(r => r._rowId === rowId0);
-        const before = {};
-        slotKeys.forEach(k => { before[k] = old ? String(old[k] || '') : ''; });
+        const before = {};   // slot number -> link before the upload
+        chosen.forEach(i => {
+            const k = headerMapping[UP_SLOTS[i].key];
+            before[i] = old && k ? String(old[k] || '') : '';
+        });
         let changed = false;
         for (let n = 0; n < 6 && !changed; n++) {
             await new Promise(r => setTimeout(r, n === 0 && result ? 800 : 2500));
             await loadInventoryFromGoogleSheets(true);
+            // the keys are looked up again after every reload: a column the upload just created
+            // (e.g. the first JEV / Certificate of Completion) only exists in the new data
             const fresh = inventoryData.find(r => String(r[headerMapping['article/item']] || '') === article0);
-            changed = !!(fresh && slotKeys.some(k => String(fresh[k] || '') !== before[k]));
+            changed = !!(fresh && chosen.some(i => {
+                const k = headerMapping[UP_SLOTS[i].key];
+                return k && String(fresh[k] || '').trim() !== '' && String(fresh[k] || '') !== before[i];
+            }));
             if (changed && editModal && editModal.style.display === 'flex') openPopUp(fresh._rowId);
         }
         if (changed) showToast('Photos for ' + article0 + ' are now showing.', 'success');
-        else toastAlert('Uploaded, but the sheet has not updated yet. Reopen this record in a moment.');
+        else toastAlert('The upload was sent, but nothing new was saved in the sheet. Make sure the latest Code.gs is deployed as a NEW version (Deploy > Manage deployments > Edit > New version), then try again.');
     } catch (err) {
         console.error(err);
         upBusy = false;
