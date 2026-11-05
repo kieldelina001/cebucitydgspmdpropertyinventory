@@ -1523,20 +1523,11 @@
         .rem-existing { background:#dcfce7; color:#15803d; border-color:#86efac; }
         .rem-notfound { background:#fee2e2; color:#b91c1c; border-color:#fca5a5; }
         .rem-verify   { background:#fef9c3; color:#854d0e; border-color:#fde047; }
-        .rem-obsolete { background:#e8f6f1; color:#4f8a78; border-color:#cdebe1; }
+        .rem-obsolete { background:#f3e8ff; color:#7e22ce; border-color:#d8b4fe; }
         .rem-other    { background:#f1f5f9; color:#475569; border-color:#e2e8f0; }
         .type-chip { display:inline-flex; align-items:center; gap:9px; }
-        .type-chip-ico {
-            flex:none; width:28px; height:28px; border-radius:8px;
-            display:inline-flex; align-items:center; justify-content:center;
-            background:var(--tc-bg, #eff6ff); color:var(--tc-fg, #1d4ed8);
-        }
-        .type-chip-ico svg { width:17px; height:17px; }
-        .type-chip-ico.is-unid svg { stroke-dasharray:3 2; }
+        .type-chip-img { flex:none; width:28px; height:28px; object-fit:contain; }
         .type-chip-txt { font-weight:600; color:var(--ink-900); }
-        .tone-bldg  { --tc-bg:#eff6ff; --tc-fg:#1d4ed8; }
-        .tone-land  { --tc-bg:#ecfdf5; --tc-fg:#047857; }
-        .tone-infra { --tc-bg:#f1f5f9; --tc-fg:#475569; }
         /* 🔄 Update Insurance button (shown only for Expiring / Expired records) */
         @keyframes insUpdPulse { 0%,100% { box-shadow:0 0 0 0 rgba(245,158,11,.65), 0 4px 12px rgba(217,119,6,.35); } 50% { box-shadow:0 0 0 11px rgba(245,158,11,0), 0 4px 12px rgba(217,119,6,.35); } }
         @keyframes insUpdPulseRed { 0%,100% { box-shadow:0 0 0 0 rgba(220,38,38,.65), 0 4px 12px rgba(185,28,28,.35); } 50% { box-shadow:0 0 0 11px rgba(220,38,38,0), 0 4px 12px rgba(185,28,28,.35); } }

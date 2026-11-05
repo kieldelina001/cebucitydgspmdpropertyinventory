@@ -1170,7 +1170,7 @@ const tableImageObserver = new IntersectionObserver((entries, observer) => {
 // ============================================================================
 // 🎨 REMARKS PILLS + TYPE ICONS (inventory table)
 // Remarks: EXISTING = green, NOT FOUND = red, FOR VERIFICATION = yellow, OBSOLETE = soft mint.
-// Type: small line icon + the type name. Icons are inline SVG (no image files needed).
+// Type: the dashboard's icon image + the type name.
 // ============================================================================
 function remarkClass(text) {
     const t = String(text || '').toUpperCase();
@@ -1182,44 +1182,25 @@ function remarkClass(text) {
     return 'rem-other';
 }
 
-const TYPE_ICON_PATHS = {
-    building:  '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/>',
-    mod:       '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
-    school:    '<path d="M21.42 10.92a1 1 0 0 0-.02-1.84L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.83l8.57 3.91a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/>',
-    hospital:  '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 8v8"/><path d="M8 12h8"/>',
-    market:    '<path d="M3 9l1.5-5h15L21 9"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/><path d="M5 12v8h14v-8"/><path d="M10 20v-5h4v5"/>',
-    park:      '<path d="m17 14 3 3.3a1 1 0 0 1-.7 1.7H4.7a1 1 0 0 1-.7-1.7L7 14h-.3a1 1 0 0 1-.7-1.7L9 9h-.2A1 1 0 0 1 8 7.3L12 3l4 4.3a1 1 0 0 1-.8 1.7H15l3 3.3a1 1 0 0 1-.7 1.7H17Z"/><path d="M12 22v-3"/>',
-    land:      '<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14"/><path d="M15 6v14"/>',
-    flood:     '<path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>',
-    water:     '<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>',
-    road:      '<path d="M4 22 8 2"/><path d="m20 22-4-20"/><path d="M12 6v2"/><path d="M12 12v2"/><path d="M12 18v2"/>',
-    slaughter: '<path d="M22 8.35V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8.35A2 2 0 0 1 3.26 6.5l8-3.2a2 2 0 0 1 1.48 0l8 3.2A2 2 0 0 1 22 8.35Z"/><path d="M6 18h12"/><path d="M6 14h12"/>',
-    infra:     '<path d="m12 2 9 5-9 5-9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/>',
-    box:       '<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5"/><path d="M12 13v8"/>'
-};
-
-// Order matters: the most specific words are checked first.
-function typeIconInfo(text) {
+// Same icon files the dashboard type cards use. Order matters: most specific words first.
+function typeIconFile(text) {
     const t = String(text || '').toUpperCase();
-    if (!t.trim()) return null;
-    const unid = t.includes('UNIDENTIFIED');
-    if (t.includes('UNIDENTIFIED') && t.includes('LAND')) return { icon: 'land', unid, tone: 'land' };
-    if (t.includes('UNIDENTIFIED') && t.includes('BUILDING')) return { icon: 'building', unid, tone: 'bldg' };
-    if (t.includes('BUILDING MOD') || t.includes('ASSET MOD')) return { icon: 'mod', tone: 'bldg' };
-    if (t.includes('SCHOOL')) return { icon: 'school', tone: 'bldg' };
-    if (t.includes('HOSPITAL')) return { icon: 'hospital', tone: 'bldg' };
-    if (t.includes('MARKET')) return { icon: 'market', tone: 'bldg' };
-    if (t.includes('PARK') || t.includes('PLAZA') || t.includes('MONUMENT')) return { icon: 'park', tone: 'land' };
-    if (t.includes('OTHER LAND')) return { icon: 'land', tone: 'land' };
-    if (t.includes('OTHER INFRA')) return { icon: 'infra', tone: 'infra' };
-    if (t.includes('OTHER STRUCT')) return { icon: 'box', tone: 'infra' };
-    if (t.includes('FLOOD')) return { icon: 'flood', tone: 'infra' };
-    if (t.includes('WATER')) return { icon: 'water', tone: 'infra' };
-    if (t.includes('ROAD')) return { icon: 'road', tone: 'infra' };
-    if (t.includes('SLAUGHTER')) return { icon: 'slaughter', tone: 'infra' };
-    if (t.includes('LAND') || t === 'LOT') return { icon: 'land', tone: 'land' };
-    if (t.includes('BUILDING')) return { icon: 'building', tone: 'bldg' };
-    return { icon: 'box', tone: 'infra' };
+    if (!t.trim()) return '';
+    if (t.includes('UNIDENTIFIED') && t.includes('LAND')) return 'unidentified-land.png';
+    if (t.includes('UNIDENTIFIED') && t.includes('BUILDING')) return 'unidentified-building.png';
+    if (t.includes('BUILDING MOD') || t.includes('ASSET MOD')) return 'assetmod.png';
+    if (t.includes('SCHOOL')) return 'school.png';
+    if (t.includes('HOSPITAL')) return 'hospital.png';
+    if (t.includes('MARKET')) return 'market.png';
+    if (t.includes('PARK') || t.includes('PLAZA') || t.includes('MONUMENT')) return 'park.png';
+    if (t.includes('OTHER')) return 'other.png';
+    if (t.includes('FLOOD')) return 'flood.png';
+    if (t.includes('WATER')) return 'water.png';
+    if (t.includes('ROAD')) return 'road.png';
+    if (t.includes('SLAUGHTER')) return 'slaughterhouse.png';
+    if (t.includes('LAND') || t === 'LOT') return 'land.png';
+    if (t.includes('BUILDING')) return 'building.png';
+    return '';
 }
 
 function buildRemarksCell(td, text) {
@@ -1234,17 +1215,21 @@ function buildRemarksCell(td, text) {
 function buildTypeCell(td, text) {
     const raw = String(text || '').trim();
     if (!raw) return;
-    const info = typeIconInfo(raw);
     const wrap = document.createElement('span');
-    wrap.className = 'type-chip tone-' + info.tone;
-    const ico = document.createElement('span');
-    ico.className = 'type-chip-ico' + (info.unid ? ' is-unid' : '');
-    ico.setAttribute('aria-hidden', 'true');
-    ico.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + TYPE_ICON_PATHS[info.icon] + '</svg>';
+    wrap.className = 'type-chip';
+    const file = typeIconFile(raw);
+    if (file) {
+        const img = document.createElement('img');
+        img.className = 'type-chip-img';
+        img.src = file;
+        img.alt = '';
+        img.setAttribute('aria-hidden', 'true');
+        img.onerror = () => { img.style.display = 'none'; };
+        wrap.appendChild(img);
+    }
     const lbl = document.createElement('span');
     lbl.className = 'type-chip-txt';
     lbl.textContent = raw;
-    wrap.appendChild(ico);
     wrap.appendChild(lbl);
     td.appendChild(wrap);
 }
