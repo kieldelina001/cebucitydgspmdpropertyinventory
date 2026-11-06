@@ -1246,6 +1246,45 @@ async function runBulkDownload(rows, keys, stamp) {
     if (!place()) document.addEventListener('DOMContentLoaded', place);
 })();
 
+// =========================================================================
+// 🙈 HIDE "LOG OUT" WHILE ANY WINDOW IS OPEN
+// When a modal / dialog is on screen (property details, photo viewer, upload,
+// admin panel, bulk download, name prompt, access/session messages...) the
+// floating Log Out button is hidden so it can never cover a window or be
+// clicked by accident. It comes back as soon as the window is closed.
+// =========================================================================
+(function hideLogoutWhenWindowOpen() {
+    const WINDOW_SELECTORS = [
+        '.modal-overlay', '#editModal', '#insDetailOverlay', '#uploadPhotosOverlay',
+        '#accessModal', '#sessionExpiredModal', '#customNameModal',
+        '#adminOverlay', '#bulkDlOverlay'
+    ].join(',');
+
+    const style = document.createElement('style');
+    style.id = 'hideLogoutWhenWindowOpenStyle';
+    style.textContent = 'body.win-open #floatingLogoutBtn { display: none !important; }';
+    document.head.appendChild(style);
+
+    function isShown(el) {
+        const cs = getComputedStyle(el);
+        return cs.display !== 'none' && cs.visibility !== 'hidden';
+    }
+    function refresh() {
+        let open = false;
+        document.querySelectorAll(WINDOW_SELECTORS).forEach(el => { if (!open && isShown(el)) open = true; });
+        document.body.classList.toggle('win-open', open);
+    }
+
+    let pending = false;
+    const schedule = () => { if (pending) return; pending = true; requestAnimationFrame(() => { pending = false; refresh(); }); };
+    const start = () => {
+        new MutationObserver(schedule).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['style', 'class'] });
+        setInterval(refresh, 500); // safety net
+        refresh();
+    };
+    if (document.body) start(); else document.addEventListener('DOMContentLoaded', start);
+})();
+
 async function loadInventoryFromGoogleSheets(retainPage = false) {
     if (statusBanner) {
         statusBanner.style.backgroundColor = "#fff3cd";
