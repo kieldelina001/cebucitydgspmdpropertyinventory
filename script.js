@@ -867,8 +867,8 @@ async function stampDgsLogo(blob) {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(photo, 0, 0, W, H);
 
-        // Logo size scales with the photo (about 14% of the shorter side, 64-260px)
-        const size = Math.round(Math.min(260, Math.max(64, Math.min(W, H) * 0.14)));
+        // Logo size scales with the photo (about 7% of the shorter side, 32-130px)
+        const size = Math.round(Math.min(130, Math.max(32, Math.min(W, H) * 0.07)));
         const margin = Math.round(size * 0.22);
         const pad = Math.round(size * 0.10);
         const ratio = logo.width / logo.height;
@@ -1104,7 +1104,6 @@ function openBulkDownloadDialog() {
         <div class="bulk-body">
           <button type="button" class="bulk-selall" id="bulkSelAll">Select all available</button>
           ${rowsHtml}
-          <label class="bulk-opt"><input type="checkbox" id="bulkStamp" checked> Add DGS logo on images (upper right)</label>
           <div class="bulk-progress" id="bulkProg"><div class="bulk-bar"><div></div></div><div class="bulk-ptext" id="bulkPText"></div></div>
         </div>
         <div class="bulk-foot">
@@ -1127,7 +1126,7 @@ function openBulkDownloadDialog() {
     go.onclick = async () => {
         const chosen = boxes().filter(b => b.checked).map(b => b.value);
         if (!chosen.length) return;
-        const stamp = ov.querySelector('#bulkStamp').checked;
+        const stamp = true; // DGS logo is always added to downloaded images
         _bulkRunning = true; _bulkCancel = false;
         go.disabled = true;
         boxes().forEach(b => b.disabled = true);
