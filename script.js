@@ -788,7 +788,7 @@ async function fetchAuthorizedImage(driveUrl) {
 
 // ⬇️ Direct file download (no new tab). Fetches the Drive file as a blob and saves it
 // straight to the device. Falls back to Drive's direct-download link if the fetch is blocked.
-async function downloadDriveFile(driveUrl, baseName) {
+async function downloadDriveFile(driveUrl, baseName, stamp) {
     const m = (typeof driveUrl === 'string') ? driveUrl.match(/[-\w]{25,}/) : null;
     if (!m) return false;
     const fileId = m[0];
@@ -816,8 +816,9 @@ async function downloadDriveFile(driveUrl, baseName) {
         try {
             const res = await fetch(url);
             if (!res.ok) continue;
-            const blob = await res.blob();
+            let blob = await res.blob();
             if (!blob.type.startsWith('image/') && blob.type !== 'application/pdf') continue; // skip HTML error pages
+            if (stamp) blob = await stampDgsLogo(blob); // brand the photo (images only; falls back to original on error)
             saveBlob(blob);
             return true;
         } catch (e) { /* try next source */ }
@@ -833,6 +834,418 @@ async function downloadDriveFile(driveUrl, baseName) {
     document.body.removeChild(a);
     return true;
 }
+
+// =========================================================================
+// 🏷️ DGS LOGO WATERMARK + DOWNLOAD ALL PHOTOS (ZIP)
+// Every property photo downloaded from the web app gets the DGS logo stamped
+// on its upper-right corner so its origin can be recognised. PDFs are left as-is.
+// =========================================================================
+const DGS_STAMP_LOGO = 'dgs_logo.png';
+let _dgsLogoBitmapPromise = null;
+
+function loadDgsLogoBitmap() {
+    if (!_dgsLogoBitmapPromise) {
+        _dgsLogoBitmapPromise = fetch(DGS_STAMP_LOGO)
+            .then(r => { if (!r.ok) throw new Error('logo not found'); return r.blob(); })
+            .then(b => createImageBitmap(b))
+            .catch(() => { _dgsLogoBitmapPromise = null; return null; });
+    }
+    return _dgsLogoBitmapPromise;
+}
+
+// Returns a new image Blob with the DGS logo on the upper-right. On any failure
+// the original blob is returned so the download never breaks.
+async function stampDgsLogo(blob) {
+    try {
+        if (!blob || !blob.type.startsWith('image/')) return blob;
+        const logo = await loadDgsLogoBitmap();
+        if (!logo) return blob;
+        const photo = await createImageBitmap(blob);
+        const W = photo.width, H = photo.height;
+        const canvas = document.createElement('canvas');
+        canvas.width = W; canvas.height = H;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(photo, 0, 0, W, H);
+
+        // Logo size scales with the photo (about 14% of the shorter side, 64-260px)
+        const size = Math.round(Math.min(260, Math.max(64, Math.min(W, H) * 0.14)));
+        const margin = Math.round(size * 0.22);
+        const pad = Math.round(size * 0.10);
+        const ratio = logo.width / logo.height;
+        const lw = ratio >= 1 ? size : Math.round(size * ratio);
+        const lh = ratio >= 1 ? Math.round(size / ratio) : size;
+        const x = W - lw - margin;
+        const y = margin;
+
+        // Soft white badge behind the logo so it stays visible on dark or bright photos
+        const r = Math.round(size * 0.18);
+        ctx.save();
+        ctx.fillStyle = 'rgba(255,255,255,0.82)';
+        ctx.shadowColor = 'rgba(0,0,0,0.35)';
+        ctx.shadowBlur = Math.round(size * 0.12);
+        ctx.beginPath();
+        const bx = x - pad, by = y - pad, bw = lw + pad * 2, bh = lh + pad * 2;
+        ctx.moveTo(bx + r, by);
+        ctx.arcTo(bx + bw, by, bx + bw, by + bh, r);
+        ctx.arcTo(bx + bw, by + bh, bx, by + bh, r);
+        ctx.arcTo(bx, by + bh, bx, by, r);
+        ctx.arcTo(bx, by, bx + bw, by, r);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+        ctx.drawImage(logo, x, y, lw, lh);
+
+        const outType = (blob.type === 'image/png') ? 'image/png' : 'image/jpeg';
+        const out = await new Promise(res => canvas.toBlob(res, outType, 0.93));
+        return out || blob;
+    } catch (e) {
+        return blob;
+    }
+}
+
+// Fetch a Drive file as a Blob (same sources as downloadDriveFile). Returns null on failure.
+async function fetchDriveBlob(driveUrl) {
+    const m = (typeof driveUrl === 'string') ? driveUrl.match(/[-\w]{25,}/) : null;
+    if (!m) return null;
+    const fileId = m[0];
+    const candidates = [
+        'https://lh3.googleusercontent.com/d/' + fileId,
+        'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w2000',
+        'https://drive.google.com/uc?export=download&id=' + fileId
+    ];
+    for (const url of candidates) {
+        try {
+            const res = await fetch(url);
+            if (!res.ok) continue;
+            const blob = await res.blob();
+            if (!blob.type.startsWith('image/') && blob.type !== 'application/pdf') continue;
+            return blob;
+        } catch (e) { /* try next source */ }
+    }
+    return null;
+}
+
+// Minimal ZIP writer (store / no compression - photos are already compressed).
+const _crcTable = (() => {
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+        let c = n;
+        for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+        t[n] = c >>> 0;
+    }
+    return t;
+})();
+function _crc32(u8) {
+    let c = 0xFFFFFFFF;
+    for (let i = 0; i < u8.length; i++) c = _crcTable[(c ^ u8[i]) & 0xFF] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+}
+async function buildZipBlob(files) { // files: [{ name, blob }]
+    const enc = new TextEncoder();
+    const now = new Date();
+    const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+    const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+    const parts = [], central = [];
+    let offset = 0;
+    for (const f of files) {
+        const data = new Uint8Array(await f.blob.arrayBuffer());
+        const nameBytes = enc.encode(f.name);
+        const crc = _crc32(data);
+        const lh = new DataView(new ArrayBuffer(30));
+        lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true);
+        lh.setUint16(8, 0, true); lh.setUint16(10, dosTime, true); lh.setUint16(12, dosDate, true);
+        lh.setUint32(14, crc, true); lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true);
+        lh.setUint16(26, nameBytes.length, true); lh.setUint16(28, 0, true);
+        parts.push(lh.buffer, nameBytes, data);
+
+        const ch = new DataView(new ArrayBuffer(46));
+        ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true);
+        ch.setUint16(8, 0x0800, true); ch.setUint16(10, 0, true); ch.setUint16(12, dosTime, true);
+        ch.setUint16(14, dosDate, true); ch.setUint32(16, crc, true); ch.setUint32(20, data.length, true);
+        ch.setUint32(24, data.length, true); ch.setUint16(28, nameBytes.length, true);
+        ch.setUint32(42, offset, true);
+        central.push(ch.buffer, nameBytes);
+        offset += 30 + nameBytes.length + data.length;
+    }
+    let centralSize = 0;
+    central.forEach(c => { centralSize += (c.byteLength !== undefined ? c.byteLength : c.length); });
+    const end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true);
+    end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+    end.setUint32(12, centralSize, true); end.setUint32(16, offset, true);
+    return new Blob([...parts, ...central, end.buffer], { type: 'application/zip' });
+}
+
+// Download every photo/document of the open property as ONE zip (logo stamped on images).
+async function downloadAllModalPhotos(baseName, onProgress) {
+    const safe = s => String(s || '').replace(/[\\/:*?"<>|]+/g, '_').trim();
+    const extFromType = t => ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp', 'application/pdf': 'pdf' }[t] || 'jpg');
+    const prefix = safe(baseName) || 'property';
+    const files = [];
+    const used = new Set();
+    let failed = 0;
+    for (let i = 0; i < modalPhotos.length; i++) {
+        if (onProgress) onProgress(i + 1, modalPhotos.length);
+        let blob = await fetchDriveBlob(modalPhotos[i].url);
+        if (!blob) { failed++; continue; }
+        blob = await stampDgsLogo(blob);
+        let name = prefix + '_' + safe(modalPhotos[i].label);
+        let full = name + '.' + extFromType(blob.type), n = 2;
+        while (used.has(full)) full = name + '_' + (n++) + '.' + extFromType(blob.type);
+        used.add(full);
+        files.push({ name: full, blob });
+    }
+    if (!files.length) return { saved: 0, failed };
+    const zip = await buildZipBlob(files);
+    const objUrl = URL.createObjectURL(zip);
+    const a = document.createElement('a');
+    a.href = objUrl;
+    a.download = prefix + '_Photos.zip';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(objUrl), 15000);
+    return { saved: files.length, failed };
+}
+
+// =========================================================================
+// 📦 BULK DOWNLOAD OF SEARCHED RECORDS
+// "Download Documents" button (next to Export Searched): downloads the chosen
+// document types (Letter, JEV, COC, photos, ...) of EVERY record currently
+// shown by the search/filters, as ZIP file(s) with one folder per document type.
+// =========================================================================
+const BULK_DOC_TYPES = [
+    { key: 'letter',                    label: 'Letter',                         folder: 'Letter' },
+    { key: 'jev',                       label: 'JEV (Journal Entry Voucher)',    folder: 'JEV' },
+    { key: 'certificate of completion', label: 'COC (Certificate of Completion)', folder: 'COC' },
+    { key: 'photo 1',                   label: 'Photo 1',                        folder: 'Photo_1' },
+    { key: 'photo 2',                   label: 'Photo 2',                        folder: 'Photo_2' },
+    { key: 'map coordinates',           label: 'Map Coordinates',                folder: 'Map_Coordinates' },
+    { key: 'tax declaration',           label: 'Tax Declaration',                folder: 'Tax_Declaration' },
+    { key: 'transfer_cert1',            label: 'Transfer Certificate (TCT) P1',  folder: 'TCT_P1' },
+    { key: 'transfer_cert2',            label: 'Transfer Certificate (TCT) P2',  folder: 'TCT_P2' }
+];
+const BULK_FILES_PER_ZIP = 100;   // keeps memory use reasonable on big searches
+const BULK_CONCURRENCY = 4;       // files fetched at the same time
+let _bulkCancel = false;
+let _bulkRunning = false;
+
+function bulkSafe(s) { return String(s || '').replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, ' ').trim(); }
+
+function bulkCountFor(rows, key) {
+    const col = headerMapping[key];
+    if (!col) return 0;
+    return rows.reduce((n, r) => n + ((r[col] && String(r[col]).trim() !== '') ? 1 : 0), 0);
+}
+
+function bulkInjectStyles() {
+    if (document.getElementById('bulkDlStyles')) return;
+    const st = document.createElement('style');
+    st.id = 'bulkDlStyles';
+    st.textContent = `
+    #bulkDlOverlay { position: fixed; inset: 0; background: rgba(11,20,36,0.62); display: none; align-items: center; justify-content: center; z-index: 100000; padding: 16px; }
+    #bulkDlOverlay.open { display: flex; }
+    .bulk-card { background: #fff; width: 100%; max-width: 480px; max-height: 92vh; overflow: auto; border-radius: 14px; box-shadow: 0 24px 60px rgba(0,0,0,0.4); font-family: inherit; }
+    .bulk-head { padding: 18px 22px 12px; border-bottom: 1px solid #e2e8f0; }
+    .bulk-head h3 { margin: 0; font-size: 18px; color: #0b1f3a; }
+    .bulk-head p { margin: 4px 0 0; font-size: 13px; color: #64748b; }
+    .bulk-body { padding: 14px 22px; }
+    .bulk-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 6px; cursor: pointer; font-size: 14px; color: #1e293b; }
+    .bulk-row:hover { background: #f1f7fd; border-color: #8cbfe8; }
+    .bulk-row.disabled { opacity: 0.45; cursor: not-allowed; }
+    .bulk-row input { width: 17px; height: 17px; margin: 0; }
+    .bulk-row .bulk-lbl { flex: 1; }
+    .bulk-row .bulk-cnt { font-size: 12px; font-weight: 600; color: #1d6fb8; background: #e6f1fb; padding: 2px 9px; border-radius: 999px; }
+    .bulk-opt { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #334155; margin-top: 10px; cursor: pointer; }
+    .bulk-selall { font-size: 12px; color: #1d6fb8; background: none; border: 0; cursor: pointer; padding: 0 0 8px; font-weight: 600; }
+    .bulk-progress { display: none; margin-top: 14px; }
+    .bulk-bar { height: 8px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
+    .bulk-bar > div { height: 100%; width: 0; background: linear-gradient(90deg, #2b83cf, #1d6fb8); transition: width 0.15s; }
+    .bulk-ptext { font-size: 12.5px; color: #475569; margin-top: 6px; }
+    .bulk-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 12px 22px 18px; border-top: 1px solid #e2e8f0; }
+    .bulk-btn { padding: 9px 20px; border-radius: 9px; font-weight: 600; font-size: 14px; cursor: pointer; border: 1px solid #cbd5e1; background: #fff; color: #334155; }
+    .bulk-btn.primary { background: linear-gradient(180deg, #2b83cf, #1d6fb8); border-color: #1d6fb8; color: #fff; }
+    .bulk-btn:disabled { opacity: 0.5; cursor: not-allowed; }`;
+    document.head.appendChild(st);
+}
+
+function bulkSetProgress(done, total, text) {
+    const bar = document.querySelector('#bulkDlOverlay .bulk-bar > div');
+    const txt = document.getElementById('bulkPText');
+    if (bar) bar.style.width = (total ? Math.round(done / total * 100) : 0) + '%';
+    if (txt) txt.textContent = text || '';
+}
+
+function openBulkDownloadDialog() {
+    const rows = Array.isArray(currentFilteredData) ? currentFilteredData : [];
+    if (!rows.length) {
+        if (typeof showToast === 'function') showToast('No records to download. Search or filter first.', 'warning');
+        return;
+    }
+    bulkInjectStyles();
+    let ov = document.getElementById('bulkDlOverlay');
+    if (ov) ov.remove();
+    ov = document.createElement('div');
+    ov.id = 'bulkDlOverlay';
+
+    const rowsHtml = BULK_DOC_TYPES.map(t => {
+        const n = bulkCountFor(rows, t.key);
+        return `<label class="bulk-row${n ? '' : ' disabled'}"><input type="checkbox" value="${t.key}" ${n ? '' : 'disabled'}>` +
+               `<span class="bulk-lbl">${t.label}</span><span class="bulk-cnt">${n} file${n === 1 ? '' : 's'}</span></label>`;
+    }).join('');
+
+    ov.innerHTML = `
+      <div class="bulk-card" role="dialog" aria-modal="true" aria-labelledby="bulkTitle">
+        <div class="bulk-head">
+          <h3 id="bulkTitle">Download Documents</h3>
+          <p>${rows.length} record${rows.length === 1 ? '' : 's'} in the current search. Choose what to download.</p>
+        </div>
+        <div class="bulk-body">
+          <button type="button" class="bulk-selall" id="bulkSelAll">Select all available</button>
+          ${rowsHtml}
+          <label class="bulk-opt"><input type="checkbox" id="bulkStamp" checked> Add DGS logo on images (upper right)</label>
+          <div class="bulk-progress" id="bulkProg"><div class="bulk-bar"><div></div></div><div class="bulk-ptext" id="bulkPText"></div></div>
+        </div>
+        <div class="bulk-foot">
+          <button type="button" class="bulk-btn" id="bulkCancel">Close</button>
+          <button type="button" class="bulk-btn primary" id="bulkGo" disabled>Download ZIP</button>
+        </div>
+      </div>`;
+    document.body.appendChild(ov);
+    ov.classList.add('open');
+
+    const go = ov.querySelector('#bulkGo'), cancel = ov.querySelector('#bulkCancel');
+    const boxes = () => Array.from(ov.querySelectorAll('.bulk-row input:not(:disabled)'));
+    const sync = () => { go.disabled = _bulkRunning || !boxes().some(b => b.checked); };
+    ov.addEventListener('change', sync);
+    ov.querySelector('#bulkSelAll').onclick = () => { const all = boxes().every(b => b.checked); boxes().forEach(b => b.checked = !all); sync(); };
+    const close = () => { if (_bulkRunning) _bulkCancel = true; ov.remove(); };
+    cancel.onclick = close;
+    ov.addEventListener('mousedown', e => { if (e.target === ov && !_bulkRunning) close(); });
+
+    go.onclick = async () => {
+        const chosen = boxes().filter(b => b.checked).map(b => b.value);
+        if (!chosen.length) return;
+        const stamp = ov.querySelector('#bulkStamp').checked;
+        _bulkRunning = true; _bulkCancel = false;
+        go.disabled = true;
+        boxes().forEach(b => b.disabled = true);
+        cancel.textContent = 'Cancel';
+        ov.querySelector('#bulkProg').style.display = 'block';
+        try {
+            const res = await runBulkDownload(rows, chosen, stamp);
+            if (_bulkCancel) { if (typeof showToast === 'function') showToast('Download cancelled.', 'warning'); }
+            else if (typeof showToast === 'function') {
+                if (!res.saved) showToast('No files could be downloaded.', 'error');
+                else if (res.failed) showToast(`${res.saved} file(s) downloaded. ${res.failed} could not be retrieved (see the report inside the ZIP).`, 'warning');
+                else showToast(`${res.saved} file(s) downloaded.`, 'success');
+            }
+        } catch (err) {
+            if (typeof showToast === 'function') showToast('Bulk download failed: ' + (err && err.message ? err.message : err), 'error');
+        } finally {
+            _bulkRunning = false;
+            if (document.body.contains(ov)) ov.remove();
+        }
+    };
+}
+
+async function runBulkDownload(rows, keys, stamp) {
+    const articleCol = headerMapping['article/item'];
+    const extFromType = t => ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp', 'application/pdf': 'pdf' }[t] || 'jpg');
+
+    // 1) Build the job list: one job per (record x chosen document type)
+    const jobs = [];
+    rows.forEach(r => {
+        const code = bulkSafe(articleCol ? r[articleCol] : '') || 'item';
+        keys.forEach(k => {
+            const col = headerMapping[k];
+            const val = col && r[col] ? String(r[col]).trim() : '';
+            if (!val) return;
+            const t = BULK_DOC_TYPES.find(x => x.key === k);
+            jobs.push({ url: val, code, folder: t.folder, label: t.folder });
+        });
+    });
+    if (!jobs.length) return { saved: 0, failed: 0 };
+
+    // 2) Fetch (+ stamp) with limited concurrency
+    const results = new Array(jobs.length);
+    let next = 0, done = 0;
+    const worker = async () => {
+        while (!_bulkCancel) {
+            const i = next++;
+            if (i >= jobs.length) return;
+            let blob = await fetchDriveBlob(jobs[i].url);
+            if (blob && stamp) blob = await stampDgsLogo(blob);
+            results[i] = blob;
+            done++;
+            bulkSetProgress(done, jobs.length, `Preparing files ${done} / ${jobs.length}...`);
+        }
+    };
+    bulkSetProgress(0, jobs.length, `Preparing files 0 / ${jobs.length}...`);
+    await Promise.all(Array.from({ length: BULK_CONCURRENCY }, worker));
+    if (_bulkCancel) return { saved: 0, failed: 0 };
+
+    // 3) Collect files (unique names) and failures
+    const used = new Set();
+    const files = [];
+    const failedList = [];
+    jobs.forEach((j, i) => {
+        const blob = results[i];
+        if (!blob) { failedList.push(j.code + ' - ' + j.label); return; }
+        let base = j.folder + '/' + j.code + '_' + j.label;
+        let name = base + '.' + extFromType(blob.type), n = 2;
+        while (used.has(name)) name = base + '_' + (n++) + '.' + extFromType(blob.type);
+        used.add(name);
+        files.push({ name, blob });
+    });
+    if (!files.length) return { saved: 0, failed: failedList.length };
+
+    if (failedList.length) {
+        const txt = 'These files could not be retrieved:\r\n\r\n' + failedList.join('\r\n') + '\r\n';
+        files.push({ name: '_Download_Report.txt', blob: new Blob([txt], { type: 'text/plain' }) });
+    }
+
+    // 4) Zip (split in parts for very large searches) and save
+    const q = searchInput && searchInput.value ? bulkSafe(searchInput.value).slice(0, 40) : '';
+    const stampDate = new Date().toISOString().slice(0, 10);
+    const base = 'Documents' + (q ? '_' + q : '') + '_' + stampDate;
+    const parts = Math.ceil(files.length / BULK_FILES_PER_ZIP);
+    for (let p = 0; p < parts; p++) {
+        bulkSetProgress(jobs.length, jobs.length, parts > 1 ? `Creating ZIP ${p + 1} of ${parts}...` : 'Creating ZIP...');
+        const chunk = files.slice(p * BULK_FILES_PER_ZIP, (p + 1) * BULK_FILES_PER_ZIP);
+        const zip = await buildZipBlob(chunk);
+        const objUrl = URL.createObjectURL(zip);
+        const a = document.createElement('a');
+        a.href = objUrl;
+        a.download = base + (parts > 1 ? '_part' + (p + 1) : '') + '.zip';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(objUrl), 20000);
+        await new Promise(r => setTimeout(r, 600)); // let the browser start each download
+    }
+    return { saved: jobs.length - failedList.length, failed: failedList.length };
+}
+
+// Add the button next to "Export Searched" (without touching index.html)
+(function addBulkDownloadButton() {
+    const place = () => {
+        const ref = document.getElementById('exportFilteredButton');
+        if (!ref || document.getElementById('bulkDownloadButton')) return !!ref;
+        const b = document.createElement('button');
+        b.id = 'bulkDownloadButton';
+        b.className = ref.className;
+        b.type = 'button';
+        b.textContent = 'Download Documents';
+        b.title = 'Download Letter / JEV / COC and other files of all searched records as a ZIP';
+        b.addEventListener('click', openBulkDownloadDialog);
+        ref.insertAdjacentElement('afterend', b);
+        return true;
+    };
+    if (!place()) document.addEventListener('DOMContentLoaded', place);
+})();
 
 async function loadInventoryFromGoogleSheets(retainPage = false) {
     if (statusBanner) {
@@ -1897,13 +2310,41 @@ function renderModalPhotoViewer() {
         downloadBtn.disabled = true;
         downloadBtn.innerHTML = 'Downloading...';
         try {
-            await downloadDriveFile(currentImg.url, article + '_' + currentImg.label);
+            await downloadDriveFile(currentImg.url, article + '_' + currentImg.label, true);
         } finally {
             downloadBtn.disabled = false;
             downloadBtn.innerHTML = original;
         }
     };
     actionsContainer.appendChild(downloadBtn);
+
+    // Download every photo of this property in one go (single ZIP, DGS logo on each image)
+    if (modalPhotos.length > 1) {
+        const downloadAllBtn = document.createElement('button');
+        downloadAllBtn.className = 'photo-action-btn';
+        downloadAllBtn.innerHTML = `Download All (${modalPhotos.length})`;
+        downloadAllBtn.onclick = async () => {
+            const row = inventoryData.find(r => r._rowId === activeEditIndex);
+            const aKey = headerMapping['article/item'];
+            const article = (row && aKey && row[aKey]) ? String(row[aKey]).trim() : 'property';
+            const original = downloadAllBtn.innerHTML;
+            downloadAllBtn.disabled = true;
+            try {
+                const res = await downloadAllModalPhotos(article, (i, n) => {
+                    downloadAllBtn.innerHTML = `Preparing ${i} / ${n}...`;
+                });
+                if (typeof showToast === 'function') {
+                    if (!res.saved) showToast('Could not download the photos. Please try again.', 'error');
+                    else if (res.failed) showToast(`${res.saved} file(s) downloaded. ${res.failed} could not be retrieved.`, 'warning');
+                    else showToast(`${res.saved} files downloaded as a ZIP.`, 'success');
+                }
+            } finally {
+                downloadAllBtn.disabled = false;
+                downloadAllBtn.innerHTML = original;
+            }
+        };
+        actionsContainer.appendChild(downloadAllBtn);
+    }
     photoContainer.appendChild(actionsContainer);
 
     if (modalPhotos.length > 1) {
