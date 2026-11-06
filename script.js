@@ -2152,6 +2152,13 @@ function executeSearch(resetPage = true) {
                 const hasCoc = !!(cKey && row[cKey] && String(row[cKey]).trim() !== '');
                 matchPhoto = hasJev || hasCoc;
             }
+            // --- Missing-document / TCT filters ---
+            const _has = k => !!(k && row[k] && String(row[k]).trim() !== '');
+            if (phoF === 'WITH_TCT') matchPhoto = _has(headerMapping['transfer_cert1']) || _has(headerMapping['transfer_cert2']);
+            if (phoF === 'NO_TCT') matchPhoto = !(_has(headerMapping['transfer_cert1']) || _has(headerMapping['transfer_cert2']));
+            if (phoF === 'NO_TAX_DEC') matchPhoto = !hasTaxDec;
+            if (phoF === 'NO_LETTER') matchPhoto = !_has(headerMapping['letter']);
+            if (phoF === 'NO_JEV_COC') matchPhoto = !(_has(headerMapping['jev']) || _has(headerMapping['certificate of completion']));
         }
        // --- INSURANCE CLICK FILTER LOGIC ---
         if (activeInsuranceFilter !== 'ALL') {
