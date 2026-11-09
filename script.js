@@ -853,11 +853,52 @@ function loadDgsLogoBitmap() {
     return _dgsLogoBitmapPromise;
 }
 
+// ⚙️ ADMIN SETTING: "Add DGS logo to downloaded photos" (ON / OFF).
+// The value lives on the server (Apps Script > Script Properties), so one switch in
+// the Admin Panel controls every user. The last known value is cached in this
+// browser, and the default is ON, so a slow or failed lookup never blocks a download.
+const _dgsSettings = { logoStamp: true, fetchedAt: 0, pending: null };
+try { if (localStorage.getItem('dgsLogoStamp') === 'false') _dgsSettings.logoStamp = false; } catch (e) {}
+
+function setDgsLogoStamp(on) {
+    _dgsSettings.logoStamp = !!on;
+    _dgsSettings.fetchedAt = Date.now();
+    try { localStorage.setItem('dgsLogoStamp', on ? 'true' : 'false'); } catch (e) {}
+}
+
+function isLogoStampEnabled(force) {
+    if (!force && Date.now() - _dgsSettings.fetchedAt < 30000) return Promise.resolve(_dgsSettings.logoStamp);
+    if (_dgsSettings.pending) return _dgsSettings.pending; // many images at once share one lookup
+    _dgsSettings.pending = (async () => {
+        try {
+            const params = new URLSearchParams();
+            params.append('secret', API_SECRET);
+            params.append('action', 'getSettings');
+            const res = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+                method: 'POST',
+                body: params.toString(),
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+            });
+            const json = JSON.parse(await res.text());
+            if (json && json.success && json.settings) setDgsLogoStamp(json.settings.logoStamp !== false);
+            else _dgsSettings.fetchedAt = Date.now();
+        } catch (e) {
+            _dgsSettings.fetchedAt = Date.now(); // keep the last known value
+        } finally {
+            _dgsSettings.pending = null;
+        }
+        return _dgsSettings.logoStamp;
+    })();
+    return _dgsSettings.pending;
+}
+
 // Returns a new image Blob with the DGS logo on the upper-right. On any failure
 // the original blob is returned so the download never breaks.
+// When the admin has switched the logo OFF, the original photo is returned untouched.
 async function stampDgsLogo(blob) {
     try {
         if (!blob || !blob.type.startsWith('image/')) return blob;
+        if (!(await isLogoStampEnabled())) return blob;
         const logo = await loadDgsLogoBitmap();
         if (!logo) return blob;
         const photo = await createImageBitmap(blob);
@@ -1778,6 +1819,7 @@ function renderTable(data, page = 1) {
             }
             tr.appendChild(td);
         });
+        if (window.AdminRecords) AdminRecords.decorateRow(tr, row); // 🗑️ admin-only delete button
         if (window.PrintQueue) PrintQueue.decorateRow(tr, row); // 🖨️ adds the "+ Queue" cell
         tr.addEventListener('click', () => openPopUp(row._rowId));
         tableBody.appendChild(tr);
@@ -3553,6 +3595,9 @@ window.addEventListener('DOMContentLoaded', () => {
 //   • view / add / edit / delete Gmail accounts in "Authorized Accounts"
 //   • review pending access requests (Accept -> Authorized Accounts, Deny -> marked "Denied" in the sheet, then hidden)
 //   • delete a property photo (Drive file + sheet link) from the photo viewer
+//   • add a new inventory record (toolbar "＋ Add Record") and delete a record (🗑 on each table row;
+//     the row is archived to the "Deleted Records" tab first)
+//   • switch the DGS logo on/off for every downloaded photo (Photo Downloads card)
 // NOTE: hiding the buttons here is cosmetic only — the Apps Script backend
 // (handleAdminAction in code.gs) independently verifies the admin's Google
 // token, so nobody else can use these actions.
@@ -3771,6 +3816,7 @@ window.addEventListener('DOMContentLoaded', () => {
         setBusy(true);
         toast('Loading…', 'info');
         let errMsg = '';
+        isLogoStampEnabled(true).then(renderLogoSetting);
         try { applyAccounts(await adminCall('adminList')); } catch (err) { errMsg = err.message; }
         try { applyRequests(await adminCall('adminRequests')); }
         catch (err) { errMsg = errMsg || ('Access requests: ' + err.message); }
@@ -3935,12 +3981,29 @@ window.addEventListener('DOMContentLoaded', () => {
         <div id="adminPanel" role="dialog" aria-modal="true" aria-label="Admin Panel">
             <div class="adm-head">
                 <div class="adm-head-ic">🛡️</div>
-                <div><h3>Admin Panel</h3><p>Manage who can access the Real Estate Inventory</p></div>
+                <div><h3>Admin Panel</h3><p>Manage access, inventory records and download settings</p></div>
                 <div class="adm-head-sp"></div>
                 <button class="adm-iconbtn" id="adminRefreshBtn" title="Refresh">↻ Refresh</button>
                 <button class="adm-iconbtn" id="adminCloseBtn" title="Close" style="font-size:20px;">&times;</button>
             </div>
             <div class="adm-body">
+                <section class="adm-card">
+                    <div class="adm-card-head">
+                        <h4>🖼️ Photo Downloads</h4>
+                        <span class="adm-card-sub">Applies to every user of the web app</span>
+                    </div>
+                    <div class="adm-setting">
+                        <div class="adm-setting-txt">
+                            <b>Add DGS logo to downloaded photos</b>
+                            <span id="admLogoState">Checking current setting…</span>
+                        </div>
+                        <label class="adm-switch" title="Turn the DGS logo on or off for downloaded photos">
+                            <input type="checkbox" id="admLogoToggle" aria-label="Add DGS logo to downloaded photos">
+                            <span class="adm-slider"></span>
+                        </label>
+                    </div>
+                </section>
+
                 <section class="adm-card">
                     <div class="adm-card-head">
                         <h4>📨 Access Requests <span class="adm-badge" id="admReqBadge">0</span></h4>
@@ -4012,6 +4075,7 @@ window.addEventListener('DOMContentLoaded', () => {
         els.search.addEventListener('input', renderAccounts);
         els.reqBody.addEventListener('click', onPanelClick);
         els.table.addEventListener('click', onPanelClick);
+        document.getElementById('admLogoToggle').addEventListener('change', onLogoToggle);
         document.getElementById('adminCfCancel').addEventListener('click', closeConfirm);
         els.cfOk.addEventListener('click', () => { const cb = confirmCb; closeConfirm(); if (cb) cb(); });
         els.cf.addEventListener('mousedown', e => { if (e.target === els.cf) closeConfirm(); });
@@ -4090,6 +4154,358 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ---------------------------------------------------------------- DOWNLOAD SETTINGS (DGS logo)
+    function renderLogoSetting() {
+        const t = document.getElementById('admLogoToggle');
+        const st = document.getElementById('admLogoState');
+        if (!t || !st) return;
+        t.checked = _dgsSettings.logoStamp;
+        st.textContent = _dgsSettings.logoStamp
+            ? 'ON: downloaded photos carry the DGS logo (top-right corner).'
+            : 'OFF: photos are downloaded exactly as uploaded, without the logo.';
+        st.className = _dgsSettings.logoStamp ? 'on' : 'off';
+    }
+
+    async function onLogoToggle(e) {
+        const want = e.target.checked;
+        setBusy(true);
+        toast('Saving setting…', 'info');
+        try {
+            const p = await adminCall('adminSetSettings', { logoStamp: want ? 'true' : 'false' });
+            setDgsLogoStamp(p.settings ? p.settings.logoStamp !== false : want);
+            toast(p.message || 'Setting saved.', 'ok');
+        } catch (err) {
+            toast(err.message, 'error');
+        } finally {
+            setBusy(false);
+            renderLogoSetting(); // always shows the real, saved state
+        }
+    }
+
+    // ---------------------------------------------------------------- INVENTORY RECORDS (add / delete)
+    let recDomReady = false;
+    let recDeleteCtx = null;
+
+    function recCss() {
+        const css = document.createElement('style');
+        css.textContent = `
+        #adminPanel .adm-setting{display:flex;align-items:center;gap:18px;padding:16px 20px;}
+        #adminPanel .adm-setting-txt{flex:1;display:flex;flex-direction:column;gap:3px;min-width:0;}
+        #adminPanel .adm-setting-txt b{font-size:14px;color:#0b1f3a;}
+        #adminPanel .adm-setting-txt span{font-size:12.5px;color:#64748b;}
+        #adminPanel .adm-setting-txt span.on{color:#15803d;}
+        #adminPanel .adm-switch{position:relative;display:inline-block;width:50px;height:28px;flex:none;cursor:pointer;}
+        #adminPanel .adm-switch input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer;z-index:1;}
+        #adminPanel .adm-slider{position:absolute;inset:0;background:#cbd5e1;border-radius:999px;transition:background .2s;}
+        #adminPanel .adm-slider::before{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.3);transition:transform .2s;}
+        #adminPanel .adm-switch input:checked + .adm-slider{background:#16a34a;}
+        #adminPanel .adm-switch input:checked + .adm-slider::before{transform:translateX(22px);}
+        #adminPanel .adm-switch input:focus-visible + .adm-slider{outline:3px solid rgba(43,131,207,.4);outline-offset:2px;}
+        #adminPanel .adm-switch input:disabled{cursor:not-allowed;}
+        #adminPanel .adm-switch input:disabled + .adm-slider{opacity:.55;}
+
+        #recAddBtn{display:none;}
+        td.rec-has-del{position:relative;padding-right:40px !important;}
+        .rec-del{position:absolute;right:6px;top:6px;width:28px;height:28px;border-radius:8px;border:1px solid #fecaca;background:#fff;color:#dc2626;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;opacity:.55;transition:opacity .15s,background .15s,transform .12s;}
+        tr:hover .rec-del,.rec-del:focus-visible{opacity:1;}
+        .rec-del:hover{background:#fee2e2;transform:scale(1.06);}
+        .rec-del svg{width:15px;height:15px;pointer-events:none;}
+
+        .rec-overlay{position:fixed;inset:0;background:rgba(11,31,58,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:300100;padding:16px;box-sizing:border-box;}
+        .rec-box{background:#fff;border-radius:18px;width:100%;max-width:640px;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(15,23,42,.35);font-family:Inter,'Segoe UI',Arial,sans-serif;color:#0f172a;overflow:hidden;animation:recPop .24s cubic-bezier(.16,1,.3,1);}
+        .rec-box.sm{max-width:440px;}
+        @keyframes recPop{from{opacity:0;transform:translateY(12px) scale(.98);}to{opacity:1;transform:none;}}
+        .rec-head{display:flex;align-items:flex-start;gap:12px;padding:20px 24px 16px;background:linear-gradient(135deg,#0b1f3a,#1b3a63);color:#fff;}
+        .rec-head.danger{background:linear-gradient(135deg,#7f1d1d,#b91c1c);}
+        .rec-eyebrow{font-size:11px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:#9fc3ea;}
+        .rec-head.danger .rec-eyebrow{color:#fecaca;}
+        .rec-head h3{margin:2px 0 0;font-size:19px;font-weight:800;letter-spacing:-.01em;}
+        .rec-x{margin-left:auto;background:rgba(255,255,255,.14);border:none;color:#fff;width:34px;height:34px;border-radius:10px;font-size:20px;cursor:pointer;line-height:1;}
+        .rec-x:hover{background:rgba(255,255,255,.26);}
+        .rec-body{padding:20px 24px;overflow:auto;}
+        .rec-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 16px;}
+        .rec-f{display:flex;flex-direction:column;gap:6px;}
+        .rec-f.full{grid-column:1/-1;}
+        .rec-f label{font-size:12px;font-weight:700;color:#475569;letter-spacing:.2px;}
+        .rec-f label i{color:#dc2626;font-style:normal;}
+        .rec-f input,.rec-f textarea{font:14px Inter,sans-serif;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;color:#0f172a;background:#fff;box-sizing:border-box;width:100%;transition:border-color .15s,box-shadow .15s;}
+        .rec-f textarea{resize:vertical;min-height:84px;}
+        .rec-f input:focus,.rec-f textarea:focus{outline:none;border-color:#2b83cf;box-shadow:0 0 0 3px rgba(43,131,207,.18);}
+        .rec-f input.bad{border-color:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.12);}
+        .rec-hint{font-size:12.5px;color:#64748b;margin:0 0 14px;line-height:1.5;}
+        .rec-err{display:none;margin-top:14px;padding:10px 12px;border-radius:10px;background:#fee2e2;color:#991b1b;font-size:13px;font-weight:600;}
+        .rec-err.on{display:block;}
+        .rec-foot{display:flex;justify-content:flex-end;gap:10px;padding:14px 24px;border-top:1px solid #eef2f7;background:#f8fafc;}
+        .rec-btn{border:1px solid transparent;height:40px;padding:0 20px;border-radius:10px;font:600 14px Inter,sans-serif;cursor:pointer;transition:transform .12s,box-shadow .12s,filter .12s;}
+        .rec-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 10px rgba(15,23,42,.18);}
+        .rec-btn:disabled{opacity:.5;cursor:not-allowed;}
+        .rec-btn.ghost{background:#fff;color:#475569;border-color:#cbd5e1;}
+        .rec-btn.primary{background:linear-gradient(180deg,#2b83cf,#1d6fb8);color:#fff;}
+        .rec-btn.danger{background:linear-gradient(180deg,#ef4444,#dc2626);color:#fff;}
+        .rec-cf-item{margin:14px 0;padding:12px 14px;border-radius:12px;background:#f1f5f9;border:1px solid #e2e8f0;}
+        .rec-cf-item b{display:block;font-size:14px;color:#0b1f3a;word-break:break-word;}
+        .rec-cf-item span{display:block;margin-top:3px;font-size:12.5px;color:#64748b;word-break:break-word;}
+        .rec-ack{display:flex;align-items:flex-start;gap:10px;font-size:13px;color:#334155;line-height:1.45;cursor:pointer;}
+        .rec-ack input{margin-top:2px;width:16px;height:16px;flex:none;}
+        @media (max-width:560px){.rec-grid{grid-template-columns:1fr;}}
+        @media (prefers-reduced-motion:reduce){.rec-box{animation:none;}}
+        `;
+        document.head.appendChild(css);
+    }
+
+    function recEnsureDom() {
+        if (recDomReady) return;
+        recDomReady = true;
+        recCss();
+
+        const add = document.createElement('div');
+        add.id = 'recOverlay';
+        add.className = 'rec-overlay';
+        add.innerHTML = `
+        <div class="rec-box" role="dialog" aria-modal="true" aria-labelledby="recTitle">
+            <div class="rec-head">
+                <div><div class="rec-eyebrow">Inventory</div><h3 id="recTitle">Add New Record</h3></div>
+                <button type="button" class="rec-x" id="recX" aria-label="Close">&times;</button>
+            </div>
+            <div class="rec-body">
+                <p class="rec-hint">Fill in the property details. Photos and documents can be attached afterwards from the record's <b>Upload Photos</b> window.</p>
+                <div class="rec-grid">
+                    <div class="rec-f full"><label for="recF_article">Article no. / TCT no. <i>*</i></label><input id="recF_article" type="text" maxlength="200" autocomplete="off"></div>
+                    <div class="rec-f full"><label for="recF_description">Description</label><textarea id="recF_description" maxlength="2000"></textarea></div>
+                    <div class="rec-f full"><label for="recF_notes">Notes</label><textarea id="recF_notes" maxlength="2000"></textarea></div>
+                    <div class="rec-f"><label for="recF_unitvalue">Unit Value</label><input id="recF_unitvalue" type="text" inputmode="decimal" maxlength="60" autocomplete="off"></div>
+                    <div class="rec-f"><label for="recF_type">Type</label><input id="recF_type" type="text" list="recTypeList" maxlength="100" autocomplete="off"></div>
+                    <div class="rec-f full"><label for="recF_remarks">Remarks</label><input id="recF_remarks" type="text" list="recRemarksList" maxlength="200" autocomplete="off"></div>
+                </div>
+                <datalist id="recTypeList"></datalist>
+                <datalist id="recRemarksList"></datalist>
+                <div class="rec-err" id="recErr" role="alert"></div>
+            </div>
+            <div class="rec-foot">
+                <button type="button" class="rec-btn ghost" id="recCancel">Cancel</button>
+                <button type="button" class="rec-btn primary" id="recSave">Add Record</button>
+            </div>
+        </div>`;
+        document.body.appendChild(add);
+
+        const cf = document.createElement('div');
+        cf.id = 'recCf';
+        cf.className = 'rec-overlay';
+        cf.innerHTML = `
+        <div class="rec-box sm" role="alertdialog" aria-modal="true" aria-labelledby="recCfTitle">
+            <div class="rec-head danger">
+                <div><div class="rec-eyebrow">Confirm deletion</div><h3 id="recCfTitle">Delete this record?</h3></div>
+                <button type="button" class="rec-x" id="recCfX" aria-label="Close">&times;</button>
+            </div>
+            <div class="rec-body">
+                <div class="rec-cf-item"><b id="recCfCode"></b><span id="recCfDesc"></span></div>
+                <p class="rec-hint" style="margin-bottom:14px;">The row is removed from the inventory sheet. A full copy is first saved in the <b>Deleted Records</b> tab of the Google Sheet, and the photos in Google Drive are not touched.</p>
+                <label class="rec-ack"><input type="checkbox" id="recCfAck"><span>I understand this record will no longer appear in the web app.</span></label>
+                <div class="rec-err" id="recCfErr" role="alert"></div>
+            </div>
+            <div class="rec-foot">
+                <button type="button" class="rec-btn ghost" id="recCfCancel">Cancel</button>
+                <button type="button" class="rec-btn danger" id="recCfOk" disabled>Delete record</button>
+            </div>
+        </div>`;
+        document.body.appendChild(cf);
+
+        // add-record dialog
+        document.getElementById('recX').addEventListener('click', closeAddRecord);
+        document.getElementById('recCancel').addEventListener('click', closeAddRecord);
+        document.getElementById('recSave').addEventListener('click', submitAddRecord);
+        add.addEventListener('mousedown', e => { if (e.target === add && !recBusy()) closeAddRecord(); });
+        add.addEventListener('keydown', e => {
+            if (e.key === 'Escape' && !recBusy()) closeAddRecord();
+            else if (e.key === 'Enter' && e.target.tagName === 'INPUT') submitAddRecord();
+        });
+
+        // delete dialog
+        document.getElementById('recCfX').addEventListener('click', closeDeleteDialog);
+        document.getElementById('recCfCancel').addEventListener('click', closeDeleteDialog);
+        document.getElementById('recCfAck').addEventListener('change', e => { document.getElementById('recCfOk').disabled = !e.target.checked; });
+        document.getElementById('recCfOk').addEventListener('click', doDeleteRecord);
+        cf.addEventListener('mousedown', e => { if (e.target === cf && !recBusy()) closeDeleteDialog(); });
+        cf.addEventListener('keydown', e => { if (e.key === 'Escape' && !recBusy()) closeDeleteDialog(); });
+    }
+
+    function recBusy() {
+        const s = document.getElementById('recSave'), o = document.getElementById('recCfOk');
+        return !!((s && s.dataset.busy) || (o && o.dataset.busy));
+    }
+
+    function recShowErr(id, msg) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = msg || '';
+        el.classList.toggle('on', !!msg);
+    }
+
+    // ---- ADD
+    function openAddRecord() {
+        if (!isAdminSession()) return;
+        recEnsureDom();
+        ['article', 'description', 'notes', 'unitvalue', 'type', 'remarks'].forEach(k => {
+            const el = document.getElementById('recF_' + k);
+            el.value = '';
+            el.classList.remove('bad');
+        });
+        recShowErr('recErr', '');
+
+        const fill = (listId, values) => {
+            const dl = document.getElementById(listId);
+            dl.innerHTML = '';
+            values.forEach(v => { const o = document.createElement('option'); o.value = v; dl.appendChild(o); });
+        };
+        const typeKey = headerMapping['type'];
+        const types = new Set();
+        inventoryData.forEach(r => { const t = String(r[typeKey] || '').trim(); if (t) types.add(t); });
+        fill('recTypeList', Array.from(types).sort());
+        fill('recRemarksList', (parsedUniqueRemarks || []).filter(Boolean));
+
+        const btn = document.getElementById('recSave');
+        btn.disabled = false; btn.textContent = 'Add Record'; delete btn.dataset.busy;
+        document.getElementById('recOverlay').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        setTimeout(() => document.getElementById('recF_article').focus(), 30);
+    }
+
+    function closeAddRecord() {
+        const ov = document.getElementById('recOverlay');
+        if (ov) ov.style.display = 'none';
+        if (!document.querySelector('.rec-overlay[style*="flex"]') && (!els || els.overlay.style.display !== 'flex')) document.body.style.overflow = '';
+    }
+
+    async function submitAddRecord() {
+        const val = k => document.getElementById('recF_' + k).value.trim();
+        const artEl = document.getElementById('recF_article');
+        const article = val('article');
+        recShowErr('recErr', '');
+        artEl.classList.remove('bad');
+
+        if (!article) { artEl.classList.add('bad'); artEl.focus(); recShowErr('recErr', 'Article no. / TCT no. is required.'); return; }
+        const key = headerMapping['article/item'];
+        const dup = inventoryData.some(r => String(r[key] || '').trim().toLowerCase() === article.toLowerCase());
+        if (dup) { artEl.classList.add('bad'); artEl.focus(); recShowErr('recErr', '"' + article + '" already exists in the inventory.'); return; }
+
+        const btn = document.getElementById('recSave');
+        btn.disabled = true; btn.dataset.busy = '1'; btn.textContent = 'Saving…';
+        try {
+            const p = await adminCall('adminAddRecord', {
+                fields: JSON.stringify({
+                    article: article, description: val('description'), notes: val('notes'),
+                    unitvalue: val('unitvalue'), remarks: val('remarks'), type: val('type')
+                })
+            });
+            delete btn.dataset.busy;
+            closeAddRecord();
+            showToast(p.message || 'Record added.', 'success');
+            showLoading('Refreshing inventory…');
+            setTimeout(() => loadInventoryFromGoogleSheets(true), 1200);
+        } catch (err) {
+            delete btn.dataset.busy;
+            btn.disabled = false; btn.textContent = 'Add Record';
+            recShowErr('recErr', err.message);
+        }
+    }
+
+    // ---- DELETE
+    const TRASH_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2m-9 0l1 14h8l1-14M10 11v6M14 11v6"/></svg>';
+
+    // Called by renderTable for every row; only the admin ever gets the button.
+    function decorateRow(tr, row) {
+        if (!isAdminSession()) return;
+        const td = tr.lastElementChild;
+        if (!td) return;
+        td.classList.add('rec-has-del');
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'rec-del';
+        b.title = 'Delete this record';
+        b.setAttribute('aria-label', 'Delete this record');
+        b.innerHTML = TRASH_SVG;
+        b.addEventListener('click', ev => { ev.stopPropagation(); askDeleteRecord(row); });
+        td.appendChild(b);
+    }
+
+    function askDeleteRecord(row) {
+        if (!isAdminSession()) return;
+        recEnsureDom();
+        const code = String(row[headerMapping['article/item']] || '').trim();
+        if (!code) { showToast('This row has no item code, so it cannot be deleted from here.', 'error'); return; }
+        const desc = String(row[headerMapping['description']] || '').trim();
+        recDeleteCtx = { row: row, code: code };
+        document.getElementById('recCfCode').textContent = code;
+        document.getElementById('recCfDesc').textContent = desc ? (desc.length > 160 ? desc.slice(0, 160) + '…' : desc) : 'No description';
+        document.getElementById('recCfAck').checked = false;
+        const ok = document.getElementById('recCfOk');
+        ok.disabled = true; ok.textContent = 'Delete record'; delete ok.dataset.busy;
+        recShowErr('recCfErr', '');
+        document.getElementById('recCf').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        setTimeout(() => document.getElementById('recCfCancel').focus(), 30);
+    }
+
+    function closeDeleteDialog() {
+        const cf = document.getElementById('recCf');
+        if (cf) cf.style.display = 'none';
+        recDeleteCtx = null;
+        if (!document.querySelector('.rec-overlay[style*="flex"]') && (!els || els.overlay.style.display !== 'flex')) document.body.style.overflow = '';
+    }
+
+    async function doDeleteRecord() {
+        if (!recDeleteCtx) return;
+        const ctx = recDeleteCtx;
+        const ok = document.getElementById('recCfOk');
+        ok.disabled = true; ok.dataset.busy = '1'; ok.textContent = 'Deleting…';
+        recShowErr('recCfErr', '');
+        try {
+            const p = await adminCall('adminDeleteRecord', { itemCode: ctx.code });
+            delete ok.dataset.busy;
+            closeDeleteDialog();
+            // Show the change immediately, then re-sync everything from the sheet.
+            inventoryData = inventoryData.filter(r => r !== ctx.row);
+            currentFilteredData = currentFilteredData.filter(r => r !== ctx.row);
+            renderTable(currentFilteredData, currentPage);
+            showToast(p.message || 'Record deleted.', 'success');
+            setTimeout(() => loadInventoryFromGoogleSheets(true), 1800);
+        } catch (err) {
+            delete ok.dataset.busy;
+            ok.disabled = false; ok.textContent = 'Delete record';
+            recShowErr('recCfErr', err.message);
+        }
+    }
+
+    window.AdminRecords = { decorateRow: decorateRow };
+
+    // Toolbar "Add Record" button + re-draw the table when admin state changes
+    let recWasAdmin = false;
+    function recSync(show) {
+        let btn = document.getElementById('recAddBtn');
+        if (!btn) {
+            const ref = document.getElementById('bulkDownloadButton') || document.getElementById('exportFilteredButton');
+            if (ref) {
+                recEnsureDom();
+                btn = document.createElement('button');
+                btn.id = 'recAddBtn';
+                btn.type = 'button';
+                btn.className = ref.className;
+                btn.textContent = '＋ Add Record';
+                btn.title = 'Add a new property record to the inventory (admin only)';
+                btn.addEventListener('click', openAddRecord);
+                ref.insertAdjacentElement('afterend', btn);
+            }
+        }
+        if (btn) btn.style.display = show ? '' : 'none';
+        if (show !== recWasAdmin) {
+            recWasAdmin = show;
+            if (!show) { closeAddRecord(); closeDeleteDialog(); }
+            if (typeof inventoryData !== 'undefined' && inventoryData.length && typeof renderTable === 'function') {
+                renderTable(currentFilteredData, currentPage);
+            }
+        }
+    }
+
     window.addEventListener('DOMContentLoaded', () => {
         buildUI();
 
@@ -4103,6 +4519,7 @@ window.addEventListener('DOMContentLoaded', () => {
             const show = isAdminSession() && mainVisible;
             els.openBtn.style.display = show ? 'block' : 'none';
             if (!show && els.overlay.style.display === 'flex') closeAdmin();
+            recSync(show);
         }, 1000);
     });
 })();
