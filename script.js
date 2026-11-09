@@ -4204,7 +4204,6 @@ window.addEventListener('DOMContentLoaded', () => {
         #adminPanel .adm-switch input:disabled{cursor:not-allowed;}
         #adminPanel .adm-switch input:disabled + .adm-slider{opacity:.55;}
 
-        #recAddBtn{display:none;}
         td.rec-has-del{position:relative;padding-right:40px !important;}
         .rec-del{position:absolute;right:6px;top:6px;width:28px;height:28px;border-radius:8px;border:1px solid #fecaca;background:#fff;color:#dc2626;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;opacity:.55;transition:opacity .15s,background .15s,transform .12s;}
         tr:hover .rec-del,.rec-del:focus-visible{opacity:1;}
@@ -4496,7 +4495,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 ref.insertAdjacentElement('afterend', btn);
             }
         }
-        if (btn) btn.style.display = show ? '' : 'none';
+        if (btn) btn.style.display = show ? 'inline-block' : 'none';
         if (show !== recWasAdmin) {
             recWasAdmin = show;
             if (!show) { closeAddRecord(); closeDeleteDialog(); }
