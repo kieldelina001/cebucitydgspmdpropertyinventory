@@ -1819,8 +1819,8 @@ function renderTable(data, page = 1) {
             }
             tr.appendChild(td);
         });
-        if (window.AdminRecords) AdminRecords.decorateRow(tr, row); // 🗑️ admin-only delete button
         if (window.PrintQueue) PrintQueue.decorateRow(tr, row); // 🖨️ adds the "+ Queue" cell
+        if (window.AdminRecords) AdminRecords.decorateRow(tr, row); // 🗑️ admin-only delete button
         tr.addEventListener('click', () => openPopUp(row._rowId));
         tableBody.appendChild(tr);
     });
@@ -4204,11 +4204,10 @@ window.addEventListener('DOMContentLoaded', () => {
         #adminPanel .adm-switch input:disabled{cursor:not-allowed;}
         #adminPanel .adm-switch input:disabled + .adm-slider{opacity:.55;}
 
-        td.rec-has-del{position:relative;padding-right:40px !important;}
-        .rec-del{position:absolute;right:6px;top:6px;width:28px;height:28px;border-radius:8px;border:1px solid #fecaca;background:#fff;color:#dc2626;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;opacity:.55;transition:opacity .15s,background .15s,transform .12s;}
-        tr:hover .rec-del,.rec-del:focus-visible{opacity:1;}
-        .rec-del:hover{background:#fee2e2;transform:scale(1.06);}
-        .rec-del svg{width:15px;height:15px;pointer-events:none;}
+        .rec-del{display:flex;align-items:center;justify-content:center;gap:5px;width:100%;margin:6px 0 0;padding:5px 8px;border-radius:999px;border:1px solid #fca5a5;background:#fff;color:#dc2626;font:600 11.5px Inter,'Segoe UI',sans-serif;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s,transform .12s;}
+        .rec-del:hover{background:#dc2626;color:#fff;}
+        .rec-del:active{transform:scale(.96);}
+        .rec-del svg{width:13px;height:13px;pointer-events:none;flex:none;}
 
         .rec-overlay{position:fixed;inset:0;background:rgba(11,31,58,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:300100;padding:16px;box-sizing:border-box;}
         .rec-box{background:#fff;border-radius:18px;width:100%;max-width:640px;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(15,23,42,.35);font-family:Inter,'Segoe UI',Arial,sans-serif;color:#0f172a;overflow:hidden;animation:recPop .24s cubic-bezier(.16,1,.3,1);}
@@ -4414,16 +4413,16 @@ window.addEventListener('DOMContentLoaded', () => {
     // Called by renderTable for every row; only the admin ever gets the button.
     function decorateRow(tr, row) {
         if (!isAdminSession()) return;
-        const td = tr.lastElementChild;
+        const td = tr.firstElementChild; // left-most cell (the Queue cell)
         if (!td) return;
-        td.classList.add('rec-has-del');
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'rec-del';
         b.title = 'Delete this record';
         b.setAttribute('aria-label', 'Delete this record');
-        b.innerHTML = TRASH_SVG;
+        b.innerHTML = TRASH_SVG + '<span>Delete</span>';
         b.addEventListener('click', ev => { ev.stopPropagation(); askDeleteRecord(row); });
+        td.addEventListener('click', ev => ev.stopPropagation()); // clicking the cell must not open Property Details
         td.appendChild(b);
     }
 
