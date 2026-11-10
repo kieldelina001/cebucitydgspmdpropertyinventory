@@ -1963,7 +1963,16 @@ function hasOwnershipDocs(row) {
     });
 }
 
+// Has a Letter, JEV (Journal Entry Voucher) or COC (Certificate of Completion)?
+function hasBuildingSupportDocs(row) {
+    return ['letter', 'jev', 'certificate of completion'].some(k => {
+        const hk = headerMapping[k];
+        return hk && row[hk] && String(row[hk]).trim() !== '';
+    });
+}
+
 // Returns 'BUILDING' / 'LAND' when the row is a plain Building or Land type with NO Tax Declaration and NO TCT, else null.
+// Buildings are also excluded when they have a Letter, JEV or COC.
 // (Building Modifications, School, Hospital, Other Land, etc. are not affected.)
 function getUnidKind(row) {
     const t = String(row[headerMapping['type']] || '').toUpperCase().trim();
@@ -1972,7 +1981,7 @@ function getUnidKind(row) {
         t.includes('MARKET') || t.includes('OTHER') || t.includes('PARK') || t.includes('PLAZA') || t.includes('MONUMENT')) return null;
     if (t.includes('LAND') || t === 'LOT') return 'LAND';
     if (t.includes('FLOOD') || t.includes('WATER') || t.includes('ROAD') || t.includes('SLAUGHTERHOUSE')) return null;
-    if (t.includes('BUILDING')) return 'BUILDING';
+    if (t.includes('BUILDING')) return hasBuildingSupportDocs(row) ? null : 'BUILDING';
     return null;
 }
 
