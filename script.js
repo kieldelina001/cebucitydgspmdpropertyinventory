@@ -2342,6 +2342,12 @@ function openPopUp(rowId, clickedPhotoKey = null) {
         { key: 'certificate of completion', label: 'Certificate of Completion' }
     ];
 
+    const extraTctDefs = getExtraTctDefs();
+    if (extraTctDefs.length) {
+        const tctAt = photoKeysDef.findIndex(p => p.key === 'transfer_cert2');
+        photoKeysDef.splice(tctAt + 1, 0, ...extraTctDefs);
+    }
+
     photoKeysDef.forEach(p => {
         const mappedKey = headerMapping[p.key];
         if (mappedKey && itemData[mappedKey] && itemData[mappedKey].trim() !== '') {
@@ -2375,6 +2381,29 @@ function openPopUp(rowId, clickedPhotoKey = null) {
     modalCloseX.disabled = false;
     editModal.style.display = 'flex';
 	document.body.style.overflow = 'hidden'; // Locks the background scroll
+}
+
+// 📄 Extra TCT pages (P3, P4 ...) added by the admin. They live in their own sheet columns
+// ("Transfer Certificate (TCT) P3" ...), are NOT drawn in the main table and only show in Property Details.
+function tctExtraPageNumber(header) {
+    const h = String(header || '').toLowerCase().trim();
+    if (!h || (h.indexOf('transfer') === -1 && h.indexOf('tct') === -1)) return 0;
+    const m = h.match(/(?:\bp|page)\s*\.?\s*(\d+)\s*\)?\s*$/);
+    const n = m ? parseInt(m[1], 10) : 0;
+    return n >= 3 ? n : 0;
+}
+function getExtraTctDefs() {
+    const defs = [];
+    (rawHeaders || []).forEach(h => {
+        const n = tctExtraPageNumber(h);
+        if (n) {
+            const key = 'transfer_cert' + n;
+            headerMapping[key] = h; // lets the photo viewer / admin delete find the column
+            defs.push({ key: key, label: 'Transfer Certificate (TCT) P' + n, n: n });
+        }
+    });
+    defs.sort((a, b) => a.n - b.n);
+    return defs;
 }
 
 function renderModalPhotoViewer() {
@@ -4163,6 +4192,96 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ---------------------------------------------------------------- ADD EXTRA TCT PAGE
+    // Admin only. A button under the photo viewer in Property Details lets the admin add
+    // another TCT page (P3, P4 ...). The page is NOT a table column; it shows in Property Details only.
+    let tctAddBusy = false;
+
+    async function addTctPageFromFile(file, btn) {
+        if (tctAddBusy || !file || activeEditIndex === null) return;
+        const item = inventoryData.find(r => r._rowId === activeEditIndex);
+        if (!item) return;
+        const itemCode = String(item[headerMapping['article/item']] || '').trim();
+        if (!itemCode) return;
+        if (!/^image\//.test(file.type || '')) { toastAlert('Please choose an image file (JPG or PNG) for the TCT page.'); return; }
+
+        tctAddBusy = true;
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Uploading TCT page…';
+        try {
+            const p = await upPrepareImage(file);
+            if (!p) throw new Error('Could not read "' + file.name + '".');
+            const res = await adminCall('adminAddTctPage', {
+                itemCode: itemCode,
+                photoData: p.base64,
+                photoType: p.type,
+                photoName: p.name
+            });
+
+            // Keep the open window and local data in step with the sheet
+            const header = res.header || ('Transfer Certificate (TCT) P' + res.page);
+            if (!rawHeaders.includes(header)) rawHeaders.push(header);
+            const key = 'transfer_cert' + res.page;
+            headerMapping[key] = header;
+            item[header] = res.url;
+
+            const newEntry = { label: 'Transfer Certificate (TCT) P' + res.page, url: res.url, key: key };
+            let at = modalPhotos.length;                       // default: end of the list
+            for (let i = modalPhotos.length - 1; i >= 0; i--) {  // else right after the last lower-numbered TCT page
+                const mk = /^transfer_cert(\d+)$/.exec(modalPhotos[i].key);
+                if (mk && parseInt(mk[1], 10) < res.page) { at = i + 1; break; }
+            }
+            modalPhotos.splice(at, 0, newEntry);
+            currentPhotoIndex = at;
+            modalModified = true; // closing the window refreshes the table from the sheet
+            renderModalPhotoViewer();
+            if (typeof showToast === 'function') showToast(res.message || 'TCT page added.', 'success');
+        } catch (err) {
+            toastAlert('Could not add TCT page: ' + err.message);
+            btn.disabled = false;
+            btn.textContent = originalText;
+        } finally {
+            tctAddBusy = false;
+        }
+    }
+
+    function injectAddTctButton() {
+        const side = document.getElementById('modalPhotoSide');
+        if (!side) return;
+        const existing = side.querySelector('.adm-tct-add-wrap');
+        if (!isAdminSession()) { if (existing) existing.remove(); return; }
+        if (existing) return;
+
+        const wrap = document.createElement('div');
+        wrap.className = 'adm-tct-add-wrap';
+        wrap.style.cssText = 'text-align:center; margin-top:10px;';
+
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.style.display = 'none';
+
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'photo-action-btn adm-tct-add';
+        b.textContent = '➕ Add TCT Page';
+        b.title = 'Add another page to this title (TCT). Admin only.';
+        b.style.background = '#1d6fb8';
+        b.style.color = '#ffffff';
+        b.style.borderColor = '#1d6fb8';
+        b.addEventListener('click', (e) => { e.stopPropagation(); if (!tctAddBusy) input.click(); });
+        input.addEventListener('change', () => {
+            const f = input.files && input.files[0];
+            input.value = '';
+            if (f) addTctPageFromFile(f, b);
+        });
+
+        wrap.appendChild(b);
+        wrap.appendChild(input);
+        side.appendChild(wrap);
+    }
+
     // ---------------------------------------------------------------- DOWNLOAD SETTINGS (DGS logo)
     function renderLogoSetting() {
         const t = document.getElementById('admLogoToggle');
@@ -4518,6 +4637,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
         const watchTarget = document.getElementById('editModal') || document.body;
         new MutationObserver(injectPhotoDeleteButtons).observe(watchTarget, { childList: true, subtree: true });
+        new MutationObserver(injectAddTctButton).observe(watchTarget, { childList: true, subtree: true });
 
         // Show the Admin button only while the admin is logged in and the main app is visible
         setInterval(() => {
