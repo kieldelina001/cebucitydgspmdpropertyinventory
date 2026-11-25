@@ -1642,7 +1642,9 @@
         #uxSyncPill { position: fixed; top: 14px; left: 50%; z-index: 200000; display: flex; align-items: center; gap: 10px; padding: 8px 16px 8px 12px; border-radius: 999px; background: #fff; color: var(--navy-900); border: 1px solid var(--line); box-shadow: var(--shadow-md); font-size: 13px; font-weight: 600; opacity: 0; transform: translate(-50%, -14px); pointer-events: none; transition: opacity .25s ease, transform .3s var(--ease-out); }
         #uxSyncPill.on { opacity: 1; transform: translate(-50%, 0); }
         .ux-spinner { width: 18px; height: 18px; flex: none; border: 3px solid var(--blue-100); border-top-color: var(--blue-500); border-radius: 50%; animation: ux-spin .7s linear infinite; }
-        #dynamicLoadingOverlay { animation: ux-fade .18s ease; }
+        #dynamicLoadingOverlay { animation: ux-fade .18s ease; z-index: 2147483000 !important; inset: 0 !important; width: 100vw !important; height: 100vh !important; height: 100dvh !important; pointer-events: auto !important; touch-action: none; cursor: wait; user-select: none; -webkit-user-select: none; outline: none; }
+        body.is-loading-lock { overflow: hidden !important; }
+        body.is-loading-lock #uxSyncPill, body.is-loading-lock #uxProgress { display: none !important; }
         .ux-loader-card { display: flex; align-items: center; gap: 16px; background: #fff; padding: 22px 30px; border-radius: 16px; box-shadow: var(--shadow-lg); border: 1px solid var(--line); font-size: 15px; font-weight: 600; color: var(--navy-900); max-width: 90vw; animation: ux-rise .28s var(--ease-out); }
         .ux-loader-card .ux-spinner { width: 26px; height: 26px; }
 

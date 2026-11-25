@@ -175,10 +175,13 @@ countInsured = document.getElementById('countInsured');
         </div>
     `;
         Object.assign(loadingOverlay.style, {
-            position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
+            position: 'fixed', top: '0', left: '0', right: '0', bottom: '0', width: '100vw', height: '100vh',
             backgroundColor: 'rgba(11, 31, 58, 0.45)', backdropFilter: 'blur(4px)', webkitBackdropFilter: 'blur(4px)', display: 'none', justifyContent: 'center',
-            alignItems: 'center', zIndex: '150000', transition: 'opacity 0.2s ease'
+            alignItems: 'center', zIndex: '2147483000', transition: 'opacity 0.2s ease',
+            pointerEvents: 'auto', touchAction: 'none', cursor: 'wait', overscrollBehavior: 'contain'
         });
+        loadingOverlay.setAttribute('tabindex', '-1');
+        loadingOverlay.setAttribute('aria-busy', 'true');
         const styleSheet = document.createElement("style");
         styleSheet.innerText = "@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }";
         document.head.appendChild(styleSheet);
@@ -208,14 +211,57 @@ countInsured = document.getElementById('countInsured');
     }
 }
 
+// 🔒 FULL-SCREEN INTERACTION LOCK (active while the loading overlay is visible)
+let _loadingLocked = false;
+let _loadingPrevFocus = null;
+function _loadingBlocker(e) {
+    if (!_loadingLocked) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+}
+function _loadingFocusGuard(e) {
+    if (!_loadingLocked || !loadingOverlay) return;
+    if (!loadingOverlay.contains(e.target)) loadingOverlay.focus({ preventScroll: true });
+}
+['keydown', 'keyup', 'keypress', 'wheel', 'touchmove', 'contextmenu', 'dblclick',
+ 'mousedown', 'mouseup', 'click', 'pointerdown', 'touchstart', 'dragstart', 'drop'
+].forEach(evt => document.addEventListener(evt, _loadingBlocker, { capture: true, passive: false }));
+document.addEventListener('focusin', _loadingFocusGuard, true);
+
+function _lockInteraction() {
+    if (_loadingLocked) return;
+    _loadingLocked = true;
+    _loadingPrevFocus = document.activeElement;
+    document.documentElement.style.setProperty('overflow', 'hidden', 'important');
+    document.body.style.setProperty('overflow', 'hidden', 'important');
+    document.body.classList.add('is-loading-lock');
+    if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+    if (loadingOverlay) loadingOverlay.focus({ preventScroll: true });
+}
+function _unlockInteraction() {
+    if (!_loadingLocked) return;
+    _loadingLocked = false;
+    document.body.classList.remove('is-loading-lock');
+    document.documentElement.style.removeProperty('overflow');
+    // restore scroll only if no modal currently needs it locked
+    const modalOpen = document.querySelector('.rec-overlay[style*="flex"], #adminOverlay[style*="flex"], #editModal[style*="flex"], #insDetailOverlay[style*="flex"], #uploadPhotosOverlay[style*="flex"], #bulkDlOverlay.open');
+    if (!modalOpen) document.body.style.removeProperty('overflow');
+    try { if (_loadingPrevFocus && document.contains(_loadingPrevFocus)) _loadingPrevFocus.focus({ preventScroll: true }); } catch (e) {}
+    _loadingPrevFocus = null;
+}
+
 function showLoading(msg) {
     const textEl = document.getElementById('loadingOverlayText');
     if (textEl) textEl.textContent = msg;
-    if (loadingOverlay) loadingOverlay.style.setProperty('display', 'flex', 'important');
+    if (loadingOverlay) {
+        loadingOverlay.style.setProperty('display', 'flex', 'important');
+        _lockInteraction();
+    }
 }
 
 function hideLoading() {
     if (loadingOverlay) loadingOverlay.style.setProperty('display', 'none', 'important');
+    _unlockInteraction();
 }
 
 // --- BACK TO TOP SCROLL LISTENER ---
@@ -5455,8 +5501,8 @@ function animateOut(el, done, ms) {
         });
     }
     showLoading = function (msg) {
-        if (/^\s*(syncing|connecting)/i.test(msg || '')) { startSoftSync(msg); return; }
-        baseShowLoading(msg);
+        if (/^\s*(syncing|connecting)/i.test(msg || '')) startSoftSync(msg); // skeleton rows behind the overlay
+        baseShowLoading(msg); // always full-screen + locked
     };
     hideLoading = function () { endSoftSync(); baseHideLoading(); };
 
