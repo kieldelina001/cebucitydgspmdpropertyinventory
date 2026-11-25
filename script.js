@@ -2695,6 +2695,25 @@ function upRefreshSlotUI(i) {
     else { state.className = 'up-state none'; state.textContent = 'Empty'; }
     const link = upEl('upExisting' + i);
     link.hidden = !has;
+
+    // ✔ Swap the slot icon for a check mark when a photo is already uploaded
+    const pick = upEl('upPick' + i);
+    const ico = pick && pick.querySelector('.up-ico');
+    if (ico) {
+        if (ico.dataset.origIco === undefined) ico.dataset.origIco = ico.innerHTML;
+        const showCheck = !!has && !hasNew;
+        ico.classList.toggle('up-ico-done', showCheck);
+        ico.innerHTML = showCheck
+            ? '<svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#16a34a"/><path d="M6.8 12.6l3.4 3.4 7-7.2" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+            : ico.dataset.origIco;
+        if (showCheck && pick) {
+            const t = pick.querySelector('.up-ptext');
+            if (t) { if (t.dataset.origTxt === undefined) t.dataset.origTxt = t.textContent; t.textContent = 'Photo uploaded · click to replace'; }
+        } else if (pick) {
+            const t = pick.querySelector('.up-ptext');
+            if (t && t.dataset.origTxt !== undefined) t.textContent = t.dataset.origTxt;
+        }
+    }
 }
 
 function upResetSlot(i) {
